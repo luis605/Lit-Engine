@@ -38,7 +38,6 @@ Value math1(const Args& args, const NamedArgs& named, const SrcLoc& loc, const c
     return Value::number(fn(argNumber(args[0], loc, name)));
 }
 
-// A list literal containing generators evaluates to a generator of lists; combinators that take a list of alternatives accept it as is.
 const ValueList& listLike(const Value& value, const SrcLoc& loc, const char* what) {
     if (value.kind == Kind::Gen && value.gen && value.gen->kind == GenKind::ListLit) return value.gen->values;
     return argList(value, loc, what);
@@ -52,7 +51,6 @@ const Value& requireFn(const Value& value, const SrcLoc& loc, const char* what) 
 }
 
 void installBuiltins(Program& p) {
-    // ------------------------------------------------------------ generators
     p.native("int", [](Interp&, const Args& a, const NamedArgs& n, const SrcLoc& loc) {
         arity(a, n, 2, 2, loc, "int");
         auto g = newGen(GenKind::Int, loc);
@@ -170,7 +168,6 @@ void installBuiltins(Program& p) {
         return in.realize(a[0], loc);
     });
 
-    // map / filter work on generators and on lists.
     p.native("map", [](Interp& in, const Args& a, const NamedArgs& n, const SrcLoc& loc) {
         arity(a, n, 2, 2, loc, "map");
         requireFn(a[1], loc, "map");
@@ -200,7 +197,6 @@ void installBuiltins(Program& p) {
         return Value::makeList(std::move(out));
     });
 
-    // ------------------------------------------------------------ lists
     p.native("len", [](Interp&, const Args& a, const NamedArgs& n, const SrcLoc& loc) {
         arity(a, n, 1, 1, loc, "len");
         if (a[0].kind == Kind::Str) return Value::integer(static_cast<int64_t>(a[0].text().size()));
@@ -404,7 +400,6 @@ void installBuiltins(Program& p) {
         return allInt ? Value::integer(isum) : Value::number(fsum);
     });
 
-    // ------------------------------------------------------------ records
     p.native("keys", [](Interp&, const Args& a, const NamedArgs& n, const SrcLoc& loc) {
         arity(a, n, 1, 1, loc, "keys");
         if (a[0].kind != Kind::Record) throw BentError(loc, "keys() needs a record");
@@ -480,7 +475,6 @@ void installBuiltins(Program& p) {
         return Value::record(std::move(fields));
     });
 
-    // ------------------------------------------------------------ numbers and vectors
     p.native("abs", [](Interp&, const Args& a, const NamedArgs& n, const SrcLoc& loc) {
         arity(a, n, 1, 1, loc, "abs");
         if (a[0].kind == Kind::Int) return Value::integer(a[0].i < 0 ? -a[0].i : a[0].i);
@@ -607,7 +601,6 @@ void installBuiltins(Program& p) {
         return Value::vec3(v.v[0] + w * tx + (qy * tz - qz * ty), v.v[1] + w * ty + (qz * tx - qx * tz), v.v[2] + w * tz + (qx * ty - qy * tx));
     });
 
-    // ------------------------------------------------------------ strings and misc
     p.native("str", [](Interp&, const Args& a, const NamedArgs& n, const SrcLoc& loc) {
         arity(a, n, 1, 1, loc, "str");
         return a[0].kind == Kind::Str ? a[0] : Value::string(print(a[0]));
@@ -641,8 +634,6 @@ void installBuiltins(Program& p) {
         in.note(loc.str() + ": trace " + (a[0].kind == Kind::Str ? a[0].text() : print(a[0])) + " = " + truncate(print(a[1]), 400));
         return a[1];
     });
-    // cover(label, condition): records whether the condition held in this case and returns true. `bent check` counts the cases that
-    // hit each label (--coverage prints them); a law whose label is never hit over 20 or more cases is reported VACUOUS (a failure).
     p.native("cover", [](Interp& in, const Args& a, const NamedArgs& n, const SrcLoc& loc) {
         arity(a, n, 2, 2, loc, "cover");
         in.covers.emplace_back(argString(a[0], loc, "cover label"), truthy(a[1], loc));

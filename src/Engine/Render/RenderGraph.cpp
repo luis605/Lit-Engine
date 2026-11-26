@@ -37,8 +37,6 @@ bool usageWrites(Usage usage) { return usage == Usage::UnorderedAccess || usage 
 std::string viewResourceName(uint64_t viewKey, std::string_view resource) { return std::format("view{:x}/{}", viewKey, resource); }
 
 uint32_t TransientPool::acquire(Backend& backend, ResourceType type, const TextureDesc& texture, const BufferDesc& buffer, std::string_view name) {
-    // Lowest free index with an identical description: the same frame structure maps every virtual resource to the same
-    // physical one each frame, so bindings cached by the passes stay valid.
     for (uint32_t index = 0; index < m_entries.size(); ++index) {
         Entry& entry = m_entries[index];
         if (entry.inUse || entry.type != type || !entry.native) continue;
@@ -201,9 +199,9 @@ void RenderGraph::declare(uint32_t passIndex, Handle handle, Usage usage, bool w
         if (other == Handle::kInvalid || other == passIndex) return;
         if (std::ranges::find(pass.dependencies, other) == pass.dependencies.end()) pass.dependencies.push_back(other);
     };
-    depend(resource.lastWriter);  // read after write, write after write
+    depend(resource.lastWriter);
     if (write) {
-        for (const uint32_t reader : resource.readersSinceWrite) depend(reader);  // write after read
+        for (const uint32_t reader : resource.readersSinceWrite) depend(reader);
         resource.readersSinceWrite.clear();
         resource.lastWriter = passIndex;
     } else if (std::ranges::find(resource.readersSinceWrite, passIndex) == resource.readersSinceWrite.end()) {
@@ -216,8 +214,6 @@ bool RenderGraph::culled(uint32_t pass) const { return pass < m_passes.size() &&
 
 void RenderGraph::compile() {
     const auto passCount = static_cast<uint32_t>(m_passes.size());
-    // Liveness: passes with side effects or writes to imported resources are roots; every pass that produced a version a
-    // live pass reads (or partially overwrites) is live. Everything else only feeds unread transients and is culled.
     std::vector<uint8_t> live(passCount, 0);
     std::vector<uint32_t> work;
     for (uint32_t index = 0; index < passCount; ++index) {
@@ -240,7 +236,6 @@ void RenderGraph::compile() {
     }
     for (uint32_t index = 0; index < passCount; ++index) m_passes[index].culled = live[index] == 0;
 
-    // Topological order of the live passes (Kahn); ties go to the earlier declaration, so a valid declaration order is kept.
     std::vector<uint32_t> pending(passCount, 0);
     std::vector<std::vector<uint32_t>> dependents(passCount);
     for (uint32_t index = 0; index < passCount; ++index) {
@@ -327,7 +322,6 @@ void RenderGraph::execute(Backend& backend, TransientPool& pool) {
             Resource& resource = m_resources[access.resource];
             if (resource.resolve) resource.native = resource.resolve();
         }
-        // One state per resource and pass: a write usage wins over a read usage of the same resource.
         barriers.clear();
         barrierResources.clear();
         for (const Access& access : pass.accesses) {

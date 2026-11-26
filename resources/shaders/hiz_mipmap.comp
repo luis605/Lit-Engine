@@ -5,7 +5,6 @@ layout (binding = 1, r32f) writeonly uniform image2D u_destMip;
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-// Shadow Hi-Z keeps the farthest depth with standard Z (max). The camera Hi-Z uses reversed Z, where the farthest is the minimum.
 #ifdef HIZ_KEEP_MIN
 #define HIZ_COMBINE(a, b) min(a, b)
 #else
@@ -29,11 +28,6 @@ void main() {
 
     float maxDepth = HIZ_COMBINE(HIZ_COMBINE(d0, d1), HIZ_COMBINE(d2, d3));
 
-    // Floor-sized mips drop the last row/column when srcSize is odd; fold it back in at the
-    // boundary tile so the Hi-Z max doesn't under-estimate depth there (which would falsely
-    // occlude visible objects near the screen edge).
-    // Only the last row/column of the destination can ever need this, so the source's dimensions
-    // are queried inside that branch instead of for every texel of every mip.
     bool lastCol = destCoord.x == destSize.x - 1;
     bool lastRow = destCoord.y == destSize.y - 1;
 

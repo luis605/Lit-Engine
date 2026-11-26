@@ -1,5 +1,3 @@
-# Navigation: path validity, optimality bookkeeping, symmetry, incremental rebuild consistency, off-mesh links, agents and crowds.
-# navEval(spec, ops) builds one nav mesh (floor of +-half metres, box obstacles, links) and answers a list of operations.
 include "../lib/ext_phys.bent"
 
 gen obstacle = {center: vec3(float(-9, 9), 1, float(-9, 9)), half: vec3(float(0.3, 3), 1, float(0.3, 3))}
@@ -8,13 +6,11 @@ gen navSpec = {half: 12.0, cell: elements([0.5, 1.0]), radius: float(0, 0.6), ob
 fn pathOp(a, b) = {op: "path", from: a, to: b}
 fn nav1(spec, op) = head(navEval(spec, [op]))
 fn pathPairs(points) = zip(points, drop(points, 1))
-# Points at cell centres: avoids ties when a point sits on a corner shared by four cells (snapping then depends on rounding).
 fn cellCentre(p, cell) = vec3(toFloat(floor((p.x + 12.0) / cell)) * cell - 12.0 + cell * 0.5, 0, toFloat(floor((p.z + 12.0) / cell)) * cell - 12.0 + cell * 0.5)
 fn clearOfObstacles(spec, p) = all(spec.obstacles, fn(o) => abs(p.x - o.center.x) > o.half.x + 1.5 * spec.cell or abs(p.z - o.center.z) > o.half.z + 1.5 * spec.cell)
 fn walkable(spec, p) = head(navEval(spec, [{op: "walkable", p: p}]))
 fn gridDist(a, b) = distance(flat3(a), flat3(b))
 
-# Every path is made of walkable points joined by walkable segments, and its reported length is the sum of the segments.
 law nav_path_is_walkable_and_consistent {
     forall (spec: navSpec, a0: floorPt, b0: floorPt)
     where walkable(spec, cellCentre(a0, spec.cell)) and walkable(spec, cellCentre(b0, spec.cell))
@@ -28,7 +24,6 @@ law nav_path_is_walkable_and_consistent {
            and abs(p.length - sumBy(pathPairs(p.points), fn(s) => gridDist(s[0], s[1]))) < 1e-2)
 }
 
-# A complete (non partial) path starts and ends within one and a half cells of the requested points and is never shorter than the straight line.
 law nav_complete_path_endpoints_and_length {
     forall (spec: navSpec, a: floorPt, b: floorPt)
     => let r = navEval(spec, [pathOp(a, b), {op: "walkable", p: a}, {op: "walkable", p: b}]) in
@@ -39,7 +34,6 @@ law nav_complete_path_endpoints_and_length {
            and p.length >= gridDist(a, b) - 3.0 * spec.cell)
 }
 
-# Adding obstacles can only make the cheapest grid path more expensive (A* optimality): grid cost never decreases when it stays found.
 law nav_grid_cost_monotone_in_obstacles {
     forall (spec: navSpec, extra: obstacle, a0: floorPt, b0: floorPt)
     where walkable(spec, cellCentre(a0, spec.cell)) and walkable(with(spec, obstacles: spec.obstacles ++ [extra]), cellCentre(a0, spec.cell)) and walkable(spec, cellCentre(b0, spec.cell)) and walkable(with(spec, obstacles: spec.obstacles ++ [extra]), cellCentre(b0, spec.cell))
@@ -50,8 +44,6 @@ law nav_grid_cost_monotone_in_obstacles {
        not (before.found and more.found and not before.partial and not more.partial) or more.gridCost >= before.gridCost - 1e-3
 }
 
-# Complete reachability and optimal cost are symmetric on a grid with bidirectional moves. (Unreachable goals may or may not yield a partial
-# path to the closest point depending on the direction: the search keeps the best node it saw, which can be the start itself.)
 law nav_reachability_symmetric {
     forall (spec: navSpec, a0: floorPt, b0: floorPt)
     => let a = cellCentre(a0, spec.cell) in
@@ -62,7 +54,6 @@ law nav_reachability_symmetric {
        not (r[2] and r[3]) or (ab == ba and (not ab or abs(r[0].gridCost - r[1].gridCost) < 1e-2 * (1.0 + r[0].gridCost)))
 }
 
-# Building incrementally (addObs + rebuild) gives the same mesh as building with all the obstacles at once, and paths agree.
 law nav_incremental_rebuild_equals_fresh {
     forall (spec: navSpec, extras: listOf(obstacle, 1, 4), a: floorPt, b: floorPt)
     => let empty = with(spec, obstacles: []) in
@@ -71,7 +62,6 @@ law nav_incremental_rebuild_equals_fresh {
        inc[len(inc) - 2] == fresh[0] and inc[len(inc) - 1].found == fresh[1].found and inc[len(inc) - 1].gridCost ~= fresh[1].gridCost within 1e-4
 }
 
-# Moving or removing obstacles and rebuilding is the same as never having had them.
 law nav_remove_obstacle_restores_mesh {
     forall (spec: navSpec, extra: obstacle, moved: obstacle)
     => let base = head(navEval(spec, [{op: "hash"}])) in
@@ -82,7 +72,6 @@ law nav_remove_obstacle_restores_mesh {
        last(removed) == base and last(movedAway) == direct
 }
 
-# Points inside an obstacle are not walkable (away from its border), points far from every obstacle on open floor are.
 law nav_obstacles_block_and_open_floor_walks {
     forall (spec: navSpec, o: obstacle, u: float(-0.6, 0.6), v: float(-0.6, 0.6))
     where o.half.x > 1.0 and o.half.z > 1.0
@@ -91,14 +80,12 @@ law nav_obstacles_block_and_open_floor_walks {
        not r[0] and (abs(o.center.x + o.half.x + 3.5) > 11 or r[1])
 }
 
-# With nothing in the way the path is a straight line (length within one cell of the distance).
 law nav_open_floor_path_is_straight {
     forall (cell: elements([0.5, 1.0]), radius: float(0, 0.5), a: floorPt, b: floorPt)
     => let p = nav1({half: 12.0, cell: cell, radius: radius, obstacles: []}, pathOp(a, b)) in
        p.found and not p.partial and p.length <= gridDist(a, b) + 2.0 * cell + 1e-3 and p.length >= gridDist(a, b) - 2.0 * cell
 }
 
-# A wall across the floor separates it; an off-mesh link through the wall reconnects it, and the path uses the link.
 law nav_link_reconnects_separated_regions {
     forall (x: float(-8, 8), za: float(-9, -4), zb: float(4, 9), lx: float(-8, 8))
     => let wall = {center: vec3(0, 1, 0), half: vec3(12.0, 1, 0.6)} in
@@ -110,18 +97,13 @@ law nav_link_reconnects_separated_regions {
        (not blocked.found or blocked.partial) and linked.found and not linked.partial and exists l in linked.links: l >= 0
 }
 
-# ------------------------------------------------------------------------------------------------ agents and crowds (ORCA)
-
 gen agentSpec = {pos: vec3(float(-8, 8), 0, float(-8, 8)), target: vec3(float(-8, 8), 0, float(-8, 8)), radius: float(0.25, 0.5), maxSpeed: float(1.5, 4)}
 fn overlapOf(f, i, j, r) = max(0.0, r[i] + r[j] - gridDist(f[i].pos, f[j].pos))
 fn maxOverlap(frame, radii) = maxOf(flatten(map(range(len(frame)), fn(i) => map(range(i + 1, len(frame)), fn(j) => overlapOf(frame, i, j, radii)))))
 fn separated(agents) = all(enumerate(agents), fn(e) => all(drop(agents, e[0] + 1), fn(o) => gridDist(e[1].pos, o.pos) > 1.2))
-# Targets that coincide with another agent's target or start would force overlaps (an agent parks on the spot): excluded.
 fn targetsApart(agents) = all(enumerate(agents), fn(e) => all(enumerate(agents), fn(o) => e[0] == o[0] or (gridDist(e[1].target, o[1].target) > 1.3 and gridDist(e[1].target, o[1].pos) > 1.3)))
 fn openNav() = {half: 12.0, cell: 0.5, radius: 0.4, obstacles: []}
 
-# Agents that start apart never end up overlapping noticeably in an open room, with or without the shared path cache. The ORCA solver is a
-# soft constraint (fast convoys squeeze together): centres never get closer than 35% of the summed radii. See nav_crowd_overlap_is_small.
 fn minGap(frame, radii) = minOf(flatten(map(range(len(frame)), fn(i) => map(range(i + 1, len(frame)), fn(j) => gridDist(frame[i].pos, frame[j].pos) / (radii[i] + radii[j])))))
 law nav_crowd_agents_never_pass_through_each_other {
     forall (agents: listOf(agentSpec, 2, 8), crowd: bool())
@@ -131,7 +113,6 @@ law nav_crowd_agents_never_pass_through_each_other {
        forall f in r.frames: minGap(f, radii) >= 0.35
 }
 
-# The tight form: overlap never exceeds 0.12 m. Fast agents in convoy break it (known, see regressions).
 law nav_crowd_overlap_is_small {
     forall (agents: listOf(agentSpec, 2, 8), crowd: bool())
     where separated(agents) and targetsApart(agents)
@@ -140,7 +121,6 @@ law nav_crowd_overlap_is_small {
        forall f in r.frames: maxOverlap(f, radii) <= 0.12
 }
 
-# One agent on open ground reaches its target.
 law nav_agent_reaches_goal_on_open_ground {
     forall (a: agentSpec, crowd: bool())
     where gridDist(a.pos, a.target) > 1.0
@@ -150,7 +130,6 @@ law nav_agent_reaches_goal_on_open_ground {
        gridDist(end.pos, a.target) < 1.1 and end.state == "arrived"
 }
 
-# Agents never leave the walkable floor or sink into obstacles.
 law nav_agents_stay_on_mesh {
     forall (spec: navSpec, agents: listOf(agentSpec, 1, 4))
     where all(agents, fn(a) => gridDist(a.pos, a.target) > 0.5)

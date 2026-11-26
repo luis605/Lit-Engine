@@ -1,8 +1,5 @@
 #version 460 core
 
-// Scatters only the entities that actually changed this frame into the GPU-resident local-matrix
-// buffer, instead of re-uploading the whole (possibly multi-million-entry) array every dirty
-// frame. CPU writes a small (dirtyCount-sized) index + payload pair; this pass does the rest.
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 struct TransformComponent {
@@ -17,9 +14,7 @@ layout(binding = 1, std430) readonly buffer DirtyPayloadBuffer {
     mat4 dirtyLocalMatrices[];
 };
 
-// Both of these are pure scatter targets in this pass; marking them writeonly (NonReadable in
-// SPIR-V) lets the driver skip read-for-ownership on the partially written cache lines. They stay
-// UAV-bound, exactly as before.
+// writeonly (NonReadable in SPIR-V) lets the driver skip read-for-ownership on partially written cache lines.
 layout(binding = 2, std430) writeonly buffer TransformBuffer {
     TransformComponent transforms[];
 };

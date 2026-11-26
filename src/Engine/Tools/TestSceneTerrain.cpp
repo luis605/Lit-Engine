@@ -18,9 +18,6 @@ import Engine.mesh;
 import Engine.Terrain;
 import Engine.Render.material;
 
-// Open-world flythrough: noise terrain streamed around the camera (morphing LODs, splat material, shadows), pines
-// and rocks scattered per tile as merged batches. The camera flies a long loop above the ground.
-
 bool buildTerrainTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
 
 namespace {
@@ -30,7 +27,6 @@ constexpr float kRouteRadius = 900.0f;
 constexpr float kFlySpeed = 45.0f;
 constexpr float kClearance = 38.0f;
 
-// Optional overrides for screenshots: LIT_TERRAIN_TRAVEL (metres along the route at start), LIT_TERRAIN_CLEARANCE, LIT_TERRAIN_PITCH, LIT_TERRAIN_SPEED (0 holds still).
 float envFloat(const char* name, float fallback) {
     const char* value = std::getenv(name);
     return value ? static_cast<float>(std::atof(value)) : fallback;
@@ -45,7 +41,6 @@ struct MeshBuilder {
         return static_cast<unsigned int>(vertices.size() / kVertexFloats - 1);
     }
 
-    // Triangle wound counter clockwise seen from the side `outward` points to.
     void triangle(unsigned int a, unsigned int b, unsigned int c, const glm::vec3& outward) {
         const auto position = [&](unsigned int i) { return glm::vec3(vertices[i * kVertexFloats], vertices[i * kVertexFloats + 1], vertices[i * kVertexFloats + 2]); };
         const glm::vec3 normal = glm::cross(position(b) - position(a), position(c) - position(a));
@@ -53,7 +48,6 @@ struct MeshBuilder {
         indices.insert(indices.end(), {a, b, c});
     }
 
-    // Truncated cone (radius 0 on top for a cone) around the y axis.
     void cone(float y0, float y1, float r0, float r1, int sides, float u) {
         const float slope = (r0 - r1) / std::max(y1 - y0, 1.0e-4f);
         for (int i = 0; i < sides; ++i) {
@@ -71,7 +65,6 @@ struct MeshBuilder {
             triangle(b0, b1, t1, outward);
             if (r1 > 1.0e-4f) triangle(b0, t1, t0, outward);
         }
-        // Underside cap so the crown tiers have no see-through bottom.
         const glm::vec3 centre(0.0f, y0, 0.0f);
         const unsigned int c = vertex(centre, glm::vec3(0.0f, -1.0f, 0.0f), u, 0.0f);
         for (int i = 0; i < sides; ++i) {
@@ -170,11 +163,10 @@ bool buildTerrainTestScene(Engine& engine, const TestSceneKit&, TestSceneInfo& i
     setup.stream.lod.viewDistance = 3600.0f;
     setup.stream.workers = 3;
     setup.stream.maxInFlight = 8;
-    setup.stream.deterministic = engine.headless();  // headless hashes must not depend on worker timing
+    setup.stream.deterministic = engine.headless();
     setup.colliderMaxLevel = 0;
     setup.scatterMaxLevel = 2;
     setup.scatter.seed = 11;
-    // Scatter as InstanceBatches per tile (docs/Instancing.md); LIT_TERRAIN_INSTANCED=0 restores the merged meshes for A/B runs.
     setup.instancedScatter = envFloat("LIT_TERRAIN_INSTANCED", 1.0f) > 0.5f;
 
     const uint32_t foliageShader = engine.loadShader("Foliage", "resources/shaders/surfaces/foliage.surface");
@@ -247,7 +239,6 @@ bool buildTerrainTestScene(Engine& engine, const TestSceneKit&, TestSceneInfo& i
 
     const TerrainConfig terrain = setup.terrain;
     {
-        // Height statistics of the 8 km square around the route (sanity check for the splat thresholds).
         double sum = 0.0;
         float low = 1.0e9f;
         float high = -1.0e9f;

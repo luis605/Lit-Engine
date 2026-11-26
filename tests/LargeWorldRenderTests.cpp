@@ -1,7 +1,3 @@
-// GPU tests for the renderer side of floating origin (docs/LargeWorld.md): a scene 500 km from the origin, depth precision at 50 and 100 km,
-// a forced rebase with screenshots before / after (pixel diff against a no-rebase control) and a flight with automatic rebases.
-// Skips (exit 0) when no GPU window is available. Run from the build directory (shaders load from ./resources).
-
 #include "TestSupport.hpp"
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
@@ -49,8 +45,8 @@ Image loadImage(const std::string& path) {
 }
 
 struct Diff {
-    double mean = 0.0;       // mean absolute channel difference, 0..255
-    double fraction = 0.0;   // fraction of pixels with any channel differing by more than 8
+    double mean = 0.0;
+    double fraction = 0.0;
 };
 
 Diff compare(const Image& a, const Image& b) {
@@ -81,7 +77,6 @@ std::string shotPath(const std::string& name) { return (std::filesystem::temp_di
 
 int gFrame = 0;
 
-// One engine frame; `shot` non-empty captures the presented frame.
 void frame(Engine& engine, const std::string& shot = {}) {
     if (!shot.empty()) engine.requestScreenshot(shot);
     ++gFrame;
@@ -97,7 +92,6 @@ Image capture(Engine& engine, const std::string& name) {
     return loadImage(path);
 }
 
-// Screen pixel of a world position (the scene is built in world coordinates, the renderer sees local ones).
 bool project(Engine& engine, const glm::dvec3& world, glm::ivec2& pixel) {
     const auto screen = engine.worldToScreen(engine.world().toLocal(world));
     if (!screen) return false;
@@ -107,7 +101,6 @@ bool project(Engine& engine, const glm::dvec3& world, glm::ivec2& pixel) {
 
 glm::dvec3 sceneBase(double originKm) { return glm::dvec3(originKm * 1000.0, 0.0, -0.5 * originKm * 1000.0); }
 
-// Red-ness of a pixel neighbourhood (R - B), robust against haze tint.
 double redness(const Image& image, glm::ivec2 pixel) {
     double sum = 0.0;
     int count = 0;
@@ -129,7 +122,6 @@ void testDepthAndRebase(Engine& engine, double originKm) {
     CHECK(control1.valid() && control2.valid());
     if (!control2.valid()) return;
 
-    // Depth precision at 50 and 100 km: the near red wall must win over the blue wall behind it.
     glm::ivec2 front50, back50, front100, back100;
     const bool visible = project(engine, base + glm::dvec3(3000.0, 7000.0, -49960.0), front50) && project(engine, base + glm::dvec3(18000.0, 7000.0, -50040.0), back50) &&
                          project(engine, base + glm::dvec3(45000.0, 18000.0, -99960.0), front100) && project(engine, base + glm::dvec3(60000.0, 18000.0, -100160.0), back100);
@@ -142,7 +134,6 @@ void testDepthAndRebase(Engine& engine, double originKm) {
         CHECK(r100 > 8.0);
     }
 
-    // Rebase: same camera, same world, different origin. Control = two consecutive frames without a rebase.
     const glm::dvec3 cameraBefore = engine.cameraWorldPosition();
     const double epochBefore = static_cast<double>(engine.originEpoch());
     CHECK(engine.rebaseOrigin(glm::dvec3(1024.0, 256.0, -2048.0)));
@@ -159,13 +150,11 @@ void testDepthAndRebase(Engine& engine, double originKm) {
     CHECK(first.fraction <= noise.fraction + 0.0015);
     CHECK(second.mean <= noise.mean + 0.15);
     CHECK(second.fraction <= noise.fraction + 0.0015);
-    // And the depth probe still resolves after the rebase.
     glm::ivec2 front, back;
     if (project(engine, base + glm::dvec3(3000.0, 7000.0, -49960.0), front) && project(engine, base + glm::dvec3(18000.0, 7000.0, -50040.0), back)) CHECK(redness(afterSecond, front) - redness(afterSecond, back) > 25.0);
 }
 
 void testFlight(Engine& engine) {
-    // 6 m/s = 0.1 m per frame (the checker ground changes little per frame); threshold 3 m, snap 4 m, so a rebase roughly every 40 frames. Per-frame image change must not spike on rebase frames.
     setLargeWorldFlight(engine, 6.0f);
     std::vector<double> regular;
     std::vector<double> atRebase;
@@ -192,7 +181,7 @@ void testFlight(Engine& engine) {
     std::printf("flight: %.0f m flown, %zu rebases, frame diff regular p90 %.3f max %.3f, at rebase max %.3f\n", flown, atRebase.size(), p90, regular.back(), worstRebase);
     CHECK(worstRebase <= regular.back() * 1.3 + 0.2);
     CHECK(atRebase.size() >= 2);
-    CHECK(engine.world().camera().getPosition().x < 100.0f);  // camera stayed near local zero
+    CHECK(engine.world().camera().getPosition().x < 100.0f);
 }
 
 }

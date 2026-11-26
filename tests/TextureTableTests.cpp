@@ -4,9 +4,6 @@
 #include <set>
 #include <vector>
 
-// Slot allocator of the bindless texture table (docs/RenderGraph.md). The GPU side (bindless table vs legacy arrays render the same
-// pixels) is the BindlessTextureParity test, scripts/bindless_check.sh.
-
 namespace {
 
 void testAllocateInOrderAndReuse() {
@@ -17,7 +14,6 @@ void testAllocateInOrderAndReuse() {
     for (int expected = 0; expected < 5; ++expected) CHECK(slots.allocate() == expected);
     CHECK(slots.used() == 5);
     CHECK(slots.highWater() == 5);
-    // A released slot below the high-water mark is the next one handed out (lowest free first) and nothing else moves.
     CHECK(slots.release(1));
     CHECK(slots.release(3));
     CHECK(slots.used() == 3);
@@ -67,7 +63,6 @@ void testHighWaterShrinksPastTrailingFreeSlots() {
     CHECK(slots.release(4));
     CHECK(slots.highWater() == 6);
     CHECK(slots.release(5));
-    // 5, 4 and 3 are all free now: the reachable part of the table ends after slot 2.
     CHECK(slots.highWater() == 3);
     CHECK(slots.used() == 3);
     CHECK(slots.allocate() == 3);

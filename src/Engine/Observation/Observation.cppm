@@ -81,7 +81,6 @@ export class ObservationSystem {
 
     void setIgnore(EntityHandle entity) { m_ignore = entity; }
     void setView(const ObservationView& view) { m_view = view; }
-    // Floating origin: the cached view origin moves with the world (tracked entities are read from the World each update).
     void shiftOrigin(const glm::vec3& shift) { m_view.origin -= shift; }
     [[nodiscard]] const ObservationView& view() const { return m_view; }
     void setConfig(const ObservationConfig& config) { m_config = config; }

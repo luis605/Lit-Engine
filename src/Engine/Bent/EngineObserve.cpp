@@ -239,7 +239,7 @@ Json valueToJson(const Value& value, const SrcLoc& loc) {
 Value EngineSim::observe(const std::string& name, Interp& interp, const ValueList& args, const NamedArgs& named, const SrcLoc& loc) {
     (void)interp;
     if (!named.empty()) throw BentError(loc, "observation '" + name + "' takes positional arguments only");
-    if (Value extResult; extWorldObserve(*this, name, args, loc, extResult)) return extResult;  // Ext_World.cpp
+    if (Value extResult; extWorldObserve(*this, name, args, loc, extResult)) return extResult;
     World& w = world();
     const auto need = [&](size_t count) {
         if (args.size() != count) throw BentError(loc, name + "() takes " + std::to_string(count) + " argument(s), got " + std::to_string(args.size()));
@@ -566,24 +566,22 @@ Value EngineSim::observe(const std::string& name, Interp& interp, const ValueLis
     throw BentError(loc, "unknown observation '" + name + "'");
 }
 
-// ---------------------------------------------------------------- builtins
-
 namespace {
 std::atomic<uint64_t> gReplayCounter{0};
 }
 
 namespace xp {
-void registerExtPortalBuiltins(Program& program);  // Ext_Portal.cpp
+void registerExtPortalBuiltins(Program& program);
 }
 
 namespace ext {
-void registerExtRenderBuiltins(Program& program);  // Ext_Render.cpp
-void registerExtGpuBuiltins(Program& program);  // Ext_Gpu.cpp
-void registerExtPhysicsBuiltins(Program& program);  // Ext_Physics.cpp
+void registerExtRenderBuiltins(Program& program);
+void registerExtGpuBuiltins(Program& program);
+void registerExtPhysicsBuiltins(Program& program);
 }
 
 void EngineHost::addBuiltins(Program& program) {
-    extWorldBuiltins(program);  // Ext_World.cpp
+    extWorldBuiltins(program);
     ext::registerExtRenderBuiltins(program);
     ext::registerExtGpuBuiltins(program);
     ext::registerExtPhysicsBuiltins(program);
@@ -651,7 +649,7 @@ void EngineHost::addBuiltins(Program& program) {
                 throw BentError(loc, "replay file could not be loaded back");
             }
             for (const ActionV* action : actions) {
-                if (action->name == "input") continue;  // input comes from the recording
+                if (action->name == "input") continue;
                 sim.apply(*action, loc, [] { return true; });
             }
             replayed = sim.replayHash();

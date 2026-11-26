@@ -15,11 +15,6 @@ import Engine.Render.component;
 import Engine.Render.material;
 import Engine.Render.settings;
 
-// textures: every kind of material texture on a floor and a row of spheres (base color, normal, ORM, emissive, triplanar), lit by the sun
-// and one point light. The scene exists to compare the bindless texture table with the legacy texture arrays (scripts/bindless_check.sh,
-// tests/TextureTableTests.cpp): all three textures are 1024x1024, the size the legacy arrays store, so both paths sample identical texels.
-// It also loads and releases a scratch texture first, so the table reuses a slot while the legacy arrays just use one more layer.
-
 uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material);
 
 namespace {
@@ -46,7 +41,6 @@ bool buildTexturesTestScene(Engine& engine, const TestSceneKit& kit, TestSceneIn
     int normal = -1;
     int orm = -1;
     if (!engine.headless()) {
-        // Scratch load + release: the next load takes the freed slot (bindless) or the next layer (legacy).
         const int scratch = engine.loadTexture(kOrmPath, true);
         engine.releaseTexture(scratch, true);
         albedo = engine.loadTexture(kAlbedoPath, true);

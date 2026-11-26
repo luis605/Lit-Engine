@@ -244,7 +244,6 @@ static void testOriginShift() {
     const glm::vec3 mappedAfter = glm::vec3(after[0].transform * glm::vec4(shiftedProbe, 1.0f));
     CHECK(glm::length(glm::dvec3(mapped) - (glm::dvec3(mappedAfter) + engine.worldOrigin())) < 1e-3);
 
-    // world queries still see the entity at its shifted place
     const auto near = world.overlapSphere(world.getPosition(thing), 0.5f);
     CHECK(std::find(near.begin(), near.end(), thing) != near.end());
     CHECK(!engine.rebaseOrigin(glm::dvec3(0.0)));
@@ -309,7 +308,7 @@ static void testOriginWithStreamingAndDeltas() {
 static NavMesh makeNavArena(float half) {
     TriangleSoup soup;
     soup.addBox(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f)), glm::vec3(half, 0.5f, half));
-    soup.addBox(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f)), glm::vec3(0.5f, 1.0f, 6.0f));  // a wall to path around
+    soup.addBox(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f)), glm::vec3(0.5f, 1.0f, 6.0f));
     NavMesh mesh;
     NavConfig config;
     config.originX = -half;
@@ -362,7 +361,6 @@ static void testNavShift() {
     CHECK(mesh.rebuildDirty() > 0);
     CHECK(mesh.findPath(from - shift, to - shift).found);
 
-    // crowd agents: shift the agents, the cache and in-flight queries, then everyone still arrives
     NavMesh arena = makeNavArena(16.0f);
     NavCrowd crowd;
     std::vector<NavAgent> agents(6);
@@ -380,14 +378,14 @@ static void testNavShift() {
     int arrived = 0;
     for (size_t i = 0; i < agents.size(); ++i) {
         if (agents[i].state == AgentState::Arrived || glm::length(agents[i].position - agents[i].target) < 1.5f) ++arrived;
-        CHECK(std::abs(agents[i].position.y - (-shift.y)) < 0.6f);  // still walking on the shifted ground
+        CHECK(std::abs(agents[i].position.y - (-shift.y)) < 0.6f);
     }
     CHECK(arrived == static_cast<int>(agents.size()));
 }
 
 static void testAudioShift() {
     TriangleSoup soup;
-    soup.addBox(glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 1.0f, 0.0f)), glm::vec3(0.25f, 3.0f, 6.0f));  // wall between listener and source
+    soup.addBox(glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 1.0f, 0.0f)), glm::vec3(0.25f, 3.0f, 6.0f));
     soup.addBox(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f)), glm::vec3(30.0f, 0.5f, 30.0f));
     AudioPropagation audio;
     audio.setScene(soup);
@@ -396,7 +394,6 @@ static void testAudioShift() {
     audio.beginFrame(listener);
     const AudioPath blocked = audio.trace(listener, source);
     CHECK(blocked.occlusion > 0.2f);
-    // a hop (doorway) given in the original frame stays usable after the shift
     audio.setHopHook([](const glm::vec3& from, std::vector<AudioHop>& out) {
         if (glm::length(from - glm::vec3(0.0f, 1.5f, 0.0f)) < 20.0f) out.push_back({glm::vec3(4.0f, 1.5f, 7.0f), glm::vec3(6.0f, 1.5f, 7.0f), 0.0f, 3});
     });
@@ -411,7 +408,6 @@ static void testAudioShift() {
     CHECK(std::abs(shifted.pathLength - hopped.pathLength) < 1e-2f);
     CHECK(glm::length(shifted.arrivalDirection - hopped.arrivalDirection) < 1e-2f);
     CHECK(audio.bvh().bounds().lo.x < -2000.0f);
-    // cached per emitter results survive and keep their direction
     audio.update(listener - shift, {AudioEmitter{7, source - shift}});
     const AudioPath* cached = audio.result(7);
     CHECK(cached && cached->attenuation > 0.0f);
@@ -492,7 +488,6 @@ static EntityHandle findNamed(World& world, const std::string& name) {
 }
 
 static void testSaveWithDifferentOrigin() {
-    // saved at origin 0 (local = world), loaded under origin 2048 and back
     World a;
     EntityDesc far;
     far.name = "far";
@@ -514,7 +509,6 @@ static void testSaveWithDifferentOrigin() {
     CHECK(std::abs(b.toWorld(b.getPosition(farB)).x - 5000.0) < 1e-3);
     CHECK(std::abs(b.toWorld(b.camera().getPosition()).x - 4990.0) < 1e-3);
 
-    // saved under a shifted origin, loaded under origin 0 and under another one
     const std::string pathB = testsupport::tempFilePath("lit_largeworld_", "origin2.litsave");
     CHECK(saveB.save(pathB));
     World c;

@@ -23,27 +23,27 @@ import Engine.glm;
 namespace {
 constexpr size_t kBytesPerDestroyedEntity = 64;
 constexpr size_t kUnloadBatch = 64;
-constexpr size_t kTerrainClusterMinTriangles = 4096;  // as kClusterMinTriangles of the asset pipeline
+constexpr size_t kTerrainClusterMinTriangles = 4096;
 
 struct TilePayload {
     TileKey key;
     std::shared_ptr<HeightfieldData> field;
     std::unique_ptr<TerrainTileMesh> mesh;
-    std::vector<CellEntity> scatter;                 // one entity per instance (species without geometry)
-    std::vector<ScatterBatch> batches;               // merged per species
-    std::vector<PreparedMesh> prepared;              // LOD chain and clusters of each batch, built on the worker
+    std::vector<CellEntity> scatter;
+    std::vector<ScatterBatch> batches;
+    std::vector<PreparedMesh> prepared;
     struct InstancedSpecies {
         uint32_t species = 0;
         std::vector<InstanceData> instances;
         std::vector<uint64_t> keys;
     };
-    std::vector<InstancedSpecies> instanced;         // instancedScatter: one InstanceBatch per species
+    std::vector<InstancedSpecies> instanced;
     size_t next = 0;
     size_t nextBatch = 0;
     size_t nextInstanced = 0;
     bool tileCreated = false;
-    std::string deltaName;                           // DeltaStore cell, empty when this tile does not take part
-    std::set<std::string> mask;                      // removed instance keys the worker built against
+    std::string deltaName;
+    std::set<std::string> mask;
 };
 
 constexpr uint32_t kCellBits = 28;
@@ -79,7 +79,6 @@ InstanceData scatterInstanceData(const ScatterSpecies& species, const ScatterIns
     data.scale = instance.scale;
     const uint64_t id = scatterInstanceId(instance.species, static_cast<int32_t>(instance.cellX), static_cast<int32_t>(instance.cellZ));
     data.seed = static_cast<uint32_t>((id * 0x9E3779B97F4A7C15ull) >> 40);
-    // Subtle per-instance tint from the seed (surface shaders multiply instanceColor in).
     const float tint = 0.82f + 0.18f * instanceHash01(data.seed ^ 0x5bd1e995u);
     data.color = packInstanceColor(glm::vec4(tint, tint, tint, 1.0f));
     return data;
@@ -94,8 +93,8 @@ struct BatchRef {
 struct TerrainTileLoader::State {
     TerrainLoaderConfig config;
     World* world = nullptr;
-    std::map<int, std::string> deltaCells;           // resident cells registered with the DeltaStore
-    std::map<int, std::vector<EntityHandle>> registered;  // per-instance scatter entities registered as delta bases
+    std::map<int, std::string> deltaCells;
+    std::map<int, std::vector<EntityHandle>> registered;
     std::map<int, std::vector<BatchRef>> batchRefs;
     std::map<int, std::set<std::string>> appliedMask;
     std::map<int, bool> captured;
@@ -104,7 +103,7 @@ struct TerrainTileLoader::State {
     std::map<int, TileKey> keys;
     std::map<int, bool> visible;
     std::map<int, size_t> batchBytes;
-    std::vector<uint32_t> speciesMeshes;  // instancedScatter: GPU mesh per species (resolved on first use)
+    std::vector<uint32_t> speciesMeshes;
 };
 
 namespace {
@@ -119,7 +118,6 @@ std::vector<ScatterInstance> withoutRemoved(const TerrainLoaderConfig& config, s
 
 std::string terrainCellName(const TileKey& key) { return "terrain/" + std::to_string(key.x) + "_" + std::to_string(key.z) + "_" + std::to_string(key.level); }
 
-// Rebuilds the merged batch meshes of a resident tile against the current removed set (main thread).
 void TerrainTileLoader::rebuild(int cell) {
     State& s = *m_state;
     const auto keyIt = s.keys.find(cell);
@@ -127,7 +125,6 @@ void TerrainTileLoader::rebuild(int cell) {
     if (keyIt == s.keys.end() || nameIt == s.deltaCells.end()) return;
     const std::set<std::string> removed = s.config.deltas->removedSnapshot(nameIt->second);
     if (s.config.instancedScatter) {
-        // Dead flags follow the removed set: no mesh is rebuilt, only the touched cells of the instance buffer are uploaded.
         for (const BatchRef& ref : s.batchRefs[cell]) {
             InstanceBatch* batch = s.world->isAlive(ref.entity) ? s.world->get<InstanceBatch>(ref.entity) : nullptr;
             if (!batch) continue;
@@ -151,7 +148,6 @@ void TerrainTileLoader::rebuild(int cell) {
         const auto batch = std::find_if(batches.begin(), batches.end(), [&](const ScatterBatch& b) { return b.species == ref->species; });
         const uint32_t old = ref->mesh;
         if (batch == batches.end()) {
-            // Every instance of this species is gone.
             if (s.world->isAlive(ref->entity)) s.world->destroy(ref->entity);
             std::erase(s.created[cell], ref->entity);
             ref = refs.erase(ref);
@@ -223,7 +219,6 @@ std::shared_ptr<void> TerrainTileLoader::prepare(int cell) {
             payload->mask = s.config.deltas->removedSnapshot(payload->deltaName);
         }
         if (s.config.instancedScatter) {
-            // Removed instances stay in the batch as dead slots, so every instance keeps its index (and key) for later edits.
             const glm::vec3 origin = tileOrigin(s.config.terrain, *key);
             for (const ScatterInstance& instance : scatterTile(s.config.terrain, s.config.scatter, *key)) {
                 auto group = std::find_if(payload->instanced.begin(), payload->instanced.end(), [&](const TilePayload::InstancedSpecies& g) { return g.species == instance.species; });
@@ -243,7 +238,6 @@ std::shared_ptr<void> TerrainTileLoader::prepare(int cell) {
             payload->batches = scatterBatches(s.config.scatter, *key, instances, s.config.terrain);
             for (const ScatterBatch& batch : payload->batches) payload->prepared.push_back(prepareMesh(batch.mesh, s.config.scatterClusters));
         }
-        // Species without CPU geometry keep the one entity per instance path.
         std::vector<ScatterInstance> plain;
         for (const ScatterInstance& instance : instances) {
             const ScatterSpecies& species = s.config.scatter.species[instance.species];
@@ -368,14 +362,11 @@ bool TerrainTileLoader::commit(int cell, void* raw, StreamBudget& budget) {
     return done;
 }
 
-// All of the tile is created: register the cell, apply stored deltas (changed/added instances), re-hide what the streamer hides, and catch up when the
-// removed set changed after the worker built the batches.
 void TerrainTileLoader::finish(int cell, void* raw) {
     State& s = *m_state;
     const TilePayload& payload = *static_cast<TilePayload*>(raw);
     if (payload.deltaName.empty()) return;
     s.config.deltas->applyCell(payload.deltaName);
-    // Stored InstanceBatch diffs carry the mesh, material and shader ids of the session that saved them: this session's win.
     for (const BatchRef& ref : s.batchRefs[cell]) {
         InstanceBatch* batch = s.config.instancedScatter ? s.world->get<InstanceBatch>(ref.entity) : nullptr;
         if (!batch || ref.species >= s.speciesMeshes.size()) continue;
@@ -415,7 +406,6 @@ bool TerrainTileLoader::removeScatter(int cell, uint32_t species, int32_t cellX,
     if (it == s.deltaCells.end() || species >= s.config.scatter.species.size()) return false;
     const std::string key = scatterInstanceKey(s.config.scatter, species, cellX, cellZ);
     if (s.config.instancedScatter) {
-        // Free mask: the instance is marked dead in its batch (one cell re-uploaded), indices of the others are unchanged.
         if (InstanceBatch* batch = s.world->get<InstanceBatch>(scatterBatchEntity(cell, species))) {
             if (const auto index = batch->indexOfKey(scatterInstanceId(species, cellX, cellZ))) batch->remove(*index);
         }
@@ -478,7 +468,6 @@ bool TerrainTileLoader::unload(int cell, StreamBudget& budget) {
     std::vector<EntityHandle>& doomed = s.created[cell];
     const auto deltaIt = s.deltaCells.find(cell);
     if (deltaIt != s.deltaCells.end() && !s.captured[cell]) {
-        // Player changes are captured while the entities are still alive; entities the player added die with the tile and come back from the delta.
         s.captured[cell] = true;
         s.config.deltas->captureCell(deltaIt->second);
         for (const EntityHandle handle : s.config.deltas->liveEntities(deltaIt->second)) {
@@ -496,7 +485,6 @@ bool TerrainTileLoader::unload(int cell, StreamBudget& budget) {
         budget.spend(count * kBytesPerDestroyedEntity);
         if (budget.exhausted() && !doomed.empty()) return false;
     }
-    // Entities are gone: the GPU geometry (tile mesh and merged scatter meshes) can be reused.
     if (s.config.releaseMesh) {
         for (const uint32_t mesh : s.meshes[cell]) s.config.releaseMesh(mesh);
     }

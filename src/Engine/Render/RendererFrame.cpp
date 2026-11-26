@@ -134,14 +134,10 @@ void Renderer::setWorldOrigin(const glm::dvec3& origin) {
     const glm::vec3 delta(origin - m_worldOrigin);
     m_worldOrigin = origin;
     ++m_originRebases;
-    // Everything the renderer keeps across frames in world space. Per-frame data (uniforms, lights, transforms) is rebuilt in the new frame by
-    // the Engine. Visibility bits and Hi-Z history (including every portal view's) are indexed by object / view space, and camera, objects and portals
-    // all moved by the same delta, so they stay valid. There is no TAA or screen-space history to reproject (docs/Lighting.md).
     m_lighting.shiftOrigin(delta);
 }
 
 bool Renderer::renderGraphEnabled() const {
-    // LIT_RENDER_GRAPH=0/1 overrides the renderGraph setting (A/B comparisons without touching settings files).
     static const int override = [] {
         const char* value = std::getenv("LIT_RENDER_GRAPH");
         return value && value[0] ? (value[0] == '1' ? 1 : 0) : -1;
@@ -150,7 +146,6 @@ bool Renderer::renderGraphEnabled() const {
 }
 
 float Renderer::frameClock() {
-    // LIT_FIXED_DT: deterministic renderer clock (frame index * step) for reproducible captures.
     static const float fixedStep = [] {
         const char* value = std::getenv("LIT_FIXED_DT");
         return value ? std::strtof(value, nullptr) : 0.0f;
@@ -191,7 +186,7 @@ void Renderer::renderPortalPrepass(const SceneUniforms& sceneUniforms, uint32_t 
     if (!m_viewSunShadows) viewUniforms.shadowParams.x = 0.0f;
     LIT_UP(gpu.pImmediateContext)->UpdateBuffer(gpu.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &viewUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (!root.surfaces.empty()) renderPortalViews(sceneUniforms, viewUniforms, objectCount);
-    else m_lighting.cullLights(gpu.pSceneUBO[m_currentFrame]);  // cluster lists filtered by the camera's cell
+    else m_lighting.cullLights(gpu.pSceneUBO[m_currentFrame]);
 }
 
 void Renderer::renderOpaqueGeometry(uint32_t objectCount, bool portalsActive) {
@@ -257,11 +252,6 @@ void Renderer::shadeScene(bool portalsActive) {
         {GpuPass::Lighting,         1},
         {GpuPass::Reflections,      2}
     };
-    // Portal pixels hold the child view's depth and G-buffer (resolvePortalDepth), so AO, lighting,
-    // contact shadows and reflections operate on the room behind each portal, never on its plane.
-    // The colour-only composite before the reflection stage puts the child image into the colour
-    // pyramid that SSR, planar reflections and GI sample; the final composite overwrites anything the
-    // reflection stage added on portal pixels and writes the plane depth for transparency.
     for (const auto& [pass, stage] : shadeStages) {
         if (portalsActive && stage == 2) {
             gpu.portalCompositeWritesDepth = false;

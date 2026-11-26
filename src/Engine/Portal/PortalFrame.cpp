@@ -108,8 +108,6 @@ class FrameBuilder {
         m_frame.nodes.push_back(std::move(root));
     }
 
-    // `nearPortal`: the eye is within the near-plane reach of the portal plane. Its corners may then all lie closer than the near
-    // plane (plane 5 of an extracted frustum) while near-plane pieces already pass through the opening, so that plane is skipped.
     bool insideFrustum(const Portal& portal, const std::array<glm::vec4, 6>& planes, bool nearPortal = false) const {
         const std::array<glm::vec3, 4> corners = cornersOf(portal);
         for (size_t index = 0; index < planes.size(); ++index) {

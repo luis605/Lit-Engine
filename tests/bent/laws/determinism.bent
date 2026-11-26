@@ -1,5 +1,3 @@
-# Determinism: the simulation is a pure function of the program (docs/Determinism.md). Cases run on many threads at once, each
-# with its own Engine, so these laws also check that engines in one process do not share state.
 include "../lib/prelude.bent"
 
 law same_program_same_hash {
@@ -7,13 +5,11 @@ law same_program_same_hash {
     => after(p ++ [step(n: 10)]) { worldHash() } == after(p ++ [step(n: 10)]) { worldHash() }
 }
 
-# Splitting a step into smaller steps changes nothing (fixed timestep accumulator).
 law step_split_invariance {
     forall (p: program, a: int(0, 30), b: int(0, 30))
     => after(p ++ [step(n: a + b)]) { worldHash() } == after(p ++ [step(n: a), step(n: b)]) { worldHash() }
 }
 
-# Validation and queries are observations: running them changes nothing.
 law validate_is_pure {
     forall (p: program)
     => after(p) { worldHash() } == after(p ++ [validate()]) { worldHash() }
@@ -22,13 +18,11 @@ law validate_is_pure {
 gen key = elements([87, 65, 83, 68, 340, 32])
 gen inputAction = frequency([[3, input(keys: listOf(key, 0, 3), delta: vec3(float(-20, 20), float(-20, 20), 0))], [3, step(n: int(1, 20))], [1, spawnBody]])
 
-# Recorded input replayed into a fresh engine reproduces the world and the camera.
 law replay_matches_recording {
     forall (p: listOf(inputAction, 0, 15))
     => replayMatches([flyCamera(), camera(pos: vec3(0, 2, 10))] ++ p ++ [step(n: 5)])
 }
 
-# The fly camera responds to input deterministically: same input, same camera.
 law fly_camera_deterministic {
     forall (p: listOf(inputAction, 0, 15))
     => let prog = [flyCamera()] ++ p ++ [step(n: 3)] in after(prog) { cameraView() } == after(prog) { cameraView() }

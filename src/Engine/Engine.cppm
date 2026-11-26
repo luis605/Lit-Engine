@@ -152,25 +152,20 @@ export class Engine {
     [[nodiscard]] const std::vector<VisibleCell>& visibleCells() const { return m_visibleCells; }
     StreamingSystem& enableStreaming(const StreamingConfig& config = {});
     [[nodiscard]] StreamingSystem* streaming() { return m_streaming.get(); }
-    // Large world (docs/LargeWorld.md): local = world - worldOrigin(). Renderer consumes worldOrigin() / originEpoch().
     void enableFloatingOrigin(const FloatingOriginConfig& config = {});
     bool rebaseOrigin(const glm::dvec3& delta);
     [[nodiscard]] const glm::dvec3& worldOrigin() const { return m_world.origin(); }
-    // Called with the float shift (positions become p - shift) after each rebase: hook NavMesh/NavCrowd/AudioPropagation/AudioMixer::shiftOrigin here.
     void addOriginShiftListener(std::function<void(const glm::vec3&)> listener) { m_originListeners.push_back(std::move(listener)); }
     [[nodiscard]] uint64_t originEpoch() const { return m_originEpoch; }
     [[nodiscard]] glm::dvec3 lastOriginShift() const { return m_lastOriginShift; }
     [[nodiscard]] glm::dvec3 cameraWorldPosition() { return m_world.toWorld(m_world.camera().getPosition()); }
     void setCameraWorldPosition(const glm::dvec3& position);
-    // GPU mesh streaming: request(name, lod) loads on a worker, uploads under the streaming budget, evicts LRU over meshResidency().budget().
     MeshResidency& enableMeshStreaming(size_t budgetBytes = 256u << 20);
     [[nodiscard]] MeshResidency* meshResidency() { return m_meshResidency.get(); }
     bool requestMesh(const std::string& name, int lod = 0, int priority = 0, size_t estimatedBytes = 1u << 20);
     std::function<void(const std::string& name, uint32_t meshId, int lod)> onMeshResident;
-    // Terrain (docs/Terrain.md): tiles stream around the camera, render with terrain.surface (morph + splat), merged scatter batches, shadows via the normal caster paths.
     TerrainStreamer& enableTerrain(const TerrainSetup& setup);
     [[nodiscard]] TerrainStreamer* terrain() { return m_terrain.get(); }
-    // Raw mesh upload (no simplification, no point impostor) and release of the GPU geometry of any uploaded mesh (slots and buffer ranges are reused).
     uint32_t uploadTerrainMesh(const Mesh& mesh);
     void releaseMesh(uint32_t id);
     DeltaStore& enableDeltas();
@@ -190,21 +185,15 @@ export class Engine {
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
     uint32_t uploadProcessedMesh(const Mesh& optimizedMesh, const std::vector<Mesh>& lodChain);
-    // Uploads base mesh, LOD chain and (if present) the cluster LOD DAG used for dense geometry.
     uint32_t uploadProcessedMesh(const ProcessedMesh& processed);
     [[nodiscard]] ClusterRenderStats clusterStats() const { return m_renderer.clusterStats(); }
-    // GPU instancing (docs/Instancing.md): an entity with an InstanceBatch component draws `instances` of one mesh, material and
-    // surface shader (positions relative to the entity). Per-instance GPU culling (cells, frustum, Hi-Z, LOD, distance fade),
-    // shadows and portal views included. The batch is the entity: destroy it with World::destroy or destroyInstanceBatch.
     EntityHandle createInstanceBatch(uint32_t mesh, uint32_t material, std::span<const InstanceData> instances, const InstanceBatchSettings& settings = {}, uint32_t shader = 0, const glm::vec3& position = glm::vec3(0.0f), EntityHandle parent = NULL_ENTITY);
     bool updateInstances(EntityHandle batch, uint32_t first, std::span<const InstanceData> instances);
-    // Free mask: the instance is no longer drawn, indices stay stable. swapRemoveInstance moves the last instance into `index` instead.
     bool removeInstance(EntityHandle batch, uint32_t index);
     std::optional<uint64_t> swapRemoveInstance(EntityHandle batch, uint32_t index);
     void destroyInstanceBatch(EntityHandle batch);
     [[nodiscard]] InstanceBatch* instanceBatch(EntityHandle batch) { return m_world.get<InstanceBatch>(batch); }
     [[nodiscard]] InstanceRenderStats instanceStats() const { return m_renderer.instanceStats(); }
-    // Mirrors every InstanceBatch component of `world` into the renderer (called by update() before drawing).
     void syncInstanceBatches(World& world);
     uint32_t loadMesh(const std::string& name);
     void preloadMeshes(const std::vector<std::string>& names);
@@ -213,7 +202,6 @@ export class Engine {
     [[nodiscard]] std::vector<std::string> availableMeshes() const;
     [[nodiscard]] std::vector<GpuPassTiming> gpuTimings() const { return m_renderer.gpuTimings(); }
     [[nodiscard]] double gpuTotalMilliseconds() const { return m_renderer.gpuTotalMilliseconds(); }
-    // Render graph (docs/RenderGraph.md): statistics of the last graph frame and a text + Graphviz dump of the next one.
     [[nodiscard]] RenderGraphInfo renderGraphInfo() const { return m_renderer.renderGraphInfo(); }
     void requestRenderGraphDump(std::string path) { m_renderer.requestGraphDump(std::move(path)); }
     [[nodiscard]] size_t renderOverCapacity() const { return m_renderer.overCapacity(); }
@@ -232,7 +220,6 @@ export class Engine {
     [[nodiscard]] std::vector<ShaderError> shaderErrors() const { return m_renderer.surfaceErrors(); }
     [[nodiscard]] std::vector<ShaderError> takeShaderErrors() { return ::takeShaderErrors(); }
     int loadTexture(const std::string& path, bool srgb = true);
-    // Frees a texture loaded with loadTexture: its table slot is reused by a later load (bindless mode; the legacy texture arrays do not free layers).
     void releaseTexture(int index, bool srgb = true);
     [[nodiscard]] bool bindlessTextures() const { return m_renderer.initialized() && m_renderer.bindlessTextures(); }
     [[nodiscard]] uint32_t textureTableUsed() const { return m_renderer.initialized() ? m_renderer.textureTableUsed() : 0u; }
@@ -254,9 +241,6 @@ export class Engine {
     [[nodiscard]] glm::vec3 sunDirection() const { return m_renderer.sunDirection(); }
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
     void setAnimation(float time, uint32_t movingCount, uint32_t entityOffset);
-    // Dynamic (GPU skinned, morphed or deformed) meshes, see docs/Skinning.md. All are no-ops without a window.
-    // createDynamicSource uploads rest data once; createDynamicInstance returns an instance id whose mesh id
-    // (dynamicMeshId) goes into a RenderableComponent. Tie it to the entity so culling uses the refit bounds.
     uint32_t createDynamicSource(const DynamicMesh& mesh) { return m_renderer.createDynamicSource(mesh); }
     uint32_t createDynamicInstance(uint32_t source) { return m_renderer.createDynamicInstance(source); }
     [[nodiscard]] uint32_t dynamicMeshId(uint32_t instance) const { return m_renderer.dynamicMeshId(instance); }

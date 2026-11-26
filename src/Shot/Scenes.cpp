@@ -8,8 +8,6 @@ import Engine.camera;
 import Engine.World;
 import Engine.TestScenes;
 
-// Every scene LitShot builds is a registry scene (Engine.TestScenes: testSceneNames / buildTestScene), so the Editor can run the same
-// ones (scene.test.<name>, LIT_SCENE=<name>). The options only parameterise them (TestSceneParams).
 void buildScene(Engine& engine, const ShotOptions& options) {
     if (options.testScene != "dense" && !options.sceneFile.empty()) {
         engine.preloadSceneMeshes(options.sceneFile);

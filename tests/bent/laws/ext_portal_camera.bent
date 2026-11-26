@@ -1,5 +1,3 @@
-# Camera orientation (ViewOrientation): a reference frame plus yaw / pitch / roll relative to it. A portal crossing rotates the frame and
-# leaves the angles alone; relaxing turns a tilted frame upright without moving the view and lets the leftover roll decay.
 include "../lib/ext_portal.bent"
 
 gen xcAny = {frame: unitQuat(), yaw: float(-180, 180), pitch: float(-85, 85), roll: float(-180, 180)}
@@ -9,7 +7,6 @@ gen xcUprightFrame = bind(float(-180, 180), fn(a) => axisAngle(vec3(0, 1, 0), a)
 fn xcBasisNear(a, b, eps) = a.front ~= b.front within eps and a.up ~= b.up within eps and a.right ~= b.right within eps
 fn xcConj(q) = quat(q.w, 0 - q.x, 0 - q.y, 0 - q.z)
 
-# front, up, right are unit, mutually orthogonal and right handed, for every frame / angle combination.
 law cam_basis_is_orthonormal {
     forall (o: xcAny)
     => let b = xcOrient(o) in
@@ -18,7 +15,6 @@ law cam_basis_is_orthonormal {
        and cross(b.right, b.up) ~= (vec3(0, 0, 0) - b.front) within 1e-5
 }
 
-# Roll turns the up vector about the front vector and nothing else.
 law cam_roll_rotates_about_front {
     forall (o: xcNoRoll, r: float(-180, 180))
     => let plain = xcOrient(o) in
@@ -26,8 +22,6 @@ law cam_roll_rotates_about_front {
        rolled.front ~= plain.front within 1e-5 and abs(dot(rolled.up, plain.up) - cos(radians(r))) < 1e-4
 }
 
-# Rotating the orientation by a rigid rotation (a portal crossing) rotates its whole basis, whatever the frame, and the frame stays a
-# proper rotation.
 law cam_rotate_maps_basis {
     forall (o: xcAny, q: unitQuat())
     => let bef = xcOrient(o) in
@@ -36,13 +30,11 @@ law cam_rotate_maps_basis {
        and aft.frameOrtho < 1e-5 and abs(aft.frameDet - 1) < 1e-5
 }
 
-# Rotate by q then by its inverse: the original basis (the canonical fold may snap a roll under 0.01 degrees).
 law cam_rotate_then_inverse_restores {
     forall (o: xcAny, q: unitQuat())
     => xcBasisNear(xcRotate(xcRotate(o, q), xcConj(q)), xcOrient(o), 1e-3)
 }
 
-# A long sequence of crossings (a loop of portals) must not let the frame drift away from a rotation, and must equal the product.
 law cam_many_rotations_do_not_drift {
     forall (o: xcAny, qs: listOf(unitQuat(), 20, 120))
     => let r = xcRotateMany(o, qs) in
@@ -52,7 +44,6 @@ law cam_many_rotations_do_not_drift {
        and abs(length(r.front) - 1) < 1e-5 and abs(dot(r.front, r.up)) < 1e-5
 }
 
-# Folding an upright frame back into identity plus angles never changes what the camera sees.
 law cam_canonical_preserves_view {
     forall (f: xcUprightFrame, yaw: float(-180, 180), pitch: float(-85, 85), roll: float(-180, 180), tiny: float(-1e-6, 1e-6))
     => let o = {frame: f, yaw: yaw, pitch: pitch, roll: roll} in
@@ -64,14 +55,11 @@ law cam_canonical_preserves_view_any_frame {
     => xcBasisNear(xcCanonical(o), xcOrient(o), 1e-3)
 }
 
-# An upright frame (rotation about +Y only) folds to identity: no frame is kept, the angles carry the heading.
 law cam_canonical_upright_has_no_frame {
     forall (f: xcUprightFrame, yaw: float(-180, 180), pitch: float(-85, 85))
     => let c = xcCanonical({frame: f, yaw: yaw, pitch: pitch, roll: 0, framed: true}) in not c.framed
 }
 
-# Decomposing a world front / up into angles relative to a frame and rebuilding gives the same vectors; the yaw lands within 180
-# degrees of the hint.
 law cam_decompose_roundtrip {
     forall (o: xcAny, f: unitQuat(), hint: float(-720, 720))
     => let target = xcOrient(o) in
@@ -79,20 +67,15 @@ law cam_decompose_roundtrip {
        abs(d.yaw - hint) <= 180.0001 and d.front ~= target.front within 1e-3 and d.up ~= target.up within 1e-3
 }
 
-# ---------------------------------------------------------------- relax (turn upright, roll decays)
-
 gen xcTarget = unitVec3()
 gen xcTilted = {frame: unitQuat(), yaw: float(-180, 180), pitch: float(-80, 80), roll: float(-180, 180)}
 
-# While the frame turns toward the target up and the roll decays, the view direction does not move (as long as the pitch stays inside
-# the limit; beyond it the excess pitch decays, which is the one allowed motion of the front).
 law cam_relax_keeps_view_direction {
     forall (o: xcTilted, t: xcTarget, seconds: float(0.1, 2), n: int(3, 60))
     => let s = xcRelax(o, t, 1.0 / 60, seconds, n) in
        abs(s[1].pitch) <= 89 ==> forall k in range(len(s)): s[k].front ~= s[0].front within 2e-3
 }
 
-# After about `seconds` the relax is finished: no roll left, the frame up equals the target up, the camera is not relaxing any more.
 law cam_relax_converges {
     forall (o: xcTilted, t: xcTarget, seconds: float(0.05, 1.5))
     => let s = xcRelax(o, t, 1.0 / 60, seconds, toInt(seconds * 60 * 4) + 30) in
@@ -100,14 +83,12 @@ law cam_relax_converges {
        not end.relaxing and abs(end.roll) < 0.05 and abs(end.pitch) <= 89.05 and end.frameUp ~= normalize(t) within 2e-3
 }
 
-# Critically damped: the roll shrinks monotonically from the moment the frame is turned, it never swings through zero.
 law cam_relax_roll_never_overshoots {
     forall (o: xcTilted, t: xcTarget, seconds: float(0.1, 2), dt: float(0.004, 0.05))
     => let s = xcRelax(o, t, dt, seconds, 120) in
        forall k in range(1, len(s) - 1): abs(s[k + 1].roll) <= abs(s[k].roll) + 0.1 and (abs(s[k].roll) < 0.1 or s[k + 1].roll * s[k].roll >= 0 or abs(s[k + 1].roll) < 0.1)
 }
 
-# Once a relax has finished it stays finished: nothing but a new crossing starts it again.
 law cam_relax_stays_finished {
     forall (o: xcTilted, t: xcTarget, seconds: float(0.1, 2), dt: float(0.004, 0.05))
     => let s = xcRelax(o, t, dt, seconds, 120) in
@@ -121,9 +102,6 @@ example cam_relax_stays_finished {
     dt = 0.004
 }
 
-# Excess pitch (beyond the limit after the turn) decays toward the limit and never undershoots it. The frame is tilted about x by a and
-# the local pitch is chosen so the world pitch relative to an upright frame is just beyond 89 degrees (the front is within a degree of
-# the target up), which is rare for a random orientation.
 gen xcExcess = bind(float(20, 60), fn(a) => bind(float(89.1, 89.95), fn(world) => {frame: axisAngle(vec3(1, 0, 0), a), yaw: -90, pitch: world - a, roll: float(-180, 180)}))
 law cam_relax_pitch_excess_never_overshoots {
     forall (o: xcExcess, seconds: float(0.4, 2), dt: float(0.004, 0.02))
@@ -137,14 +115,12 @@ law cam_relax_pitch_excess_converges_to_the_limit {
        abs(last(s).pitch) <= 89.05 and not last(s).relaxing
 }
 
-# `seconds <= 0` means at once.
 law cam_relax_at_once {
     forall (o: xcTilted, t: xcTarget)
     => let s = xcRelax(o, t, 1.0 / 60, 0, 1) in
        not s[1].relaxing and s[1].roll == 0 and s[1].frameUp ~= normalize(t) within 2e-3
 }
 
-# Relaxing an orientation that is already upright (identity frame, target +Y) is the identity.
 law cam_relax_upright_is_noop {
     forall (yaw: float(-180, 180), pitch: float(-85, 85), dt: float(0.001, 0.1), seconds: float(0, 2))
     => let o = {yaw: yaw, pitch: pitch, roll: 0} in
@@ -152,9 +128,6 @@ law cam_relax_upright_is_noop {
        forall k in range(1, len(s)): not s[k].relaxing and xcBasisNear(s[k], s[0], 1e-5)
 }
 
-# ---------------------------------------------------------------- crossing the camera
-
-# Camera::transformBy: position, front, up follow the rigid transform exactly and the basis stays orthonormal.
 law cam_transform_by_is_rigid_map {
     forall (o: xcAny, p: xpPos, s: xpPairAny)
     => let t = xpPair(s).ta in
@@ -163,7 +136,6 @@ law cam_transform_by_is_rigid_map {
        and abs(dot(r.front, r.up)) < 1e-4 and abs(dot(r.right, r.front)) < 1e-4 and abs(length(r.right) - 1) < 1e-4
 }
 
-# Crossing A -> B and straight back B -> A is the identity on the view.
 law cam_cross_and_back_is_identity {
     forall (o: xcAny, p: xpPos, s: xpPairAny)
     => let pair = xpPair(s) in
@@ -173,7 +145,6 @@ law cam_cross_and_back_is_identity {
        xmDiff(back.view, original.view) < 5e-3
 }
 
-# Camera::setRotation then getRotation (upright frame, away from the poles).
 law cam_set_rotation_roundtrip {
     forall (q: unitQuat(), p: xpPos)
     where abs((q * vec3(0, 0, -1)).y) < 0.999

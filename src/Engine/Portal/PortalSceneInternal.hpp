@@ -1,7 +1,5 @@
 #pragma once
 
-// Shared pieces of the portal test scenes (PortalScene.cpp, PortalTiltScene.cpp): room shells with openings, props, lights.
-
 namespace portal_scene {
 
 struct Builder {
@@ -114,7 +112,6 @@ inline void props(Builder& builder, const std::string& name, const glm::vec3& ce
     builder.box(name + " core", center + glm::vec3(-0.3f, 0.9f, -0.3f) * scale, center + glm::vec3(0.3f, 1.5f, 0.3f) * scale, glow);
 }
 
-// Look of a test scene pair: metal frame with a glowing reveal and rim in the pair colour.
 inline PortalLook accentLook(const glm::vec3& color, PortalShape shape = PortalShape::Rect) {
     PortalLook look;
     look.shape = shape;
@@ -127,7 +124,6 @@ inline PortalLook accentLook(const glm::vec3& color, PortalShape shape = PortalS
     return look;
 }
 
-// portal_tilt (PortalTiltScene.cpp): hub with a wall-to-floor, a ceiling, a 45 degree rolled and a 180 degree flipped portal.
 void tiltScene(PortalSystem& portals, World& world, const PortalSceneKit& kit);
 
 }

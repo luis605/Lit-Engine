@@ -5,13 +5,6 @@
 #include "instance_cull.glsl"
 #include "material.glsl"
 
-// Level 2 of the instance cull: one workgroup per cell accepted by instance_cells.comp, one thread per instance.
-// Per instance: free mask, frustum (or cascade planes / local shadow faces), draw distance with a seed-dithered fade,
-// Hi-Z (camera), LOD from the screen-space size (camera) or shadow texels (cascades, local views). Survivors are appended
-// to the phase's visible entries and draw-bucket counts exactly like objects (cull.comp), so prefix sum, scatter,
-// command_gen, the surface pipelines and the cluster LOD path draw them with one instanced draw per (shader, mesh, LOD).
-// Early phase: only instances visible last frame (their bit); failures clear the bit. Retest: the rest; survivors set it.
-
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430) readonly buffer CellCounterBuffer {
@@ -42,7 +35,6 @@ layout(std430) buffer VisibilityBuffer {
 
 uint forcedLod() { return u_config.y == ICULL_FORCED_NONE ? ICULL_FORCED_NONE : min(u_config.y, POINT_LOD); }
 
-// Appends `entry` (bucket in the low 16 bits of .y) for every lane with `visible`; returns false for lanes that overflowed.
 bool appendVisible(bool visible, uvec2 entry) {
     uvec4 ballot = subgroupBallot(visible);
     uint total = subgroupBallotBitCount(ballot);
@@ -52,7 +44,6 @@ bool appendVisible(bool visible, uvec2 entry) {
     uint slot = subgroupBroadcastFirst(base) + subgroupBallotExclusiveBitCount(ballot);
     bool written = visible && slot < u_counts.y;
     if (written) u_visibleObjects[slot] = entry;
-    // Bucket counts only for written entries: a count without its entry would draw a stale one.
     uint bucket = entry.y & 0xFFFFu;
     bool pending = written;
     while (subgroupBallotBitCount(subgroupBallot(pending)) > 0u) {

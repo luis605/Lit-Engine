@@ -41,7 +41,6 @@ uint64_t Tape::draw(uint64_t bound) {
         if (bound == std::numeric_limits<uint64_t>::max()) {
             value = next();
         } else {
-            // Unbiased bounded draw (Lemire).
             const uint64_t range = bound + 1;
             __uint128_t product = static_cast<__uint128_t>(next()) * range;
             uint64_t low = static_cast<uint64_t>(product);
@@ -101,10 +100,9 @@ namespace {
 
 int64_t clampTarget(int64_t lo, int64_t hi) { return std::clamp<int64_t>(0, lo, hi); }
 
-// Simplest-first table of nasty floats.
 const double kNasty[] = {0.0,
                          -0.0,
-                         1.0e-45,  // denormal (float)
+                         1.0e-45,
                          -1.0e-45,
                          static_cast<double>(FLT_MIN),
                          1.0e30,
@@ -114,14 +112,12 @@ const double kNasty[] = {0.0,
                          std::numeric_limits<double>::infinity(),
                          -std::numeric_limits<double>::infinity(),
                          std::numeric_limits<double>::quiet_NaN(),
-                         1.0e-310,  // denormal (double)
+                         1.0e-310,
                          1.0e300,
                          -1.0e300,
                          static_cast<double>(FLT_EPSILON),
                          16777217.0};
 
-// Alphabet of the text generator, simplest first: lower case, digits, upper case, punctuation, whitespace and escapes, then bytes that
-// break naive parsers (NUL, DEL, control characters, multi-byte UTF-8 and an invalid byte).
 const std::vector<std::string>& alphabet() {
     static const std::vector<std::string> table = [] {
         std::vector<std::string> out;
@@ -132,10 +128,10 @@ const std::vector<std::string>& alphabet() {
         out.emplace_back(std::string(1, '\0'));
         out.emplace_back("\x7f");
         out.emplace_back("\x01");
-        out.emplace_back("\xc3\xa9");          // e acute
-        out.emplace_back("\xe6\xbc\xa2");      // CJK
-        out.emplace_back("\xf0\x9f\x98\x80");  // emoji
-        out.emplace_back("\xff");              // invalid UTF-8
+        out.emplace_back("\xc3\xa9");
+        out.emplace_back("\xe6\xbc\xa2");
+        out.emplace_back("\xf0\x9f\x98\x80");
+        out.emplace_back("\xff");
         return out;
     }();
     return table;
@@ -150,8 +146,6 @@ Value Interp::draw(const GenV& g) {
     Value out;
     switch (g.kind) {
     case GenKind::Int: {
-        // shape 0: the target (0 or the bound nearest it); otherwise sign and magnitude, the magnitude always recorded over the full
-        // span: 1, 2 force the far end (lo / hi), 3..5 force a small offset, 6..9 are uniform.
         const int64_t target = clampTarget(g.lo, g.hi);
         const uint64_t up = static_cast<uint64_t>(g.hi) - static_cast<uint64_t>(target);
         const uint64_t down = static_cast<uint64_t>(target) - static_cast<uint64_t>(g.lo);
@@ -170,8 +164,6 @@ Value Interp::draw(const GenV& g) {
         break;
     }
     case GenKind::Float: {
-        // As int: shape 0 is the target; 1, 2 the far ends; 3 a small multiple of 0.5; 4..9 uniform. The fraction choice always spans
-        // the full side, so shrinking it walks the value toward the target.
         const double target = std::clamp(0.0, g.flo, g.fhi);
         const double up = g.fhi - target;
         const double down = target - g.flo;
@@ -271,7 +263,6 @@ Value Interp::draw(const GenV& g) {
         const double y = 1.0 - 2.0 * a;
         const double r = std::sqrt(std::max(0.0, 1.0 - y * y));
         const double phi = 2.0 * 3.14159265358979323846 * b;
-        // Angle: 0 first, then multiples of 45 degrees, then anything.
         const uint64_t shape = t.draw(3);
         double degrees = 0.0;
         if (shape == 1) degrees = 45.0 * static_cast<double>(t.draw(7));

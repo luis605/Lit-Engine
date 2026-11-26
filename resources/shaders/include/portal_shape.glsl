@@ -1,10 +1,3 @@
-// Portal opening shape and edge coverage (docs/Portals.md, "Frames and edges"), shared by portal_composite.frag and
-// portal_resolve.frag so both agree on which pixels belong to the opening.
-//   shape: x type (0 rect, 1 ellipse, 2 rounded), y corner radius (m), z feather (px), w dissolve (0..1)
-//   edge:  x rim strength, y rim width (m), z refraction (px), w chromatic split (px)
-// Everything is spatial: no history, no previous frame.
-
-// Signed distance (metres, negative inside) of a point on the portal plane (p in metres along the quad axes) to the opening.
 float portalShapeDistance(vec2 p, vec2 halfSize, vec4 shape) {
     vec2 a = abs(p);
     int type = int(shape.x + 0.5);
@@ -38,21 +31,15 @@ vec3 portalViewRay(vec2 fragCoord, mat4 invView, vec4 params) {
     return normalize((invView * vec4(ndc.x / params.x, ndc.y / params.y, -1.0, 0.0)).xyz);
 }
 
-// How a pixel's view ray meets the portal (the visible part of the ray starts at the near plane, `nearDistance` along the
-// view `forward`): 0 = not through the portal, 1 = it reaches the plane from the front at ray distance t, 2 = its visible part
-// already starts behind the plane (a near-plane piece passed through the opening, or the eye sits just behind the exit after a
-// crossing): the room behind is seen from the nearest depth on. The inside-the-opening test is separate (portalCoverage).
 int portalRayMode(vec3 origin, vec3 dir, vec3 forward, float nearDistance, vec4 center, vec4 normal, out float t) {
     float facing = dot(normal.xyz, dir);
     float denom = abs(facing) < 1e-6 ? 1e-6 : facing;
     t = dot(normal.xyz, center.xyz - origin) / denom;
     vec3 start = origin + dir * (nearDistance / max(dot(dir, forward), 1e-4));
-    // A start on the plane (within float noise, e.g. the eye exactly `near` behind the exit right after a crossing) is in front.
     if (dot(normal.xyz, start - center.xyz) > -2e-4) return facing < 0.0 && t > 0.0 ? 1 : 0;
     return 2;
 }
 
-// Plane hit of a ray in quad metres; t is the ray distance (negative behind the origin).
 vec2 portalPlaneHit(vec3 origin, vec3 dir, vec4 center, vec4 axisU, vec4 axisV, vec4 normal, out float t) {
     float facing = dot(normal.xyz, dir);
     float denom = abs(facing) < 1e-6 ? 1e-6 : facing;
@@ -61,9 +48,6 @@ vec2 portalPlaneHit(vec3 origin, vec3 dir, vec4 center, vec4 axisU, vec4 axisV, 
     return vec2(dot(q, axisU.xyz) * sqrt(axisU.w), dot(q, axisV.xyz) * sqrt(axisV.w));
 }
 
-// Coverage of the opening at this pixel (1 inside, 0 outside): anti-aliased over `shape.z` pixels using the distance one pixel
-// right and down (analytic, no derivatives), times the optional dissolve of the rim band. `distancePixels` is the signed
-// distance in pixels, `outward` the screen direction away from the opening, `p` / `sd` the metres position and distance.
 float portalCoverage(vec2 fragCoord, vec3 origin, mat4 invView, vec4 params, vec4 center, vec4 axisU, vec4 axisV, vec4 normal, vec4 shape, vec4 edge,
                      out vec2 p, out float sd, out float distancePixels, out vec2 outward) {
     vec2 halfSize = vec2(inversesqrt(max(axisU.w, 1e-12)), inversesqrt(max(axisV.w, 1e-12)));

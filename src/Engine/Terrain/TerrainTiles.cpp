@@ -37,14 +37,12 @@ void collectTiles(const TerrainConfig& config, const glm::vec3& camera, const Lo
     out.push_back(key);
 }
 
-// Restricted quadtree: while a leaf has a neighbour two or more levels coarser, split that neighbour.
 uint32_t balanceLeaves(std::vector<TileKey>& leaves, int maxLevel) {
     uint32_t splits = 0;
     for (int pass = 0; pass < maxLevel + 2; ++pass) {
         std::map<std::array<int, 3>, size_t> index;
         for (size_t i = 0; i < leaves.size(); ++i) index[{leaves[i].level, leaves[i].x, leaves[i].z}] = i;
         const auto find = [&](int level, long long px, long long pz) -> int {
-            // Leaf containing the cell (px, pz) of level 0 units scaled: search from fine to coarse.
             for (int l = 0; l <= maxLevel; ++l) {
                 const long long shift = l;
                 const auto it = index.find({l, static_cast<int>(px >> shift), static_cast<int>(pz >> shift)});
@@ -56,7 +54,6 @@ uint32_t balanceLeaves(std::vector<TileKey>& leaves, int maxLevel) {
         std::vector<char> split(leaves.size(), 0);
         bool any = false;
         for (const TileKey& leaf : leaves) {
-            // Position of the leaf in level-0 tile units and its extent.
             const long long extent = 1LL << leaf.level;
             const long long x0 = static_cast<long long>(leaf.x) * extent;
             const long long z0 = static_cast<long long>(leaf.z) * extent;
@@ -108,7 +105,6 @@ glm::vec3 tileOrigin(const TerrainConfig& config, const TileKey& key) {
 std::string tileName(const TileKey& key) { return "terrain " + std::to_string(key.x) + "," + std::to_string(key.z) + "," + std::to_string(key.level); }
 
 std::array<glm::vec4, 6> frustumPlanes(const glm::mat4& m) {
-    // Rows of the matrix: glm is column-major, so row r is (m[0][r], m[1][r], m[2][r], m[3][r]).
     const auto row = [&](int r) { return glm::vec4(m[0][r], m[1][r], m[2][r], m[3][r]); };
     std::array<glm::vec4, 6> planes = {row(3) + row(0), row(3) - row(0), row(3) + row(1), row(3) - row(1), row(2), row(3) - row(2)};
     for (glm::vec4& plane : planes) {

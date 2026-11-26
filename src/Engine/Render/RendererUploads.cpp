@@ -166,7 +166,6 @@ void Renderer::uploadMeshInfo() {
     const size_t meshInfoCount = std::min<size_t>(gMeshInfos.size(), kMaxMeshes);
     if (!uploadMeshletMeshInfo(meshInfoCount)) LIT_UPDATE_DIFF(gpu.pImmediateContext, gpu.pMeshInfoBuffer, 0, meshInfoCount * sizeof(MeshInfo), gMeshInfos.data());
     if (!gNormalSamples.empty()) LIT_UPDATE_DIFF(gpu.pImmediateContext, gpu.pNormalSampleBuffer, 0, std::min(gNormalSamples.size(), gMeshInfos.size() * kNormalSamples) * sizeof(glm::vec4), gNormalSamples.data());
-    // Cluster LOD zeroes the triangle LOD slots of cluster meshes in the buffer above; virtual shadow casters draw those meshes from their triangle LODs.
     if (gpu.pMeshInfoBufferFull) LIT_UPDATE_DIFF(gpu.pImmediateContext, gpu.pMeshInfoBufferFull, 0, meshInfoCount * sizeof(MeshInfo), gMeshInfos.data());
     m_meshInfoDirty = false;
 }

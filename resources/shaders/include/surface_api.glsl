@@ -20,13 +20,13 @@ struct VertexContext {
     float time;
     vec4 custom0;
     vec4 custom1;
-    vec4 instanceColor;  // per-instance tint of an InstanceBatch instance (RGBA, 1 for ordinary objects)
-    uint instanceSeed;   // per-instance 24-bit seed (ordinary objects: a hash of the entity id)
+    vec4 instanceColor;
+    uint instanceSeed;
 };
 
 struct SurfaceInput {
-    vec3 worldPosition;    // local (render-space) position, camera relative math
-    vec3 patternPosition;  // worldPosition + origin phase: sample procedural world-space patterns with this (stable across floating-origin rebases)
+    vec3 worldPosition;
+    vec3 patternPosition;
     vec3 objectPosition;
     vec3 viewDirection;
     vec3 geometricNormal;
@@ -38,12 +38,10 @@ struct SurfaceInput {
     vec4 custom0;
     vec4 custom1;
     bool frontFacing;
-    vec4 instanceColor;  // as VertexContext
+    vec4 instanceColor;
     uint instanceSeed;
 };
 
-// Wind sway for foliage (vertex()): bends the mesh-local position along `direction` (xz), growing with height above the
-// base (quadratic, `height` = mesh height at which the offset reaches `amplitude`), with a per-instance phase.
 vec3 litWindSway(vec3 position, float time, uint seed, vec2 direction, float amplitude, float height, float frequency) {
     float h = max(position.y, 0.0) / max(height, 1e-3);
     float phase = float(seed & 0xFFFFu) * (6.2831853 / 65536.0);

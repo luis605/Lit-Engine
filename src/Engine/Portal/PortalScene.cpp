@@ -70,7 +70,6 @@ void loopScene(PortalSystem& portals, World& world, const PortalSceneKit& kit) {
         portalEnd.halfSize = glm::vec2(hw, hy);
         return portalEnd;
     };
-    // Openings sit a sill above the floor so the frame reveal never shares the floor's plane.
     const float y = hy + kSill;
     portals.addPair("AB", end("A", glm::vec3(5.0f, y, 0.0f), -90.0f), end("B", glm::vec3(19.0f, y, 0.0f), 90.0f), 0.0f, accentLook(glm::vec3(1.0f, 0.85f, 0.2f), PortalShape::Rounded));
     portals.addPair("BC", end("B", glm::vec3(29.0f, y, 0.0f), -90.0f), end("C", glm::vec3(43.0f, y, 0.0f), 90.0f), 0.0f, accentLook(glm::vec3(0.2f, 0.9f, 1.0f), PortalShape::Ellipse));
@@ -169,7 +168,6 @@ void buildPortalFrames(const PortalSystem& portals, World& world, const PortalSc
             }
             continue;
         }
-        // No procedural meshes: four bars of the unit cube, oriented with the portal.
         const glm::vec2 h = portal.half;
         const float w = style.width;
         const std::array<std::array<glm::vec3, 2>, 4> bars = {{{glm::vec3(-h.x - w, -h.y - w, -style.back), glm::vec3(-h.x, h.y + w, style.depth)},

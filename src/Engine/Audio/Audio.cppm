@@ -76,7 +76,6 @@ export class AudioMixer {
     void setVoicePath(VoiceId id, const AudioPath& path);
     void setVoiceBus(VoiceId id, const std::string& bus);
     [[nodiscard]] const glm::vec3& listenerPosition() const { return m_listenerPos; }
-    // Floating origin: listener and every voice position -= shift.
     void shiftOrigin(const glm::vec3& shift);
 
     void update(const ParamBus* params = nullptr);

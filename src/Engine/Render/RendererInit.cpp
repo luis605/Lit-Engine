@@ -17,7 +17,7 @@ module;
 #endif
 #include <GLFW/glfw3native.h>
 
-std::string LitDescriptorIndexingAudit(Diligent::IRenderDevice* device);  // VulkanAudit.cpp (plain translation unit)
+std::string LitDescriptorIndexingAudit(Diligent::IRenderDevice* device);
 
 module Engine.renderer;
 
@@ -59,10 +59,7 @@ bool PipelineCacheDisabled() {
     return value && value[0] == '1';
 }
 
-// VkPipelineCache persistence (Diligent IPipelineStateCache). Diligent validates the header (vendor, device, pipeline
-// cache UUID) and starts empty on a mismatch, so a cache from another driver or GPU is ignored, never trusted.
 bool BindlessRequested() {
-    // The bindless texture table (LIT_BINDLESS_TEXTURES, docs/RenderGraph.md) needs the same device features.
     const char* value = std::getenv("LIT_BINDLESS");
     return (value && value[0] == '1') || litgpu::bindlessTexturesRequested();
 }
@@ -71,8 +68,6 @@ const char* FeatureState(Diligent::DEVICE_FEATURE_STATE state) {
     return state == Diligent::DEVICE_FEATURE_STATE_ENABLED ? "enabled" : state == Diligent::DEVICE_FEATURE_STATE_OPTIONAL ? "optional" : "disabled";
 }
 
-// Bindless audit: what the adapter supports, what the device was created with (LIT_BINDLESS=1 requests the Diligent
-// bindless features), and the Vulkan descriptor-indexing limits. Logged once at start-up.
 void LogBindlessAudit(DiligentData& gpu) {
     const Diligent::GraphicsAdapterInfo& adapter = gpu.pDevice->GetAdapterInfo();
     const Diligent::DeviceFeatures& enabled = gpu.pDevice->GetDeviceInfo().Features;
@@ -110,7 +105,7 @@ void SavePipelineCache(DiligentData& gpu) {
         out.write(static_cast<const char*>(blob->GetConstDataPtr()), static_cast<std::streamsize>(blob->GetSize()));
         if (!out) return;
     }
-    std::filesystem::rename(temporary, PipelineCachePath(), error);  // atomic replace: concurrent runs never read a torn file
+    std::filesystem::rename(temporary, PipelineCachePath(), error);
 }
 
 }
@@ -132,12 +127,10 @@ void Renderer::createDevice() {
     engineInfo.Features.MeshShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     engineInfo.Features.VariableRateShading = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     if (BindlessRequested()) {
-        // Bindless (docs/RenderGraph.md): descriptor indexing + runtime arrays for the texture table (LIT_BINDLESS_TEXTURES).
         engineInfo.Features.BindlessResources = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
         engineInfo.Features.ShaderResourceRuntimeArrays = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     }
-    // Per-frame dynamic buffer/texture maps (light lists, VSM requests, skinning palettes, UI) overflow Diligent's 8 MB default
-    // and force the GPU to idle ("Space in dynamic heap is almost exhausted").
+    // Diligent's 8 MB default dynamic heap overflows with per-frame maps and forces a GPU idle.
     engineInfo.DynamicHeapSize = 256u << 20;
     engineInfo.DynamicHeapPageSize = 4u << 20;
     engineInfo.ppIgnoreDebugMessageNames = kIgnoredValidationMessages;

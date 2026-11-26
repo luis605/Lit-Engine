@@ -1,6 +1,3 @@
-// Bent builtins for terrain height, LOD tile selection, scatter, splat weights and instancing
-// (tests/bent/laws/ext_portal_terrain.bent, ext_portal_instancing.bent). Pure functions of their arguments.
-
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -100,8 +97,6 @@ void registerTerrain(Program& p) {
         return listV(std::move(list));
     });
 
-    // Height samples of a tile: the collider data against the height function at the same positions, edges vs neighbours, and a ray
-    // cast onto a HeightfieldCollider built from the samples.
     reg(p, "xtTile", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 4, loc, "xtTile");
         const TerrainConfig config = terrainOf(a[0], loc);
@@ -117,7 +112,6 @@ void registerTerrain(Program& p) {
                 sampleErr = std::max(sampleErr, std::abs(field->at(x, z) - terrainHeight(config, wx, wz)));
             }
         }
-        // Collider queries at vertices and edge midpoints (field space: the entity origin is the tile corner).
         const HeightfieldData& data = *field;
         float rayVertexErr = 0.0f;
         float rayEdgeErr = 0.0f;
@@ -137,7 +131,6 @@ void registerTerrain(Program& p) {
                     rayVertexErr = std::max(rayVertexErr, std::abs((top - hit->distance) - field->at(x, z)));
                 }
                 heightAtErr = std::max(heightAtErr, std::abs(heightfieldHeightAt(data, lx, lz) - field->at(x, z)));
-                // Mid point of the x edge between (x, z) and (x + 1, z): on the grid line, so linear.
                 const float mx = lx + 0.5f * field->cellSize;
                 const std::optional<HeightfieldHit> mid = heightfieldRaycast(data, glm::vec3(mx, top, lz), glm::vec3(0.0f, -1.0f, 0.0f), 4000.0f);
                 if (mid) rayEdgeErr = std::max(rayEdgeErr, std::abs((top - mid->distance) - 0.5f * (field->at(x, z) + field->at(x + 1, z))));
@@ -145,7 +138,6 @@ void registerTerrain(Program& p) {
             }
         }
         ValueList edges;
-        // Left / right / near / far edge rows as lists of heights.
         const auto edge = [&](int fixedAxis, int index) {
             ValueList row;
             for (int i = 0; i < (fixedAxis == 0 ? field->samplesZ : field->samplesX); ++i) row.push_back(numV(fixedAxis == 0 ? field->at(index, i) : field->at(i, index)));
@@ -203,7 +195,6 @@ void registerTerrain(Program& p) {
         return recV({{"grass", numV(w.x)}, {"rock", numV(w.y)}, {"sand", numV(w.z)}, {"snow", numV(w.w)}, {"dominant", intV(static_cast<int>(dominant))}});
     });
 
-    // Terrain streamer in deterministic mode along a camera path: resident / visible tile sets per step.
     reg(p, "xtStream", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 3, loc, "xtStream");
         TerrainLoaderConfig loader;
@@ -242,8 +233,6 @@ void registerTerrain(Program& p) {
     });
 }
 
-// ---------------------------------------------------------------- instancing
-
 InstanceData instanceOf(const Value& value, const SrcLoc& loc) {
     const Rec r = rec(value, loc);
     InstanceData d;
@@ -269,7 +258,6 @@ Value batchV(const InstanceBatch& batch) {
 }
 
 void registerInstancing(Program& p) {
-    // Apply operations {op, ...} to an InstanceBatch (keys kept when given) and report the final batch and the per-op results.
     reg(p, "xiBatch", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 3, loc, "xiBatch");
         InstanceBatch batch;
@@ -324,11 +312,10 @@ void registerInstancing(Program& p) {
         return intV(instanceLodForDiameter(static_cast<float>(argNumber(a[0], loc, "diameter"))));
     });
 
-    // Allocator model: ops {op: "alloc", cells} / {op: "free", slot} / {op: "clear"}; reports results and state after every op.
     reg(p, "xiPool", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 2, loc, "xiPool");
         InstanceAllocator pool(static_cast<uint32_t>(argInt(a[0], loc, "limit")));
-        std::vector<std::pair<uint32_t, uint32_t>> live;  // first, cells of every successful allocation (index = allocation number)
+        std::vector<std::pair<uint32_t, uint32_t>> live;
         std::vector<bool> freed;
         ValueList steps;
         for (const Value& item : argList(a[1], loc, "ops")) {
@@ -345,7 +332,6 @@ void registerInstancing(Program& p) {
                 }
             } else if (name == "free") {
                 if (!live.empty()) {
-                    // The n-th still-live allocation, modulo the live count.
                     std::vector<size_t> alive;
                     for (size_t i = 0; i < live.size(); ++i) {
                         if (!freed[i]) alive.push_back(i);
@@ -368,7 +354,6 @@ void registerInstancing(Program& p) {
         return recV({{"steps", listV(std::move(steps))}, {"allocations", listV(std::move(liveList))}});
     });
 
-    // Spatial cells of a batch: the order is a permutation, chunks of 64 form cells, every cell sphere contains its live instances.
     reg(p, "xiCellBounds", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 3, loc, "xiCellBounds");
         std::vector<InstanceData> instances;
@@ -384,7 +369,6 @@ void registerInstancing(Program& p) {
             const size_t count = std::min<size_t>(kInstanceCellSize, order.size() - first);
             const std::span<const uint32_t> slots(order.data() + first, count);
             const InstanceCellGpu cell = buildInstanceCell(instances, slots, meshSphere, 3);
-            // Worst containment violation: instance mesh sphere extends beyond the cell sphere.
             float worst = -1.0e30f;
             uint32_t live = 0;
             for (uint32_t slot : slots) {
@@ -402,7 +386,6 @@ void registerInstancing(Program& p) {
         return recV({{"order", listV(std::move(orderList))}, {"cells", listV(std::move(cells))}});
     });
 
-    // CPU reference cull of a batch from a perspective camera.
     reg(p, "xiCull", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 2, loc, "xiCull");
         const Rec b = rec(a[0], loc);

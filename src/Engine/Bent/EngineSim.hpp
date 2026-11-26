@@ -1,7 +1,5 @@
 #pragma once
 
-// Internal to BentEngine. Include after the engine module imports (Engine.engine, Engine.World, Engine.Physics, Engine.Nav, ...).
-
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -43,7 +41,6 @@ class EngineSim final : public Sim {
     Value observe(const std::string& name, Interp& interp, const ValueList& args, const NamedArgs& named, const SrcLoc& loc) override;
     [[nodiscard]] uint64_t ticks() const override { return m_ticks; }
 
-    // Replay support (replayMatches): record input to `path`, or replay it and ignore input actions.
     void startRecording(const std::string& path);
     void stopRecording();
     bool startReplay(const std::string& path);
@@ -54,7 +51,7 @@ class EngineSim final : public Sim {
     [[nodiscard]] EntityHandle resolve(const Value& target, const SrcLoc& loc, bool allowNull = false) const;
     [[nodiscard]] Value refOf(EntityHandle handle);
 
-    std::shared_ptr<void> extWorld;  // per-sim state of Ext_World.cpp (declared first: destroyed after the engine)
+    std::shared_ptr<void> extWorld;
     std::unique_ptr<Engine> m_engine;
     std::vector<EntityHandle> m_refs;
     std::map<EntityHandle, int64_t, bool (*)(const EntityHandle&, const EntityHandle&)> m_refIndex{[](const EntityHandle& a, const EntityHandle& b) { return a.index != b.index ? a.index < b.index : a.generation < b.generation; }};
@@ -68,13 +65,12 @@ class EngineSim final : public Sim {
     bool m_deltas = false;
     InputState m_input;
     uint64_t m_ticks = 0;
-    // Portal crossings of the camera (cameraWalk): largest pose discontinuity against the portal transform, count, ping-pongs.
     double m_portalError = 0.0;
     int64_t m_crossings = 0;
     int64_t m_pingPongs = 0;
     int m_lastCrossed = -1;
     int64_t m_impulses = 0;
-    std::vector<glm::vec3> m_pendingForces;  // per ref, applied for m_forceTicks
+    std::vector<glm::vec3> m_pendingForces;
     std::vector<int64_t> m_forceTicks;
 
   private:
@@ -85,7 +81,6 @@ class EngineSim final : public Sim {
     void walkCamera(const glm::vec3& delta, int64_t steps, const std::function<bool()>& onTick);
 };
 
-// Helpers shared by the action and observation files.
 [[nodiscard]] glm::vec3 toVec(const Value& value, const SrcLoc& loc, const char* what);
 [[nodiscard]] glm::quat toQuat(const Value& value, const SrcLoc& loc, const char* what);
 [[nodiscard]] Value fromVec(const glm::vec3& v);

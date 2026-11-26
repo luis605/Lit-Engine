@@ -25,11 +25,6 @@ import Engine.Render.graph;
 #include "RendererInternal.hpp"
 #include "RendererGraph.hpp"
 
-// Frame graph of the main view (docs/RenderGraph.md). Every pass wraps the same renderer / lighting call as the
-// immediate path in RendererFrame.cpp, in the same order, so the output is unchanged; what the graph adds is the
-// declared resource usage (dependencies, explicit state transitions, culling, transient placement), the GpuPass
-// timestamp scopes and the dump. Portal views add their passes in RendererPortalViews.cpp.
-
 namespace {
 
 using rg::Usage;
@@ -125,7 +120,7 @@ void* DiligentGraphBackend::createTexture(const rg::TextureDesc& desc, std::stri
     Diligent::ITexture* texture = nullptr;
     m_gpu.pDevice->CreateTexture(description, nullptr, &texture);
     if (!texture) Lit::Log::Error("Render graph: failed to create transient texture '{}' ({}x{})", label, desc.width, desc.height);
-    return Native(texture);  // the pool owns this reference (destroy releases it)
+    return Native(texture);
 }
 
 void* DiligentGraphBackend::createBuffer(const rg::BufferDesc& desc, std::string_view name) {
@@ -145,7 +140,6 @@ void* DiligentGraphBackend::createBuffer(const rg::BufferDesc& desc, std::string
 
 void DiligentGraphBackend::destroy(void* native, rg::ResourceType type) {
     if (!native) return;
-    // Diligent defers the release of resources the GPU may still use (frames in flight).
     if (type == rg::ResourceType::Texture) static_cast<Diligent::ITexture*>(native)->Release();
     else static_cast<Diligent::IBuffer*>(native)->Release();
 }
@@ -172,9 +166,8 @@ void DiligentGraphBackend::transition(std::span<const rg::Barrier> barriers) {
                 continue;
             }
             const Diligent::RESOURCE_STATE current = texture->GetState();
-            if (current == Diligent::RESOURCE_STATE_UNKNOWN) continue;  // per-mip transitions left no whole-resource state
+            if (current == Diligent::RESOURCE_STATE_UNKNOWN) continue;
             if (current == state && state != Diligent::RESOURCE_STATE_UNORDERED_ACCESS) continue;
-            // A texture that leaves an attachment state may still be bound to the framebuffer: unbind first.
             if (IsAttachmentState(current) && !IsAttachmentState(state)) unbind = true;
             m_descs.push_back(Diligent::StateTransitionDesc{texture, Diligent::RESOURCE_STATE_UNKNOWN, state, Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE});
         } else {
@@ -242,7 +235,7 @@ void Renderer::addShadowPasses(rg::RenderGraph& graph, FrameGraphData& frame, ui
         pass.read(frame.sceneUbo, Usage::None);
         pass.read(frame.objects, Usage::None);
         pass.read(frame.vertices, Usage::None);
-        pass.write(frame.vsmAtlas, Usage::None);  // pages are cleared and drawn as depth, faces and page table updated
+        pass.write(frame.vsmAtlas, Usage::None);
     }, [this, objectCount, portalView](rg::PassContext&) {
         if (portalView) {
             for (bool& valid : m_diligent->shadowHiZValid) valid = false;
@@ -284,7 +277,6 @@ void Renderer::addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, 
             pass.write(frame.phases[phase], Usage::None);
         }, [this, phase, objectCount, texture](rg::PassContext&) { cullVisibilityPhase(phase, objectCount, texture); });
     };
-    // Instance batches (docs/Instancing.md): cells then instances, appended to the phase's entries before its command generation.
     auto instanceCull = [&](const char* name, GpuPass timing, int phase, rg::Handle hiz, Diligent::ITexture* texture) {
         if (!instancingActive()) return;
         graph.addPass(name, [&](rg::PassBuilder& pass) {
@@ -325,7 +317,6 @@ void Renderer::addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, 
             bindSceneTargets(clear);
             drawVisibilityPhase(phase, false);
         });
-        // Same render targets: the backend issues no barrier, so the framebuffer stays bound for the cluster draws.
         graph.addPass(meshletName, [&](rg::PassBuilder& pass) {
             pass.timing(timed(timing));
             targets(pass);
@@ -340,7 +331,7 @@ void Renderer::addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, 
     graph.addPass("Hi-Z", [&](rg::PassBuilder& pass) {
         pass.timing(timed(GpuPass::HiZ));
         pass.read(frame.depth, Usage::ShaderResource);
-        pass.write(hizCurrent, Usage::None);  // written mip by mip
+        pass.write(hizCurrent, Usage::None);
     }, [this, history](rg::PassContext&) {
         auto& state = *m_diligent;
         UnbindRenderTargets(state.pImmediateContext);
@@ -385,7 +376,7 @@ void Renderer::addResolvePasses(rg::RenderGraph& graph, FrameGraphData& frame, i
     if (viewIndex > 0 && node.masked) {
         const rg::Handle scratch = graph.createTexture(rg::viewResourceName(node.key, "maskScratch"), depthDesc);
         graph.addPass("Portal Mask", [&](rg::PassBuilder& pass) {
-            pass.write(scratch, Usage::None);  // bound, never sampled in mask mode
+            pass.write(scratch, Usage::None);
             pass.write(frame.depth, Usage::DepthWrite);
         }, [this, viewIndex, scratch](rg::PassContext& context) {
             auto& state = *m_diligent;
@@ -406,7 +397,7 @@ void Renderer::addResolvePasses(rg::RenderGraph& graph, FrameGraphData& frame, i
         }
         pass.write(scratch, Usage::CopyDest);
         for (const rg::Handle target : frame.gbuffer) pass.write(target, Usage::RenderTarget);
-        pass.write(frame.depth, Usage::None);  // copied to the scratch, then bound for the depth test
+        pass.write(frame.depth, Usage::None);
     }, [this, viewIndex, scratch](rg::PassContext& context) {
         auto& state = *m_diligent;
         if (auto* texture = context.as<Diligent::ITexture>(scratch)) {
@@ -479,7 +470,7 @@ void Renderer::addShadePasses(rg::RenderGraph& graph, FrameGraphData& frame, int
         for (const rg::Handle target : frame.gbuffer) pass.read(target, Usage::ShaderResource);
         pass.read(frame.sceneUbo, Usage::None);
         pass.access(reflections);
-        pass.write(frame.hdr, Usage::None);  // read for the colour pyramid, written by GI apply and the composite
+        pass.write(frame.hdr, Usage::None);
     }, [shade](rg::PassContext&) { shade(2); });
     if (frame.portalsActive) {
         if (main) {
@@ -515,7 +506,6 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
     }
     rg::RenderGraph& graph = state.graph;
     graph.reset();
-    // Per-view portal outputs are graph transients now: nothing may survive from the previous frame.
     for (int index = 0; index < kMaxPortalViews; ++index) {
         gpu.portalColor[index].Release();
         gpu.portalDepth[index].Release();
@@ -550,7 +540,6 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
     }
     frame.accumulation = graph.importTexture("oitAccumulation", Native(gpu.pAccumulation.RawPtr()));
     frame.revealage = graph.importTexture("oitRevealage", Native(gpu.pRevealage.RawPtr()));
-    // Lighting may recreate these while the frame runs (shadow resolution, VSM pool size): resolve when a pass runs.
     graph.setExternalResolver([this](std::string_view name) { return m_lighting.graphResource(name); });
     graph.setTimingNames(std::vector<std::string>(kGpuPassNames.begin(), kGpuPassNames.end()));
     frame.shadowMap = graph.importTexture("lighting/shadowMap", std::function<void*()>([this] { return Native(m_lighting.shadowMap()); }));
@@ -564,7 +553,7 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
     }, [this, &plan, &sceneDatabase](rg::PassContext&) { plan = uploadSceneData(sceneDatabase); });
     graph.addPass("Instance Upload", [&](rg::PassBuilder& pass) {
         pass.timing(static_cast<int>(GpuPass::Upload));
-        pass.write(frame.instances, Usage::None);  // pool, cells and batch records (the pool may be re-created when it grows)
+        pass.write(frame.instances, Usage::None);
         pass.sideEffect();
     }, [this](rg::PassContext&) { uploadInstances(); });
     graph.addPass("Transforms", [&](rg::PassBuilder& pass) {
@@ -576,7 +565,7 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
     });
     graph.addPass("Skinning", [&](rg::PassBuilder& pass) {
         pass.timing(static_cast<int>(GpuPass::Transform));
-        pass.write(frame.vertices, Usage::None);  // deformed vertices of dynamic meshes, refit bounds, deform stamps
+        pass.write(frame.vertices, Usage::None);
         pass.write(frame.objects, Usage::None);
     }, [this](rg::PassContext&) { updateDynamicMeshes(); });
     graph.addPass("Frame Setup", [&](rg::PassBuilder& pass) {
@@ -631,7 +620,7 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
         pass.write(frame.accumulation, Usage::RenderTarget);
         pass.write(frame.revealage, Usage::RenderTarget);
         pass.write(frame.depth, Usage::DepthWrite);
-        pass.write(frame.hdr, Usage::None);  // sampled for the colour pyramid, then the OIT composite target
+        pass.write(frame.hdr, Usage::None);
         pass.read(frame.phases[kPhaseTransparent], Usage::None);
         pass.read(frame.meshlets[kPhaseTransparent], Usage::None);
     }, [this](rg::PassContext&) {
@@ -664,11 +653,11 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
     }();
     graph.addPass("Post", [&](rg::PassBuilder& pass) {
         pass.timing(static_cast<int>(GpuPass::Post));
-        pass.read(frame.hdr, Usage::None);  // the HDR target may have been swapped by custom effects
+        pass.read(frame.hdr, Usage::None);
         pass.read(frame.hdrOther, Usage::None);
         pass.read(frame.depth, Usage::None);
         pass.access(post);
-        pass.sideEffect();  // writes the swap chain
+        pass.sideEffect();
     }, [this, &frame](rg::PassContext&) {
         auto& state = *m_diligent;
         m_lighting.finish(state.pSceneUBO[m_currentFrame], state.pSwapChain->GetCurrentBackBufferRTV(), frame.input.deltaTime, [&](Diligent::ITexture* ldr) {
@@ -706,7 +695,6 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
         WriteText(dumpPath + ".dot", graph.dumpDot());
         Lit::Log::Info("Render graph dump written to {}.txt and {}.dot ({} passes, {} culled, {} transients in {} physical resources)", dumpPath, dumpPath, state.stats.passes, state.stats.culledPasses, state.stats.allocatedTransients, state.stats.physicalTransients);
     }
-    // Drop the frame's references to transients (the pool keeps them for the next frame).
     for (int index = 0; index < kMaxPortalViews; ++index) {
         gpu.portalColor[index].Release();
         gpu.portalDepth[index].Release();

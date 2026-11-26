@@ -1,5 +1,3 @@
-# World-free services of the core: Rng (PCG32 and named streams), TextTable, JobSystem / AsyncJobs, ParamBus and curves,
-# gizmo math helpers, replay files. Every native here builds its own standalone object per call.
 include "../lib/ext_world.bent"
 
 gen seedGen = oneof(int(0, 5), int(0, 4294967295), int(0, 9007199254740992))
@@ -7,9 +5,6 @@ gen seqGen = oneof(int(0, 5), int(0, 4294967295))
 fn sumOf(xs) = fold(xs, 0.0, fn(a, x) => a + x)
 fn meanOf(xs) = sumOf(xs) / len(xs)
 
-# ---------------------------------------------------------------- Pcg32
-
-# Known answer: the reference pcg32 demo (seed 42, stream 54) and FNV-1a name hashes.
 law pcg32_matches_the_reference_implementation {
     rngSeq(42, 54, 6) == [0xa15c02b7, 0x7b47f409, 0xba1d3330, 0x83d2f293, 0xbfa4784b, 0xcbed606e]
 }
@@ -23,14 +18,12 @@ law pcg32_outputs_are_32_bit {
     => all(rngSeq(seed, seq, 200), fn(x) => x >= 0 and x <= 4294967295)
 }
 
-# Different streams of the same seed are different sequences; different seeds of the same stream too.
 law pcg32_streams_and_seeds_are_independent {
     forall (seed: seedGen, s1: seqGen, s2: seqGen, seed2: seedGen)
     where s1 != s2 and seed != seed2
     => rngSeq(seed, s1, 8) != rngSeq(seed, s2, 8) and rngSeq(seed, s1, 8) != rngSeq(seed2, s1, 8)
 }
 
-# save (state, increment), restore into a fresh generator: both continue identically.
 law pcg32_restore_continues_the_sequence {
     forall (seed: seedGen, seq: seqGen, skip: int(0, 300))
     => let r = rngRestoreCheck(seed, seq, skip, 50) in r.original == r.restored and r.equalObjects
@@ -41,7 +34,6 @@ law pcg32_below_stays_below_the_bound {
     => all(rngBelowSeq(seed, 1, bound, 300), fn(x) => (if bound == 0 then x == 0 else x < bound))
 }
 
-# Chi-square: below(b) is uniform over 0..b-1 (threshold far in the tail: a false alarm is a one-in-a-million event).
 law pcg32_below_is_uniform {
     forall (seed: seedGen, bound: int(2, 24))
     => let n = 400 * bound in
@@ -52,7 +44,6 @@ law pcg32_below_is_uniform {
        chi < dof + 7 * sqrt(2 * dof) + 12
 }
 
-# No modulo bias for bounds that are a large fraction of 2^32 (a plain `x % bound` makes the lowest third twice as likely here).
 law pcg32_below_has_no_modulo_bias {
     forall (seed: seedGen)
     => let bound = 3221225472 in
@@ -72,14 +63,12 @@ law pcg32_range_stays_in_range {
     => all(rngRangeSeq(seed, 1, lo, lo + width, 200), fn(x) => x >= lo - 1e-6 * (1 + abs(lo)) and x <= lo + width + 1e-6 * (1 + abs(lo)))
 }
 
-# rangeInt is inclusive on both ends, and every value of a small range occurs.
 law pcg32_range_int_is_inclusive_and_covers_small_ranges {
     forall (seed: seedGen, lo: int(-50, 50), span: int(0, 7))
     => let xs = rngRangeIntSeq(seed, 1, lo, lo + span, 400) in
        all(xs, fn(x) => x >= lo and x <= lo + span) and (forall v in range(lo, lo + span + 1): contains(xs, v))
 }
 
-# The widest int range must not collapse (span 2^32 wraps to 0 in 32-bit arithmetic).
 law pcg32_range_int_over_the_full_int_range_is_not_constant {
     forall (seed: seedGen)
     => len(dedup(rngRangeIntSeq(seed, 1, -2147483648, 2147483647, 50))) > 10
@@ -91,12 +80,9 @@ law pcg32_chance_extremes_and_frequency {
        and abs(count(rngChanceSeq(seed, 2, p, 2000), fn(b) => b) / 2000.0 - p) < 0.07
 }
 
-# ---------------------------------------------------------------- RandomService (named streams)
-
 gen streamName = elements(["main", "a", "b", "physics", "loot", ""])
 gen streamOps = listOf([streamName, int(0, 12)], 1, 12)
 
-# A named stream is exactly Pcg32(seed, hashName(name)) however the draws of other streams are interleaved with it.
 law named_streams_are_pure_and_independent {
     forall (seed: seedGen, ops: streamOps, name: streamName)
     => let results = rngService(seed, ops) in
@@ -104,14 +90,12 @@ law named_streams_are_pure_and_independent {
        cover("draws from the stream", len(mine) > 0) and mine == rngSeq(seed, hashName(name), len(mine))
 }
 
-# Reseeding restarts every existing stream and re-seeds streams created later.
 law reseeding_restarts_streams {
     forall (seed: seedGen, seed2: seedGen, name: streamName, n: int(1, 10), m: int(1, 10))
     => let r = rngService(seed, [[name, n], ["@seed", seed2], [name, m]]) in
        r[0] == rngSeq(seed, hashName(name), n) and r[2] == rngSeq(seed2, hashName(name), m)
 }
 
-# The same holds in a whole world: draws from a stream depend only on the world seed and the stream, not on what the scene did.
 law world_streams_follow_the_seed_not_the_scene {
     forall (p: program, sd: seedGen, name: elements(["loot", "ai", "x"]), n: int(1, 20))
     => after(p ++ [seed(n: sd), rngDraw(stream: name, n: n)]) { map(rngLog(), fn(e) => e[1]) } == rngSeq(sd, hashName(name), n)
@@ -121,8 +105,6 @@ law world_reseed_restarts_world_streams {
     forall (p: program, s1: seedGen, s2: seedGen, n: int(1, 10))
     => after(p ++ [seed(n: s1), rngDraw(stream: "loot", n: n), seed(n: s2), rngDraw(stream: "loot", n: n)]) { map(rngLog(), fn(e) => e[1]) } == rngSeq(s1, hashName("loot"), n) ++ rngSeq(s2, hashName("loot"), n)
 }
-
-# ---------------------------------------------------------------- TextTable
 
 fn setAt(xs, i, v) = map(enumerate(xs), fn(pair) => if pair[0] == i then v else pair[1])
 fn tableStep(m, op) =
@@ -142,19 +124,14 @@ gen tableOp = frequency([
     [1, ["clear"]]
 ])
 
-# TextTable (names and tags of every entity) behaves like a plain list of strings under set / erase / move / resize / clear, and
-# recycles its string slots without ever mixing two entries up.
 law text_table_matches_a_list_model {
     forall (size: int(0, 30), ops: listOf(tableOp, 0, 60))
     => textTableRun(size, ops) == fold(ops, repeat("", size), tableStep)
 }
 
-# ---------------------------------------------------------------- JobSystem and AsyncJobs
-
 gen jobCount = oneof(int(0, 5), int(0, 300), int(1000, 4000))
 gen grainGen = oneof(int(0, 3), int(1, 64), int(100, 5000))
 
-# parallelFor visits every index exactly once, with disjoint chunks that cover [0, count), whatever the worker count.
 law parallel_for_visits_every_index_once {
     forall (n: jobCount, grain: grainGen, workers: int(0, 8))
     => let r = jobsRun(n, grain, workers, 1) in
@@ -169,7 +146,6 @@ law parallel_for_results_do_not_depend_on_the_worker_count {
     => jobsRun(n, grain, w1, 1).values == jobsRun(n, grain, w2, 1).values and jobsRun(n, grain, w1, 1).values == map(range(0, n), fn(i) => i * i + 7)
 }
 
-# Several threads may submit parallelFor on one JobSystem at the same time: every pass completes, nothing is lost or doubled.
 law parallel_for_survives_concurrent_submitters {
     forall (n: int(1, 800), grain: int(1, 40), workers: int(1, 6), submitters: int(2, 4))
     => let r = jobsRun(n, grain, workers, submitters) in all(r.visits, fn(v) => v == submitters) and r.badChunks == 0
@@ -177,8 +153,6 @@ law parallel_for_survives_concurrent_submitters {
 
 gen prio = int(-3, 3)
 
-# AsyncJobs: every job runs exactly once, cancellation tokens set before submission are honoured (the callback still runs once, told
-# it was cancelled), and the pool drains.
 law async_jobs_run_every_job_exactly_once {
     forall (workers: int(1, 4), prios: listOf(prio, 0, 40), seed: int(0, 1000))
     => let mask = map(enumerate(prios), fn(pair) => (pair[0] * 7 + seed) % 3 == 0) in
@@ -188,19 +162,15 @@ law async_jobs_run_every_job_exactly_once {
        map(r.cancelled, fn(c) => c == 1) == mask and r.cancelledJobs == count(mask, fn(m) => m) and r.pending == 0
 }
 
-# With one worker, lower priority numbers run first and ties run in submission order.
 law async_jobs_run_in_priority_order_on_one_worker {
     forall (prios: listOf(prio, 0, 40))
     => asyncRun(1, prios, map(prios, fn(p) => false)).order == map(sortBy(enumerate(prios), fn(pair) => pair[1] * 1000 + pair[0]), fn(pair) => pair[0])
 }
 
-# Destroying the pool with jobs still queued does not lose them.
 law async_jobs_destructor_runs_the_queue {
     forall (workers: int(1, 4), n: int(0, 300))
     => all(asyncDestroyRun(workers, n), fn(c) => c == 1)
 }
-
-# ---------------------------------------------------------------- ParamBus
 
 gen pname = elements(["x", "y", "z", "gain", "mix"])
 gen pbound = float(-10, 10)
@@ -212,8 +182,6 @@ gen paramOp = frequency([
     [1, ["snapAll"]]
 ])
 
-# Values and targets always stay within [min, max] (declared bounds are ordered) and finite; the GPU-facing value array always
-# equals the per-parameter value; slots are unique and below 256.
 law param_values_stay_in_bounds_and_in_sync {
     forall (ops: listOf(paramOp, 1, 40))
     => let r = paramRun(ops) in
@@ -221,7 +189,6 @@ law param_values_stay_in_bounds_and_in_sync {
        all(r.params, fn(p) => p.busValue == p.value) and allDistinct(map(r.params, fn(p) => p.slot)) and all(r.params, fn(p) => p.slot >= 0 and p.slot < 256)
 }
 
-# Smoothing moves the value toward the target monotonically and never overshoots it, for any step size.
 law param_smoothing_never_overshoots {
     forall (start: float(-5, 5), target: float(-5, 5), smooth: float(0.05, 3), dts: listOf(float(0.001, 5), 1, 20))
     => let ops = [["declare", "p", start, smooth, -10, 10], ["set", "p", target]] ++ map(dts, fn(dt) => ["update", dt]) in
@@ -231,14 +198,12 @@ law param_smoothing_never_overshoots {
        all(zip(values, tail(values)), fn(pair) => abs(pair[1] - target) <= abs(pair[0] - target) + 1e-5)
 }
 
-# smoothing 0 means: the value follows the target on the next update.
 law param_without_smoothing_follows_on_update {
     forall (start: float(-5, 5), target: float(-5, 5), dt: float(0.001, 1))
     => let r = paramRun([["declare", "p", start, 0, -10, 10], ["set", "p", target], ["update", dt]]) in
        r.params[0].value ~= target within 1e-6 and r.trace[1][0][0] ~= start within 1e-6
 }
 
-# The smoothing is frame rate independent: one step of dt equals n steps of dt / n.
 law param_smoothing_is_frame_rate_independent {
     forall (start: float(-5, 5), target: float(-5, 5), smooth: float(0.05, 3), dt: float(0.01, 2), n: int(2, 30))
     => let one = paramRun([["declare", "p", start, smooth, -10, 10], ["set", "p", target], ["update", dt]]) in
@@ -246,14 +211,12 @@ law param_smoothing_is_frame_rate_independent {
        abs(one.params[0].value - many.params[0].value) < 2e-3
 }
 
-# Out-of-range or non-finite writes never break a parameter.
 law param_set_clamps_and_ignores_non_finite {
     forall (lo: float(-5, 0), hi: float(0, 5), v: nasty(float(-100, 100)))
     => let r = paramRun([["declare", "p", 0, 0, lo, hi], ["set", "p", v], ["update", 0.1]]) in
        r.params[0].value >= lo - 1e-6 and r.params[0].value <= hi + 1e-6 and isFinite(r.params[0].value)
 }
 
-# There are exactly 256 slots: declaring more names than that never corrupts the table.
 law param_slots_run_out_cleanly {
     forall (extra: int(0, 40))
     => let r = paramRun(map(range(0, 256 + extra), fn(i) => ["declare", "p" ++ str(i), i, 0, -1000, 1000])) in
@@ -263,7 +226,6 @@ law param_slots_run_out_cleanly {
 gen curveXs = map(listOf(float(0.01, 4), 2, 8), fn(steps) => drop(fold(steps, [0.0], fn(acc, d) => acc ++ [last(acc) + d]), 0))
 gen curvePoints = bind(curveXs, fn(xs) => map(listOf(float(-10, 10), len(xs), len(xs)), fn(ys) => zip(xs, ys)))
 
-# Curves hit their control points, stay within their value range and clamp outside the first and last point.
 law curve_interpolates_its_points {
     forall (pts: curvePoints, mode: int(0, 2), before: float(0.01, 10), beyond: float(0.01, 10))
     => let ys = map(pts, fn(p) => p[1]) in
@@ -277,7 +239,6 @@ law curve_values_stay_within_the_control_range {
        let v = curveEval(pts, mode, x) in v >= min(ys) - 1e-4 and v <= max(ys) + 1e-4
 }
 
-# Step curves are piecewise constant (value of the last control point at or before x); linear curves are continuous.
 law curve_step_and_linear_shapes {
     forall (pts: curvePoints, x: float(0, 20), h: float(0, 0.01))
     => let last_le = last(filter(pts, fn(p) => p[0] <= x)) in
@@ -286,7 +247,6 @@ law curve_step_and_linear_shapes {
        and abs(curveEval(pts, 0, x + h) - curveEval(pts, 0, x)) <= slopeMax * h + 1e-4
 }
 
-# Monotone control points give monotone curves in every mode (no overshoot between points).
 law curve_of_monotone_points_is_monotone {
     forall (xs: curveXs, ys0: listOf(float(0, 3), 8, 8), mode: int(0, 2), a: float(0, 25), b: float(0, 25))
     => let ys = take(drop(fold(take(ys0, len(xs)), [0.0], fn(acc, d) => acc ++ [last(acc) + d]), 1), len(xs)) in
@@ -294,7 +254,6 @@ law curve_of_monotone_points_is_monotone {
        curveEval(pts, mode, min(a, b)) <= curveEval(pts, mode, max(a, b)) + 1e-4
 }
 
-# A damaged parameter file is rejected with a message or loaded with distinct slots, never a crash.
 gen paramDoc = {params: {gain: {default: float(-1, 1), min: -2, max: 2, smooth: float(0, 1)}, mix: {default: 0.5, min: 0, max: 1, slot: int(0, 300)}}}
 law param_file_damage_is_total {
     forall (doc: paramDoc, at: int(0, 400), c: text(1, 1), mode: int(0, 2))
@@ -304,8 +263,6 @@ law param_file_damage_is_total {
        let r = paramLoad(m) in
        (r.ok or len(r.error) > 0) and (not r.ok or r.slotsDistinct)
 }
-
-# ---------------------------------------------------------------- gizmo math
 
 law gizmo_snap_lands_on_the_grid {
     forall (v: float(-1000, 1000), step: float(0.01, 50))
@@ -348,7 +305,6 @@ law gizmo_distance_to_segment_matches_reference {
        and gizmoDistanceToSegment(p, s, e) <= min(distance(q, a), distance(q, b)) + 1e-4
 }
 
-# Rotating a matrix about a pivot keeps the pivot fixed, keeps lengths, and is undone by the opposite rotation.
 law gizmo_rotate_about_is_a_rigid_motion_about_the_pivot {
     forall (pos: smallVec, rot: unitQuat(), pivot: smallVec, axis: unitVec3(), deg: float(-180, 180))
     => after([spawn(shape: "none", dynamic: false, pos: pos, rot: rot)]) {
@@ -365,18 +321,14 @@ law gizmo_frame_distance_fits_the_sphere {
        isFinite(d) and d >= r / sin(radians(fov / 2)) * 0.5 and (r <= r2 ==> gizmoFrameDistance(r2, fov, aspect) >= d - 1e-4)
 }
 
-# ---------------------------------------------------------------- replay files
-
 gen replayTick = [float(0.001, 0.1), listOf(oneof(int(0, 511), elements([32, 65, 87, 340])), 0, 4), vec3(float(-500, 500), float(-500, 500), 0), vec3(float(-50, 50), float(-50, 50), 0), int(0, 255)]
 gen replayTicks = listOf(replayTick, 0, 12)
 
-# Replay files round trip exactly: seed, tick count, every dt and every input field.
 law replay_file_roundtrip_is_exact {
     forall (seed: seedGen, ticks: replayTicks)
     => let r = replayRoundtrip(seed, ticks) in r.ok and r.seedEqual and r.lengthEqual and r.firstBad == -1
 }
 
-# A damaged replay is rejected or parsed, never a crash; a truncated one is not silently accepted as complete.
 law replay_file_damage_is_total {
     forall (seed: seedGen, ticks: replayTicks, at: int(0, 2000), c: text(1, 1), mode: int(0, 3))
     => let s = replayText(seed, ticks) in

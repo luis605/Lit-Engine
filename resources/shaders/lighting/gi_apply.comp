@@ -2,10 +2,6 @@
 #extension GL_GOOGLE_include_directive : require
 #include "scene.glsl"
 
-// Adds the half-resolution one-bounce indirect diffuse (gtao.comp GI_PASS, gathered from this
-// frame's lit colour and spatially denoised) to the lit HDR image. Depth-aware 2x2 upsample,
-// weighted by the receiver's diffuse colour and material occlusion. Spatial only.
-
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 uniform sampler2D u_depth;

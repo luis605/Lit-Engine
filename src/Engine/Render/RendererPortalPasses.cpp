@@ -22,7 +22,7 @@ import Engine.Render.observation;
 namespace {
 
 constexpr size_t kStatsPhaseCount = 2;
-constexpr float kPortalShimmerSpeed = 0.5f;  // rim refraction drift (spatial noise moved by time, no history)
+constexpr float kPortalShimmerSpeed = 0.5f;
 constexpr uint32_t kStatsReadbackBytes = kStatsPhaseCount * sizeof(uint32_t);
 
 void InitPortalPipelineInfo(Diligent::GraphicsPipelineStateCreateInfo& info, const char* name, Diligent::TEXTURE_FORMAT colorFormat, Diligent::COMPARISON_FUNCTION depthFunction) {
@@ -65,13 +65,10 @@ void Renderer::createPortalCompositePSO() {
     if (!gpu.pPortalUBO) gpu.pPortalUBO = CreateUniformBuffer(gpu.pDevice, "Portal Surface", sizeof(PortalSurfaceUniforms), Diligent::USAGE_DEFAULT);
     if (!vertexShader || !pixelShader || !gpu.pPortalUBO) return;
     const auto variables = DescribeVariables({vertexShader, pixelShader}, {"u_child"});
-    // Two variants: the colour-only one pastes the child image while keeping the spliced child depth
-    // for screen-space effects; the final one also writes the plane depth (occluder for transparency).
     for (const bool writeDepth : {true, false}) {
         Diligent::GraphicsPipelineStateCreateInfo info;
         InitPortalPipelineInfo(info, writeDepth ? "Portal Composite PSO" : "Portal Composite Color PSO", Diligent::TEX_FORMAT_RGBA16_FLOAT, Diligent::COMPARISON_FUNC_GREATER);
         info.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = writeDepth;
-        // Anti-aliased / dissolved opening edge: the child is blended over what lies behind the contour (the frame reveal).
         auto& blend = info.GraphicsPipeline.BlendDesc.RenderTargets[0];
         blend.BlendEnable = true;
         blend.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
@@ -217,7 +214,7 @@ void Renderer::resolvePortalDepth(int index) {
         uniforms.invView = parentInvView;
         uniforms.normalToParent = glm::mat4(glm::mat3(parentInvView) * glm::mat3(child.view));
         SetPortalSurfaceGeometry(surface, uniforms.center, uniforms.axisU, uniforms.axisV, uniforms.normal);
-        uniforms.camera = glm::vec4(node.position, gpu.mainInput.nearPlane);  // w: near plane distance (portalRayMode)
+        uniforms.camera = glm::vec4(node.position, gpu.mainInput.nearPlane);
         uniforms.params = PortalScreenParams(node, gpu);
         uniforms.shape = surface.shape;
         uniforms.edge = surface.edge;

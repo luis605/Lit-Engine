@@ -54,9 +54,8 @@ export struct GpuPassTiming {
     double milliseconds = 0.0;
 };
 
-// Last executed frame graph (docs/RenderGraph.md).
 export struct RenderGraphInfo {
-    bool active = false;  // RenderSettings::renderGraph (LIT_RENDER_GRAPH=0/1 overrides at start-up)
+    bool active = false;
     rg::GraphStats stats;
     uint32_t poolResources = 0;
 };
@@ -78,20 +77,16 @@ export class Renderer {
     [[nodiscard]] int height() const { return m_windowHeight; }
     uint32_t uploadMesh(const Mesh& mesh);
     uint32_t uploadProcessedMesh(const Mesh& optimizedMesh, const std::vector<Mesh>& lodChain);
-    // Terrain tiles: raw upload (no simplification, no point impostor). releaseMesh frees the slots and buffer ranges of any mesh uploaded as one block (uploadMesh, uploadProcessedMesh, uploadTerrainMesh) for reuse.
     uint32_t uploadTerrainMesh(const Mesh& mesh);
     void releaseMesh(uint32_t meshId);
     glm::vec4 getMeshBounds(uint32_t meshId) const;
     void setReflectionScene(const ReflectionScene& scene);
-    // Floating origin (docs/LargeWorld.md): call once per frame before drawScene. A changed origin shifts every cached world-space GPU state by the difference.
     void setWorldOrigin(const glm::dvec3& origin);
     [[nodiscard]] const glm::dvec3& worldOrigin() const { return m_worldOrigin; }
     [[nodiscard]] uint64_t originRebases() const { return m_originRebases; }
     void bakeProbes();
     void setLights(bool enabled, const std::array<glm::vec4, 2>& directional, const std::vector<glm::vec4>& packed);
-    // Portal cell per light (setLights order); empty = no per-cell light filtering (docs/Portals.md).
     void setLightCells(const std::vector<int32_t>& cells);
-    // Portal lights (images of lights of neighbouring cells, appended after the ordinary lights): first index and apertures.
     void setLightApertures(uint32_t first, const std::vector<LightAperture>& apertures);
     void reloadShaders();
     void setMaterial(uint32_t index, const Material& material);
@@ -112,17 +107,12 @@ export class Renderer {
     [[nodiscard]] std::vector<ShaderError> surfaceErrors() const;
     void addDebugLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, bool overlay = false);
     void uploadBasePositions(const std::vector<glm::vec3>& basePositions);
-    // Cluster LOD (dense geometry, RendererMeshlets.cpp): attaches the cluster DAG of an uploaded mesh.
     void uploadClusterMesh(uint32_t meshId, const ClusterMesh& clusters);
     [[nodiscard]] ClusterRenderStats clusterStats() const;
-    // GPU instancing (RendererInstancing.cpp, docs/Instancing.md): Engine::syncInstanceBatches mirrors every InstanceBatch component.
     uint32_t createInstanceBatch();
     void syncInstanceBatch(uint32_t batch, const InstanceBatch& data, Entity owner, bool visible);
     void destroyInstanceBatch(uint32_t batch);
     [[nodiscard]] InstanceRenderStats instanceStats() const;
-    // Dynamic meshes (skinning, morph targets, procedural deform; RendererSkinning.cpp, docs/Skinning.md).
-    // A source holds the shared rest data; every instance owns a mesh id whose vertices a compute pass rewrites,
-    // so culling, shadows, Hi-Z and portal views draw it like any other mesh.
     uint32_t createDynamicSource(const DynamicMesh& mesh);
     uint32_t createDynamicInstance(uint32_t source);
     [[nodiscard]] uint32_t dynamicMeshId(uint32_t instance) const;
@@ -144,15 +134,12 @@ export class Renderer {
     [[nodiscard]] std::vector<GpuEntityState> readGpuEntityStates(size_t count);
     [[nodiscard]] std::vector<GpuPassTiming> gpuTimings() const;
     [[nodiscard]] double gpuTotalMilliseconds() const;
-    // Render graph: statistics of the last graph frame, and a text + Graphviz dump of the next one (<path>.txt, <path>.dot).
     [[nodiscard]] RenderGraphInfo renderGraphInfo() const;
     void requestGraphDump(std::string path);
     [[nodiscard]] std::string lastGraphDump() const;
     void setProfilingHud(bool enabled) { m_profilingHud = enabled; }
     void requestScreenshot(std::string path) { m_screenshotPath = std::move(path); }
     void setPortalFrame(PortalFrame frame);
-    // The image is continuous across a crossing (the destination was already on screen), so exposure keeps adapting instead of
-    // snapping (a snap jumps to the converged value: a visible pop). Only the colour pyramid of the previous space is dropped.
     void portalCrossed() { m_lighting.setPyramidValid(false); }
     void setObservationQuery(ObservationQuery query);
     void clearObservationQuery();
@@ -237,7 +224,6 @@ export class Renderer {
     void shadeScene(bool portalsActive);
     void renderTransparentAndCustomEffects();
     void finishFrame(const FrameInput& frameInput, const Camera& camera);
-    // Frame graph path (RendererGraph.cpp, RendererPortalViews.cpp): same passes, declared resources and states.
     void renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& camera, float currentFrameTime, float deltaTime, uint32_t objectCount);
     void addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, int viewIndex, uint32_t objectCount, PortalHistory* history);
     void addShadowPasses(rg::RenderGraph& graph, FrameGraphData& frame, uint32_t objectCount, bool timed);
@@ -265,8 +251,6 @@ export class Renderer {
     void rollMeshletStats();
     void buildMeshletDraws(int phaseIndex, uint32_t views);
     void drawMeshletSurfaces(int phaseIndex, int cascade, uint32_t view);
-    // Shadow-texel LOD metric of the next shadow-phase cluster build: per view (xyz light origin, w
-    // texels per unit at distance 1), or orthographic (bit set in orthoMask: w texels per unit).
     void setMeshletShadowLod(std::span<const glm::vec4> views, uint32_t orthoMask);
     [[nodiscard]] bool meshletsActive() const;
     [[nodiscard]] bool meshletMeshInfoStale() const;
@@ -371,17 +355,15 @@ export class Renderer {
     bool m_initialized = false;
     bool m_meshInfoDirty = true;
     bool m_fullProfiling = false;
-    bool m_viewSunShadows = true;  // false while rendering a view whose portal cell has sun scale 0: its cascades are skipped
-    // Sun cascades shared between the views of a frame (docs/Portals.md): the set fitted for the main camera is reused by
-    // every sunlit portal view whose visible region it covers; `resident` while the shadow map holds that set.
+    bool m_viewSunShadows = true;
     struct SharedCascades {
         std::array<Cascade, 4> cascades{};
         bool valid = false;
         bool resident = false;
     };
     SharedCascades m_sharedCascades;
-    bool m_cascadeShared = false;  // the view being rendered uses the shared set
-    bool m_cascadeReuse = false;   // ... and it is already in the shadow map: the view renders no cascades
+    bool m_cascadeShared = false;
+    bool m_cascadeReuse = false;
     void beginSharedCascades();
     void selectViewCascades(int index, const PortalViewNode& node, SceneUniforms& uniforms);
     void selectMainCascades();
@@ -429,7 +411,7 @@ export class Renderer {
     Lighting m_lighting;
     CustomPasses m_custom;
     DiligentData* m_diligent = nullptr;
-    std::shared_ptr<void> m_meshlets;  // MeshletState, RendererMeshlets.cpp
-    std::shared_ptr<void> m_instancing;  // InstancingState, RendererInstancing.cpp
+    std::shared_ptr<void> m_meshlets;
+    std::shared_ptr<void> m_instancing;
     Diligent::ITexture* m_meshletHiZ = nullptr;
 };

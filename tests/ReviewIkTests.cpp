@@ -237,7 +237,7 @@ void testSpiderOptionsDegenerate() {
         SpiderOptions{.stepHeight = kQuiet, .stride = kQuiet},
     };
     for (const SpiderOptions& options : variants) {
-        
+
         World world;
         const EntityHandle body = makeSpider(world, glm::vec3(0.0f), options);
         if (world.isAlive(body)) setWalkerTarget(world, body, glm::vec3(1.0f, 0.0f, -3.0f));

@@ -40,7 +40,7 @@ void main() {
     if (abs(dot(q, axisU.xyz) * axisU.w) > 1.0 || abs(dot(q, axisV.xyz) * axisV.w) > 1.0) discard;
     vec4 clip = viewProjection * vec4(camera.xyz + dir * t, 1.0);
     float planeDepth = clamp(clip.z / max(clip.w, 1e-6), 0.0, 1.0);
-    if (texelFetch(u_sceneDepth, pixel, 0).r > planeDepth + 1e-5) discard;  // reversed Z: larger = nearer
+    if (texelFetch(u_sceneDepth, pixel, 0).r > planeDepth + 1e-5) discard;
     float childDepth = texelFetch(u_childDepth, pixel, 0).r;
     if (childDepth <= 0.0) {
         gl_FragDepth = 0.0;

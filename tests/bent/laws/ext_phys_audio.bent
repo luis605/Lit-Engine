@@ -1,5 +1,3 @@
-# Audio: mixer gain bounds, muting, bus gains, ducking, distance attenuation, propagation (occlusion, hops) and the voice scheduler.
-# audioRender renders 512-frame blocks of sine voices through an AudioMixer; audioTrace runs AudioPropagation; audioSched a VoiceScheduler.
 include "../lib/ext_phys.bent"
 
 gen voiceGen = {freq: float(100, 2000), amp: float(0.05, 0.9), gain: float(0.1, 1), spatial: bool(), pitch: elements([0.5, 1.0, 2.0, 4.0]),
@@ -7,7 +5,6 @@ gen voiceGen = {freq: float(100, 2000), amp: float(0.05, 0.9), gain: float(0.1, 
 fn mixRender(voices, extra) = audioRender(with(extra, voices: voices, blocks: 4))
 fn nonSpatial(v) = with(v, spatial: false)
 
-# Output never exceeds the sum of voice amplitude x voice gain x bus gains (pan gains, attenuation and low-pass only ever lower it), and is finite.
 law audio_mix_peak_bounded_by_gains {
     forall (voices: listOf(voiceGen, 1, 5), master: float(0, 1.5), bus: float(0, 1))
     => let vs = map(voices, fn(v) => with(v, bus: "fx")) in
@@ -16,7 +13,6 @@ law audio_mix_peak_bounded_by_gains {
        not r.nonFinite and r.peak <= bound * 1.02 + 1e-4
 }
 
-# A muted bus, and a bus at gain 0, produce silence.
 law audio_muted_or_zero_gain_bus_is_silent {
     forall (voices: listOf(voiceGen, 1, 4), mute: bool())
     => let vs = map(voices, fn(v) => with(v, bus: "fx")) in
@@ -24,7 +20,6 @@ law audio_muted_or_zero_gain_bus_is_silent {
        r.peak < 1e-6
 }
 
-# Linear bus gain scales the output linearly (non spatial voices): half the gain, half the level.
 law audio_bus_gain_scales_output_linearly {
     forall (v: voiceGen, g: float(0.1, 1), k: float(0.2, 0.9))
     => let one = mixRender([with(nonSpatial(v), bus: "fx")], {buses: [{name: "fx", gain: g}]}) in
@@ -32,7 +27,6 @@ law audio_bus_gain_scales_output_linearly {
        one.rmsL > 1e-4 and abs(part.rmsL / one.rmsL - k) < 0.02 and abs(part.rmsR / one.rmsR - k) < 0.02
 }
 
-# Attenuation is monotone in distance: the same voice further away is never louder, is silent beyond max distance and full level inside min.
 law audio_attenuation_monotone_in_distance {
     forall (v: voiceGen, d1: float(0.2, 40), d2: float(0.2, 40), angle: float(0, 360))
     => let near = min(d1, d2) in
@@ -45,7 +39,6 @@ law audio_attenuation_monotone_in_distance {
        loud(rf) <= loud(rn) * 1.02 + 1e-9 and (near > v.max ==> loud(rn) < 1e-6)
 }
 
-# Distance attenuation follows min / distance (energy ratio inverse square) between min distance and the fade region.
 law audio_inverse_distance_law {
     forall (amp: float(0.2, 0.8), dmin: float(1, 3), k: float(1.2, 4))
     => let v = {freq: 440.0, amp: amp, gain: 1.0, spatial: true, pitch: 1.0, min: dmin, max: 100.0, loop: true, seconds: 1.0} in
@@ -57,7 +50,6 @@ law audio_inverse_distance_law {
        abs(eb / ea - 1.0 / (k * k)) < 0.05 / (k * k) + 0.01
 }
 
-# Ducking: while the trigger bus plays, the target bus gain drops to 10^(-dB/20) at most and never goes above 1; a deeper duck is lower.
 law audio_ducking_is_monotone_in_depth {
     forall (db1: float(-30, -3), db2: float(-30, -3), amp: float(0.3, 0.9))
     => let trigger = {freq: 220.0, amp: amp, gain: 1.0, spatial: false, bus: "voice", loop: true, seconds: 1.0, pos: vec3(0, 0, 0), min: 1.0, max: 50.0, pitch: 1.0} in
@@ -68,7 +60,6 @@ law audio_ducking_is_monotone_in_depth {
        d1 <= 1.0 + 1e-6 and d1 > 0 and d2 > 0 and (db1 <= db2 ==> d1 <= d2 + 1e-3) and d1 <= 1.0 - 0.3 * (1.0 - pow(10.0, db1 / 20.0))
 }
 
-# With the trigger silent nothing is ducked.
 law audio_no_trigger_no_ducking {
     forall (db: float(-30, -3), amp: float(0.3, 0.9))
     => let music = {freq: 880.0, amp: amp, gain: 1.0, spatial: false, bus: "music", loop: true, seconds: 1.0, pos: vec3(0, 0, 0), min: 1.0, max: 50.0, pitch: 1.0} in
@@ -76,12 +67,9 @@ law audio_no_trigger_no_ducking {
        last(r.ducks)[0] > 0.999
 }
 
-# ---------------------------------------------------------------- propagation
-
 gen openSource = vec3(float(-30, 30), float(-3, 3), float(-30, 30))
 fn trace1(spec, src) = head(audioTrace(with(spec, sources: [src])))
 
-# In open space the path is the straight line: audible, no hops, path length equals the distance, attenuation in [0, 1] and non increasing.
 law audio_open_air_path_is_direct_and_monotone {
     forall (a: openSource, b: openSource, listener: vec3(float(-5, 5), float(-1, 1), float(-5, 5)))
     => let spec = {listener: listener, boxes: []} in
@@ -93,7 +81,6 @@ law audio_open_air_path_is_direct_and_monotone {
        and (da < 55 and db < 55 ==> (da <= db ==> ra.attenuation >= rb.attenuation - 1e-4))
 }
 
-# An occluder never makes a sound louder or the path shorter: attenuation <= open air attenuation, path length >= distance, occlusion in [0, 1].
 law audio_occlusion_only_reduces {
     forall (src: vec3(float(8, 20), float(-1, 1), float(-5, 5)), wall: vec3(float(2, 6), float(-1, 1), float(-1, 1)), half: vec3(float(0.2, 1), float(1, 4), float(1, 4)))
     => let open = trace1({listener: vec3(0, 0, 0), boxes: []}, src) in
@@ -103,8 +90,6 @@ law audio_occlusion_only_reduces {
        and blocked.lowpassHz <= open.lowpassHz + 1e-3 and blocked.attenuation >= 0
 }
 
-# Hop routing (portals): the number of hops never exceeds maxHops; a direct path is at least as long as the straight distance, a one hop
-# route is listener -> entry + hop cost + exit -> source (hops teleport, so it can be shorter than the straight line).
 law audio_hops_are_bounded {
     forall (max: int(0, 3), src: vec3(float(10, 25), float(0, 2), float(-5, 5)), enter: vec3(float(1, 4), float(0, 2), float(-2, 2)), leave: vec3(float(5, 20), float(0, 2), float(-3, 3)))
     => let wall = {center: vec3(6, 0, 0), half: vec3(0.5, 6, 6)} in
@@ -115,7 +100,6 @@ law audio_hops_are_bounded {
        and r.attenuation >= 0 and r.attenuation <= 1.0 + 1e-6
 }
 
-# Symmetry in open air: swapping listener and source gives the same path length and attenuation.
 law audio_open_air_trace_is_symmetric {
     forall (a: vec3(float(-10, 10), float(-2, 2), float(-10, 10)), b: vec3(float(-10, 10), float(-2, 2), float(-10, 10)))
     where distance(a, b) > 0.5
@@ -124,15 +108,11 @@ law audio_open_air_trace_is_symmetric {
        abs(ab.pathLength - ba.pathLength) < 1e-2 and abs(ab.attenuation - ba.attenuation) < 1e-3
 }
 
-# ---------------------------------------------------------------- voice scheduler
-
 gen lineGen = {id: ident(2, 4), at: int(0, 60), priority: int(0, 3), interruptible: bool(), resumable: bool(), positional: false, seconds: float(0.2, 1.5)}
 fn uniqueLines(lines) = map(enumerate(lines), fn(e) => with(e[1], id: e[1].id + str(e[0])))
 fn eventsOf(r, id) = filter(r.events, fn(e) => e.id == id)
 fn kinds(es) = map(es, fn(e) => e.type)
 
-# One speaker at a time: the mixer never plays two lines, the log names the current line, and every line's events follow the legal
-# life cycle started -> (interrupted -> resumed | dropped)* -> finished|dropped|interrupted.
 law audio_scheduler_one_voice_and_legal_lifecycle {
     forall (lines: listOf(lineGen, 1, 6))
     => let ls = uniqueLines(lines) in
@@ -144,7 +124,6 @@ law audio_scheduler_one_voice_and_legal_lifecycle {
                                                   and (ks[i] == "finished" ==> (ks[i - 1] == "started" or ks[i - 1] == "resumed")))))
 }
 
-# A higher priority interruptible line enqueued while a lower priority interruptible line plays takes over at once.
 law audio_scheduler_priority_interrupts_lower {
     forall (p1: int(0, 2), gap: int(1, 3), seconds: float(0.8, 1.5), at: int(0, 10), later: int(5, 20))
     => let low = {id: "low", at: at, priority: p1, interruptible: true, resumable: true, positional: false, seconds: seconds} in

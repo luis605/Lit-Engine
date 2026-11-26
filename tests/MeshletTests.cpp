@@ -13,8 +13,6 @@ import Engine.meshlet;
 import Engine.asset;
 import Engine.mesh;
 
-// Headless tests of the cluster LOD DAG builder (Engine.meshlet) and its .litmesh cache section.
-
 namespace {
 
 constexpr size_t kFloats = 8;
@@ -24,7 +22,6 @@ struct Soup {
     std::vector<uint32_t> indices;
 };
 
-// Closed, welded icosphere with low-frequency displacement (so simplification has real error).
 Soup makeBumpySphere(int subdivisions) {
     const float t = (1.0f + std::sqrt(5.0f)) * 0.5f;
     std::vector<std::array<float, 3>> points = {{-1, t, 0}, {1, t, 0}, {-1, -t, 0}, {1, -t, 0}, {0, -1, t}, {0, 1, t}, {0, -1, -t}, {0, 1, -t}, {t, 0, -1}, {t, 0, 1}, {-t, 0, -1}, {-t, 0, 1}};
@@ -71,8 +68,6 @@ std::array<uint32_t, 3> triangle(const ClusterMesh& mesh, const MeshCluster& clu
 
 float distance(const float* a, const float* b) { return std::sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2])); }
 
-// Counts how many selected triangles use each undirected edge. A closed input must give exactly 2
-// for every edge in every cut; 1 means a crack (T-junction or hole) between clusters of different LOD.
 size_t openEdges(const ClusterMesh& mesh, const std::vector<uint32_t>& cut) {
     std::map<std::pair<uint32_t, uint32_t>, int> edges;
     for (const uint32_t id : cut) {
@@ -82,8 +77,6 @@ size_t openEdges(const ClusterMesh& mesh, const std::vector<uint32_t>& cut) {
             for (int e = 0; e < 3; ++e) ++edges[std::minmax(tri[e], tri[(e + 1) % 3])];
         }
     }
-    // Count 1 is a crack. Even counts above 2 are pinched (non-manifold) edges that only the final
-    // whole-mesh simplification can create; they leave no gap, so they are not cracks.
     size_t open = 0;
     for (const auto& [edge, count] : edges) open += count % 2 != 0 ? 1 : 0;
     return open;
@@ -107,11 +100,9 @@ void testStructure(const Soup& soup, const ClusterMesh& mesh) {
         CHECK(cluster.vertexCount <= kClusterMaxVertices);
         CHECK(cluster.triangleCount <= kClusterMaxTriangles);
     }
-    // Errors grow monotonically along every parent link (also checked by validateClusterMesh).
     bool monotonic = true;
     for (const MeshCluster& cluster : mesh.clusters) monotonic = monotonic && cluster.parentError >= cluster.selfError;
     CHECK(monotonic);
-    // Level error bounds used by the GPU level filter are consistent with the clusters.
     for (const ClusterLevel& level : mesh.levels) {
         for (uint32_t id = level.firstCluster; id < level.firstCluster + level.clusterCount; ++id) {
             CHECK(mesh.clusters[id].selfError >= level.minSelfError);
@@ -137,7 +128,6 @@ void testBounds(const Soup& soup, const ClusterMesh& mesh) {
     CHECK(lod);
     CHECK(extent);
 
-    // Cone test (same formula as meshlet_cull.comp) never rejects a cluster with a front face.
     const float cameras[][3] = {{0, 0, 4}, {3, 2, -1}, {-2.5f, -2, 1}, {0.2f, 5, 0.1f}, {1.3f, 0.1f, 0.2f}};
     size_t rejected = 0;
     bool conservative = true;
@@ -165,7 +155,7 @@ void testBounds(const Soup& soup, const ClusterMesh& mesh) {
 }
 
 void testCuts(const ClusterMesh& mesh) {
-    constexpr float kErrorScale = 1080.0f * 0.5f / 0.41421356f;  // 90 degree vertical fov, 1080 px
+    constexpr float kErrorScale = 1080.0f * 0.5f / 0.41421356f;
     const float thresholds[] = {0.25f, 1.0f, 4.0f};
     const float distances[] = {1.15f, 2.0f, 5.0f, 20.0f, 100.0f, 1000.0f, 1e6f};
     const float directions[][3] = {{0, 0, 1}, {0.6f, 0.8f, 0}, {-0.48f, 0.6f, -0.64f}};
@@ -195,7 +185,6 @@ void testCuts(const ClusterMesh& mesh) {
     const float near[3] = {0.0f, 0.0f, 1.2f};
     const float far[3] = {0.0f, 0.0f, 1e6f};
     CHECK(cutTriangles(mesh, selectClusterCut(mesh, near, kErrorScale, 0.25f)) > cutTriangles(mesh, selectClusterCut(mesh, far, kErrorScale, 0.25f)) * 10);
-    // At infinite distance only roots remain.
     for (const uint32_t id : selectClusterCut(mesh, far, kErrorScale, 1.0f)) CHECK(mesh.clusters[id].parentError == kClusterRootError);
 }
 
@@ -204,8 +193,6 @@ std::vector<uint32_t> sorted(std::vector<uint32_t> ids) {
     return ids;
 }
 
-// Hierarchy (BVH over the DAG levels): structure, conservative bounds, and the traversal selects
-// exactly the flat cut for perspective (camera, local shadow) and orthographic (cascade) views.
 void testHierarchy(const Soup& soup, ClusterMesh mesh, const ClusterHierarchyOptions& options) {
     const size_t clusterCount = mesh.clusters.size();
     const ClusterHierarchy hierarchy = buildClusterHierarchy(mesh, options);
@@ -238,21 +225,16 @@ void testHierarchy(const Soup& soup, ClusterMesh mesh, const ClusterHierarchyOpt
                 const auto reference = sorted(selectClusterCut(mesh, view, threshold));
                 if (cut != reference) std::fprintf(stderr, "hierarchy cut differs: threshold %.2f distance %.2f (%zu vs %zu)\n", threshold, d, cut.size(), reference.size());
                 equal = equal && cut == reference;
-                // Same metric as the original API.
                 equal = equal && reference == sorted(selectClusterCut(mesh, view.origin, kErrorScale, threshold, view.nearPlane));
-                // Cameras at or inside the LOD spheres (d < 5) legitimately reach most fine clusters
-                // (no frustum here); the skip ratio is measured from the outside views.
                 if (d >= 5.0f) tested += stats.clustersTested;
                 if (d >= 5.0f) flat += clusterCount;
             }
         }
     }
     CHECK(equal);
-    // The hierarchy must skip most clusters (the flat path tests every one).
     CHECK(tested * 4 < flat);
     std::printf("hierarchy perspective: %llu of %llu cluster tests\n", static_cast<unsigned long long>(tested), static_cast<unsigned long long>(flat));
 
-    // Orthographic (cascade) metric: error in texels = world error * texels per unit, no distance.
     bool orthoEqual = true;
     bool orthoClosed = true;
     uint64_t previous = ~0ull;
@@ -279,8 +261,7 @@ void testHierarchyEdgeCases() {
     const ClusterHierarchy none = buildClusterHierarchy(empty);
     CHECK(none.empty());
     CHECK(validateClusterHierarchy(empty, none));
-    // A mesh with a single cluster is one leaf (root = leaf, depth 1).
-    const Soup soup = makeBumpySphere(1);  // 80 triangles
+    const Soup soup = makeBumpySphere(1);
     ClusterMesh small = buildClusterMesh(soup.vertices, kFloats, soup.indices);
     CHECK(!small.empty());
     const ClusterHierarchy tiny = buildClusterHierarchy(small);
@@ -317,7 +298,7 @@ void testCache(const Soup& soup) {
 }
 
 int main() {
-    const Soup soup = makeBumpySphere(6);  // 81920 triangles
+    const Soup soup = makeBumpySphere(6);
     const ClusterMesh mesh = buildClusterMesh(soup.vertices, kFloats, soup.indices);
     std::printf("clusters %zu levels %zu triangles %llu -> %llu\n", mesh.clusters.size(), mesh.levels.size(), static_cast<unsigned long long>(mesh.triangleCount(0)), static_cast<unsigned long long>(mesh.triangleCount(static_cast<uint32_t>(mesh.levels.size() - 1))));
     CHECK(!mesh.empty());

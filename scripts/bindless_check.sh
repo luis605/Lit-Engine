@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# Pixel comparison of the bindless texture table (LIT_BINDLESS_TEXTURES=1) against the legacy 16-layer texture arrays (=0).
-# Every scene renders three times with LitShot --deterministic: legacy twice (a, b: the run-to-run noise of the GPU) and bindless.
-# Writes PNGs, logs and summary.txt to the output directory. See docs/RenderGraph.md (Bindless).
-#   --assert   exit 1 unless bindless matches legacy (differing pixels <= 2x the noise of legacy a vs b + 64, max delta <= noise max + 4), 77 (ctest skip) when LitShot is
-#              missing or cannot render, and always require "Bindless texture table: on" in the bindless log and no Diligent errors.
 set -u
 assert=0
 [ "${1:-}" = "--assert" ] && { assert=1; shift; }
@@ -26,7 +21,7 @@ shot() {
         LIT_BINDLESS_TEXTURES="$mode" timeout 300 "$litshot" --deterministic --testscene "$scene" --frames "$frames" --size "$size" \
             --screenshot "$png" >"$out/${scene}_${name}.log" 2>&1
         [ -s "$png" ] && return 0
-        sleep 2  # shared GPU: retry after an out-of-memory or device-lost exit
+        sleep 2
     done
     return 1
 }
@@ -66,7 +61,6 @@ for scene in $scenes; do
     if [ $assert = 1 ]; then
         [ "$on" -ge 1 ] || { echo "  FAIL: bindless table was not active (device lacks the features?)"; status=1; }
         [ "$errs" -eq 0 ] || { echo "  FAIL: errors or warnings in the bindless log"; status=1; }
-        # Tolerance: a few dozen pixels of slack on top of 2x the legacy a/b noise, and a max channel delta within 4 levels of the noise.
         { [ "$diffPx" -le $((noisePx * 2 + 64)) ] && [ "$diffMax" -le $((noiseMax + 4)) ]; } || { echo "  FAIL: bindless differs from legacy beyond the legacy run-to-run noise"; status=1; }
     fi
 done

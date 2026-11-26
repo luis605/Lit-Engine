@@ -46,7 +46,6 @@ EntityHandle addSphere(World& w, const glm::vec3& at, float radius, bool dynamic
     return e;
 }
 
-// Grid floor in the xz plane, n x n quads over [-half, half], at height y.
 std::shared_ptr<const TriangleMeshData> makeFloor(int n, float half, float y = 0.0f) {
     std::vector<glm::vec3> vertices;
     std::vector<uint32_t> indices;
@@ -65,7 +64,6 @@ std::shared_ptr<const TriangleMeshData> makeFloor(int n, float half, float y = 0
     return makeTriangleMesh(vertices, indices);
 }
 
-// Vertical wall at x = 0 spanning z in [-half, half], y in [0, height].
 std::shared_ptr<const TriangleMeshData> makeWall(float half, float height) {
     return makeTriangleMesh({{0, 0, -half}, {0, height, -half}, {0, height, half}, {0, 0, half}}, {0, 1, 2, 0, 2, 3});
 }
@@ -107,7 +105,7 @@ void testMeshQueries() {
         const auto sweep = physicsSweepSphere(w, glm::vec3(0.4f, 5.0f, 0.4f), glm::vec3(0, -1, 0), 100.0f, 0.5f);
         CHECK(sweep && near(sweep->distance, 4.5f, 1e-3f) && sweep->normal.y > 0.99f);
         const auto edge = physicsSweepSphere(w, glm::vec3(10.4f, 3.0f, 0.0f), glm::vec3(0, -1, 0), 100.0f, 0.5f);
-        CHECK(edge && near(edge->distance, 2.7f, 0.02f));  // grazes the border edge
+        CHECK(edge && near(edge->distance, 2.7f, 0.02f));
         const auto start = physicsSweepSphere(w, glm::vec3(0.0f, 0.3f, 0.0f), glm::vec3(1, 0, 0), 5.0f, 0.5f);
         CHECK(start && start->distance == 0.0f);
     }
@@ -115,14 +113,12 @@ void testMeshQueries() {
         const auto contacts = physicsOverlapCapsule(w, glm::vec3(0.5f, 0.3f, 0.5f), glm::vec3(0.5f, 1.1f, 0.5f), 0.5f);
         CHECK(contacts.size() >= 1 && near(contacts.front().depth, 0.2f, 1e-3f) && contacts.front().normal.y > 0.99f);
         CHECK(physicsOverlapCapsule(w, glm::vec3(0.5f, 0.7f, 0.5f), glm::vec3(0.5f, 1.5f, 0.5f), 0.5f).empty());
-        // a vertical capsule that pierces the floor
         const auto pierce = physicsOverlapCapsule(w, glm::vec3(0.5f, -1.0f, 0.5f), glm::vec3(0.5f, 1.0f, 0.5f), 0.25f);
         CHECK(!pierce.empty() && pierce.front().depth > 0.25f);
         const auto box = physicsOverlapBox(w, glm::vec3(0.5f, 0.4f, 0.5f), glm::vec3(0.5f));
         CHECK(!box.empty() && near(box.front().depth, 0.1f, 1e-3f) && box.front().normal.y > 0.99f);
         CHECK(physicsOverlapBox(w, glm::vec3(0.5f, 0.6f, 0.5f), glm::vec3(0.5f)).empty());
     }
-    // wall: sphere / capsule / box sweeps and the sphere contact in local space
     World w2;
     setup(w2);
     addMesh(w2, makeWall(10.0f, 5.0f), glm::vec3(3.0f, 0.0f, 0.0f));
@@ -145,14 +141,12 @@ void testMeshTransform() {
     World w;
     setup(w);
     const auto floor = makeFloor(8, 4.0f);
-    // rotated 90 degrees about Z: the floor becomes a wall at x = 5, normal +x side is local +y -> world -x
     const glm::quat roll = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 0, 1));
     addMesh(w, floor, glm::vec3(5.0f, 0.0f, 0.0f), glm::vec3(1.0f), roll);
     const auto hit = physicsRaycast(w, glm::vec3(0.0f, 1.0f, 1.0f), glm::vec3(1, 0, 0), 20.0f);
     CHECK(hit && near(hit->distance, 5.0f, 1e-3f) && hit->normal.x < -0.99f);
     CHECK(physicsOverlapCapsule(w, glm::vec3(4.8f, 1, 1), glm::vec3(4.8f, 2, 1), 0.4f).size() >= 1);
     CHECK(physicsOverlapCapsule(w, glm::vec3(4.4f, 1, 1), glm::vec3(4.4f, 2, 1), 0.4f).empty());
-    // scaled and translated: floor spans [-8, 8] at y = 3
     World w2;
     setup(w2);
     addMesh(w2, floor, glm::vec3(0.0f, 3.0f, 0.0f), glm::vec3(2.0f));
@@ -161,12 +155,11 @@ void testMeshTransform() {
     CHECK(!physicsRaycast(w2, glm::vec3(9.0f, 10.0f, 0.0f), glm::vec3(0, -1, 0), 50.0f));
     const auto sweep = physicsSweepSphere(w2, glm::vec3(7.0f, 10.0f, 7.0f), glm::vec3(0, -1, 0), 50.0f, 1.0f);
     CHECK(sweep && near(sweep->distance, 6.0f, 1e-2f));
-    // non-uniform scale: the ray stays exact
     World w3;
     setup(w3);
     addMesh(w3, floor, glm::vec3(0.0f), glm::vec3(1.0f, 5.0f, 3.0f));
     const auto stretched = physicsRaycast(w3, glm::vec3(10.0f, 4.0f, 10.0f), glm::normalize(glm::vec3(-1, -0.2f, -1)), 100.0f);
-    CHECK(!stretched);  // lands outside the 12 wide footprint plane region only at y = 0 beyond x = 12
+    CHECK(!stretched);
     const auto straight = physicsRaycast(w3, glm::vec3(11.0f, 4.0f, 11.0f), glm::vec3(0, -1, 0), 100.0f);
     CHECK(!straight);
     const auto inside = physicsRaycast(w3, glm::vec3(3.0f, 4.0f, 3.0f), glm::normalize(glm::vec3(-1, -1, -1)), 100.0f);
@@ -187,7 +180,6 @@ void testDynamicOnMesh() {
     CHECK(near(w.getWorldPosition(box).y, 0.6f, 0.02f));
     CHECK(near(w.getWorldPosition(capsule).y, 0.8f, 0.02f));
     CHECK(w.get<RigidBody>(box)->sleeping);
-    // the ball stays on the floor and its lateral position is stable
     CHECK(near(w.getWorldPosition(box).x, -3.0f, 0.05f) && near(w.getWorldPosition(box).z, 1.0f, 0.05f));
 }
 
@@ -195,7 +187,6 @@ void testMeshSlopeFriction() {
     for (const float degrees : {20.0f, 40.0f}) {
         World w;
         setup(w);
-        // large tilted floor: rotate the flat grid about Z so it falls toward +x
         const glm::quat tilt = glm::angleAxis(glm::radians(-degrees), glm::vec3(0, 0, 1));
         addMesh(w, makeFloor(8, 20.0f), glm::vec3(0.0f), glm::vec3(1.0f), tilt);
         const glm::vec3 up = tilt * glm::vec3(0, 1, 0);
@@ -213,13 +204,11 @@ void testCompoundBodies() {
     World w;
     setup(w);
     addPlane(w, glm::vec3(0, 1, 0));
-    // dumbbell: sphere radius 0.5 and box half 0.25 on both sides of the body position
     const EntityHandle bell = makeEntity(w, glm::vec3(0.0f, 4.0f, 0.0f));
     CompoundCollider* compound = w.add<CompoundCollider>(bell);
     compound->parts.push_back({CompoundPart::Kind::Sphere, glm::vec3(-1.0f, 0.0f, 0.0f), 0.5f, glm::vec3(0.5f), 0.5f});
     compound->parts.push_back({CompoundPart::Kind::Box, glm::vec3(1.0f, 0.0f, 0.0f), 0.5f, glm::vec3(0.25f, 0.4f, 0.25f), 0.5f});
     w.add<RigidBody>(bell);
-    // a compound resting on a static triangle mesh
     World w2;
     setup(w2);
     addMesh(w2, makeFloor(10, 10.0f));
@@ -232,12 +221,10 @@ void testCompoundBodies() {
     CHECK(near(w.getWorldPosition(bell).y, 0.5f, 0.02f));
     CHECK(near(w2.getWorldPosition(bell2).y, 0.5f, 0.02f));
     CHECK(near(w2.getWorldPosition(bell2).x, 0.0f, 0.05f));
-    // raycast hits the parts at their offsets
     const auto hit = physicsRaycast(w, glm::vec3(1.0f, 5.0f, 0.0f), glm::vec3(0, -1, 0), 20.0f);
     CHECK(hit && hit->entity == bell && near(hit->distance, 5.0f - (w.getWorldPosition(bell).y + 0.4f), 0.03f));
     const auto miss = physicsRaycast(w, glm::vec3(0.0f, 5.0f, 0.0f), glm::vec3(0, -1, 0), 20.0f);
-    CHECK(miss && miss->entity != bell);  // hits the plane through the gap between the parts
-    // compound vs a dynamic sphere: the sphere lands on the box part, not at the body centre
+    CHECK(miss && miss->entity != bell);
     const EntityHandle ball = addSphere(w, glm::vec3(1.0f, 3.0f, 0.0f), 0.2f);
     run(w, 400);
     CHECK(w.getWorldPosition(ball).y > 0.8f);
@@ -261,7 +248,6 @@ void testConvexHull() {
     const EntityHandle gem = makeEntity(w, glm::vec3(4.0f, 3.0f, 0.0f));
     w.add<ConvexHullCollider>(gem, octa);
     w.add<RigidBody>(gem);
-    // a rotated, scaled hull: yaw 45 degrees, scale 2 -> half diagonal along x is 0.5 * 2 * sqrt(2)
     const EntityHandle big = makeEntity(w, glm::vec3(-4.0f, 3.0f, 0.0f), glm::vec3(2.0f));
     w.setRotation(big, glm::angleAxis(glm::radians(45.0f), glm::vec3(0, 1, 0)));
     w.add<ConvexHullCollider>(big, cube);
@@ -270,11 +256,9 @@ void testConvexHull() {
     CHECK(near(w.getWorldPosition(block).y, 0.5f, 0.02f));
     CHECK(near(w.getWorldPosition(gem).y, 1.0f, 0.02f));
     CHECK(near(w.getWorldPosition(big).y, 1.0f, 0.03f));
-    // hull vs dynamic box: stack
     const EntityHandle top = addBox(w, glm::vec3(0.0f, 4.0f, 0.0f), glm::vec3(0.3f), true);
     run(w, 600);
     CHECK(near(w.getWorldPosition(top).y, 1.3f, 0.03f));
-    // hull raycast and overlap
     const auto hit = physicsRaycast(w, glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(0, -1, 0), 50.0f, [&](EntityHandle e) { return e == top; });
     CHECK(hit && hit->entity == block && near(hit->distance, 10.0f - 1.0f, 0.03f));
     const auto sweep = physicsSweepSphere(w, glm::vec3(4.0f, 10.0f, 0.0f), glm::vec3(0, -1, 0), 50.0f, 0.25f);
@@ -298,11 +282,9 @@ void testCapsuleCollider() {
     CHECK(near(w.getWorldPosition(pill).y, 0.8f, 0.01f));
     CHECK(near(w.getWorldPosition(pill2).y, 1.0f + 0.8f, 0.02f));
     (void)crate;
-    // capsule against a falling sphere: the sphere comes to rest on the cap
     const EntityHandle ball = addSphere(w, glm::vec3(0.0f, 4.0f, 0.0f), 0.2f);
     run(w, 480);
     CHECK(w.getWorldPosition(ball).y > 1.0f);
-    // queries
     World q;
     setup(q);
     const EntityHandle c = makeEntity(q, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -322,7 +304,6 @@ void testCapsuleCollider() {
 }
 
 void testFriction() {
-    // sliding box: v^2 / (2 mu g) = 9 / (2 * 0.5 * 9.81) = 0.917
     World w;
     setup(w);
     addPlane(w, glm::vec3(0, 1, 0));
@@ -333,7 +314,6 @@ void testFriction() {
     const float travelled = w.getWorldPosition(box).x;
     CHECK(travelled > 0.8f && travelled < 1.05f);
     CHECK(glm::length(w.get<RigidBody>(box)->velocity) < 0.05f);
-    // frictionless: keeps its speed
     World f;
     setup(f);
     addPlane(f, glm::vec3(0, 1, 0));
@@ -343,7 +323,6 @@ void testFriction() {
     f.get<RigidBody>(slick)->staticFriction = 0.0f;
     run(f, 240, 1.0f / 240.0f, settings);
     CHECK(near(f.get<RigidBody>(slick)->velocity.x, 3.0f, 0.01f));
-    // Coulomb: higher friction stops sooner (surface friction on the plane participates)
     World g;
     setup(g);
     const EntityHandle floor = addPlane(g, glm::vec3(0, 1, 0));
@@ -353,7 +332,6 @@ void testFriction() {
     g.get<RigidBody>(grippy)->velocity = glm::vec3(3.0f, 0.0f, 0.0f);
     run(g, 360, 1.0f / 240.0f, settings);
     CHECK(g.getWorldPosition(grippy).x < travelled * 0.7f);
-    // static friction holds on a gentle tilted plane, slides on a steep one
     for (const float degrees : {20.0f, 40.0f}) {
         World s;
         setup(s);
@@ -368,7 +346,6 @@ void testFriction() {
         if (degrees < 30.0f) CHECK(moved < 0.03f);
         else CHECK(moved > 0.5f);
     }
-    // friction with a moving dynamic partner: a box dragged by a faster box below it gains speed along x
     World d;
     setup(d);
     addPlane(d, glm::vec3(0, 1, 0));
@@ -400,14 +377,12 @@ void testRolling() {
     w.get<RigidBody>(ball)->velocity = glm::vec3(2.0f, 0.0f, 0.0f);
     run(w, 360, dt, settings);
     const RigidBody* rb = w.get<RigidBody>(ball);
-    // slip turns into rolling: v = 5/7 v0, omega r = v about -z
     CHECK(near(rb->velocity.x, 2.0f * 5.0f / 7.0f, 0.06f));
     CHECK(near(-rb->angularVelocity.z * 0.5f, rb->velocity.x, 0.06f));
     CHECK(std::abs(rb->angularVelocity.x) < 0.01f);
-    // the entity rotation follows the spin
     CHECK(glm::length(glm::vec3(w.getRotation(ball).x, w.getRotation(ball).y, w.getRotation(ball).z)) > 0.05f);
     run(w, 480, dt, settings);
-    CHECK(near(w.get<RigidBody>(ball)->velocity.x, 2.0f * 5.0f / 7.0f, 0.08f));  // pure rolling keeps going
+    CHECK(near(w.get<RigidBody>(ball)->velocity.x, 2.0f * 5.0f / 7.0f, 0.08f));
 
     World r;
     setup(r);
@@ -420,7 +395,6 @@ void testRolling() {
     CHECK(glm::length(r.get<RigidBody>(slow)->velocity) < 0.2f);
     CHECK(r.getWorldPosition(slow).x < w.getWorldPosition(ball).x);
 
-    // a sphere rolls down a slope
     World s;
     setup(s);
     const float a = glm::radians(20.0f);
@@ -438,7 +412,6 @@ void testRotatedHeightfield() {
     data->cellSize = 1.0f;
     data->heights.assign(25, 0.0f);
     data->updateBounds();
-    // rotated 90 degrees about Z: local (x, 0, z) -> world (0, x, z), local up -> world -x
     World w;
     setup(w);
     const EntityHandle wall = makeEntity(w, glm::vec3(0.0f));
@@ -451,7 +424,6 @@ void testRotatedHeightfield() {
     CHECK(sweep && near(sweep->distance, 2.5f, 0.02f));
     const auto overlap = physicsOverlapCapsule(w, glm::vec3(-0.3f, 2.0f, 2.0f), glm::vec3(-0.3f, 2.0f, 2.0f), 0.5f);
     CHECK(overlap.size() == 1 && near(overlap[0].depth, 0.2f, 1e-3f) && overlap[0].normal.x < -0.99f);
-    // a sphere thrown at it from the open side bounces to a stop in front
     World dyn;
     setup(dyn);
     PhysicsSettings noGravity;
@@ -464,7 +436,6 @@ void testRotatedHeightfield() {
     run(dyn, 240, 1.0f / 120.0f, noGravity);
     CHECK(dyn.getWorldPosition(ball).x < -0.45f && dyn.getWorldPosition(ball).x > -0.6f);
 
-    // scaled and translated: height 1 at scale 2 gives a surface at y = 2 over x, z in [0, 8]
     auto raised = std::make_shared<HeightfieldData>(*data);
     std::fill(raised->heights.begin(), raised->heights.end(), 1.0f);
     raised->updateBounds();
@@ -478,7 +449,6 @@ void testRotatedHeightfield() {
     const EntityHandle ball2 = addSphere(s, glm::vec3(6.0f, 4.0f, 6.0f), 0.5f);
     run(s, 480);
     CHECK(near(s.getWorldPosition(ball2).y, 2.5f, 0.03f));
-    // box rests too
     const EntityHandle crate = addBox(s, glm::vec3(2.0f, 4.0f, 2.0f), glm::vec3(0.5f), true);
     run(s, 480);
     CHECK(near(s.getWorldPosition(crate).y, 2.5f, 0.05f));
@@ -507,7 +477,6 @@ void testPortalPhysics() {
     const glm::vec3 n = A.normal();
     const glm::mat3 rotation(A.transform);
 
-    // sweeps carry the accumulated transform
     const glm::vec3 origin = glm::vec3(A.center().x, 1.5f, A.center().z) + n * 4.0f;
     const PortalCast cast = portalSweep(p, w, origin, -n, 8.0f, 0.2f, p.cellAt(origin), {}, false);
     CHECK(cast.crossings == 1);
@@ -515,7 +484,6 @@ void testPortalPhysics() {
     CHECK(glm::length(cast.transformVector(-n) - rotation * (-n)) < 1e-3f);
     CHECK(portalSweep(p, w, origin, -n, 3.0f, 0.2f, p.cellAt(origin), {}, false).transform == glm::mat4(1.0f));
 
-    // a collider on the far side is reached by the capsule overlap
     const Portal& B = p.portals()[static_cast<size_t>(A.partner)];
     const glm::vec3 exitDir = rotation * (-n);
     const EntityHandle post = addSphere(w, B.center() + exitDir * 0.6f, 0.4f, false);
@@ -526,7 +494,6 @@ void testPortalPhysics() {
     CHECK(found);
     CHECK(portalOverlapCapsule(p, w, low + n * 8.0f, low + n * 8.0f + glm::vec3(0, 1, 0), 0.3f, p.findCell("X")).empty());
 
-    // bodies of every shape keep their (rotated) velocity and spin through the portal
     for (int kind = 0; kind < 3; ++kind) {
         World b;
         setup(b);
@@ -566,7 +533,6 @@ void testPortalPhysics() {
         CHECK(glm::length(vAfter - qr * vBefore) < 1e-3f);
         CHECK(near(glm::length(vAfter), 6.0f, 1e-3f));
         if (kind == 0) CHECK(glm::length(b.get<RigidBody>(body)->angularVelocity - qr * wBefore) < 1e-3f);
-        // it keeps flying along the transformed direction on the far side
         const glm::vec3 pos = b.getWorldPosition(body);
         for (int i = 0; i < 60; ++i) stepPortalPhysics(q, b, 1.0f / 120.0f, noGravity);
         const glm::vec3 moved = b.getWorldPosition(body) - pos;
@@ -574,7 +540,7 @@ void testPortalPhysics() {
     }
 }
 
-}  // namespace
+}
 
 int main() {
     testMeshQueries();

@@ -1,9 +1,5 @@
-# World core: entity lifecycle and handles, hierarchy links, reparenting (docs/Bent.md, "World and core laws").
 include "../lib/ext_world.bent"
 
-# ---------------------------------------------------------------- handles
-
-# A slot that is reused always gets a strictly larger generation: an old handle can never alias a newer entity.
 law handle_generation_strictly_grows_per_slot {
     forall (p: lifeProg)
     => after(p) {
@@ -12,7 +8,6 @@ law handle_generation_strictly_grows_per_slot {
     }
 }
 
-# Reading through a dead handle yields the neutral value, never another entity's data.
 law dead_handle_reads_neutral {
     forall (p: lifeProg, e: hierSpawn)
     => after(p ++ [e, setName(target: -1, name: "alive"), setTag(target: -1, tag: "t"), destroy(target: -1)]) {
@@ -21,7 +16,6 @@ law dead_handle_reads_neutral {
     }
 }
 
-# Destroying an entity kills exactly its subtree and nothing else.
 law destroy_kills_exactly_subtree {
     forall (p: lifeProg, k: target)
     => after(p) {
@@ -34,13 +28,11 @@ law destroy_kills_exactly_subtree {
     }
 }
 
-# Destroying twice is the same as destroying once (the second is a stale-handle no-op), world hash included.
 law destroy_is_idempotent {
     forall (p: lifeProg, k: target)
     => after(p ++ [destroy(target: k)]) { worldHash() } == after(p ++ [destroy(target: k), destroy(target: k)]) { worldHash() }
 }
 
-# Destroy everything, create the same number again: every slot is reused (no leak in the free list), and no old handle is revived.
 law freed_slots_are_reused {
     forall (n: int(1, 24))
     => let s = repeat(spawn(shape: "none", dynamic: false), n) in
@@ -55,7 +47,6 @@ law reused_slots_have_new_generations {
        after(s ++ killAll ++ s) { allDistinct(map(spawned(), handle)) and all(entities(), fn(e) => generationOf(e) >= 1) }
 }
 
-# clear() empties the world and never lets an earlier handle come back to life, even after new entities fill the same slots.
 law clear_never_revives_handles {
     forall (p: lifeProg, q: lifeProg)
     => after(p ++ [clear()] ++ q) {
@@ -70,13 +61,11 @@ law clear_leaves_valid_empty_world {
     => after(p ++ [clear()]) { entityCount() == 0 and entities() == [] and worldErrors() == [] }
 }
 
-# compact() leaves no holes: live slots are exactly 0..n-1, and nothing else about the content changes.
 law compact_leaves_dense_slots {
     forall (p: lifeProg)
     => after(p ++ [compact()]) { sortedIndices() == range(0, entityCount()) and worldErrors() == [] }
 }
 
-# Slot reuse never changes the observable content of surviving entities (names/transforms of survivors).
 law spawn_after_destroy_does_not_touch_survivors {
     forall (p: lifeProg, s: hierSpawn)
     => after(p) {
@@ -86,9 +75,6 @@ law spawn_after_destroy_does_not_touch_survivors {
     }
 }
 
-# ---------------------------------------------------------------- hierarchy links
-
-# parent / children are mirror images, every child has exactly one parent, roots have none.
 law hierarchy_links_are_symmetric {
     forall (p: programPlus)
     => after(p) {
@@ -97,7 +83,6 @@ law hierarchy_links_are_symmetric {
     }
 }
 
-# The traversal from the roots reaches every live entity exactly once (the intrusive child lists are consistent).
 law hierarchy_traversal_covers_world {
     forall (p: programPlus)
     => after(p) {
@@ -107,7 +92,6 @@ law hierarchy_traversal_covers_world {
     }
 }
 
-# Reparenting into one's own subtree is refused (the world stays acyclic and unchanged).
 law reparent_into_own_subtree_is_rejected {
     forall (p: hierProg, k: target)
     => after(p) {
@@ -120,7 +104,6 @@ law reparent_into_own_subtree_is_rejected {
     }
 }
 
-# Reparenting an entity to its current parent is a no-op.
 law reparent_to_same_parent_is_noop {
     forall (p: hierProg, k: target, keep: bool())
     => after(p) {
@@ -130,7 +113,6 @@ law reparent_to_same_parent_is_noop {
     }
 }
 
-# keepWorld reparenting preserves every world matrix of the moved subtree (uniform scales: shear free).
 law reparent_keep_world_preserves_world_matrices {
     forall (p: hierProg, k: target, j: int(-1, 31))
     => after(p) {
@@ -142,7 +124,6 @@ law reparent_keep_world_preserves_world_matrices {
     }
 }
 
-# Without keepWorld the local transform is what is kept.
 law reparent_without_keep_preserves_local {
     forall (p: hierProg, k: target, j: int(-1, 31))
     => after(p) {
@@ -152,7 +133,6 @@ law reparent_without_keep_preserves_local {
     }
 }
 
-# Moving under a new parent and back (both keepWorld) restores the world matrix, whatever happens to the local one.
 law reparent_there_and_back_restores_world {
     forall (p: hierProg, k: target, j: int(-1, 31))
     => after(p) {
@@ -165,13 +145,11 @@ law reparent_there_and_back_restores_world {
     }
 }
 
-# Destroying a parent never leaves an orphaned child behind (children of a destroyed entity are destroyed with it).
 law destroying_parent_leaves_no_orphans {
     forall (p: lifeProg)
     => after(p) { forall e in spawned(): not alive(e) ==> (forall c in spawned(): alive(c) ==> parent(c) != e) }
 }
 
-# Entity events: every creation and destruction is announced exactly once (the queue is delivered by a tick).
 law entity_events_balance {
     forall (p: lifeProg)
     => after([eventsWatch()] ++ p ++ [step(n: 1)]) {
@@ -181,7 +159,6 @@ law entity_events_balance {
     }
 }
 
-# Every reparent that changes the parent emits exactly one event; the parent reported is the new one.
 law reparent_events_report_new_parent {
     forall (p: hierProg, k: target, j: int(-1, 31))
     => after(p ++ [eventsWatch(), step(n: 1)]) {
@@ -196,7 +173,6 @@ law reparent_events_report_new_parent {
 }
 
 gen halves = map(int(-40, 40), fn(i) => i * 0.5)
-# Batched creation and destruction are the same as one by one.
 law create_batch_equals_single_creates {
     forall (n: int(1, 40), pos: vec3(halves, halves, halves), spacing: map(int(1, 8), fn(i) => i * 0.5), mesh: int(-1, 7))
     => after([spawnBatch(n: n, pos: pos, spacing: spacing, mesh: mesh)]) { contentHash() } ==

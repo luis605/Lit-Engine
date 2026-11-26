@@ -1,14 +1,9 @@
-# World core: timers (World::after / every / cancel), the event bus (emit / dispatch / subscribe), pause and time scale.
-# The engine runs one World::update per tick (1/60 s here); a callback logs the 1-based tick it ran in.
 include "../lib/ext_world.bent"
 
 fn fireTick(log, id) = let hits = filter(log, fn(e) => e[0] == id) in if hits == [] then -1 else hits[0][1]
 fn ticksFor(seconds) = max(1, ceil(seconds * 60 - 0.01))
 fn near1(a, b) = abs(a - b) <= 1.01
 
-# ---------------------------------------------------------------- timers
-
-# A one-shot timer fires exactly once, on the tick its time elapses (within one tick of rounding), then leaves the timer list.
 law timer_after_fires_once_on_time {
     forall (p: program, s: oneof(float(0, 3), elements([0.0, 0.05, 0.1, 0.5, 1.0, 2.0])))
     => let t0 = after(p) { ticks() } in
@@ -18,7 +13,6 @@ law timer_after_fires_once_on_time {
        }
 }
 
-# A repeating timer fires every interval: count and spacing.
 law timer_every_fires_periodically {
     forall (interval: float(0.05, 1.0), n: int(30, 240))
     => after([timerEvery(id: 1, seconds: interval), step(n: n)]) {
@@ -30,7 +24,6 @@ law timer_every_fires_periodically {
     }
 }
 
-# A cancelled timer never fires; cancelling twice (or after a one-shot fired, or an unknown id) reports false.
 law timer_cancel_semantics {
     forall (s: float(0.5, 2), early: int(0, 20), late: int(1, 200))
     => after([timerAfter(id: 1, seconds: s), step(n: early), timerCancel(id: 1), step(n: ticksFor(s) + 10), timerCancel(id: 1), timerCancel(id: 9)]) {
@@ -45,7 +38,6 @@ law timer_cancel_after_firing_is_false {
     }
 }
 
-# Timers fire in due order, ties in creation order; every one fires.
 law timers_fire_in_order {
     forall (ss: listOf(elements([0.0, 0.1, 0.1, 0.25, 0.5, 1.0]), 1, 10))
     => after(map(enumerate(ss), fn(pair) => timerAfter(id: pair[0], seconds: pair[1])) ++ [step(n: 80)]) {
@@ -55,7 +47,6 @@ law timers_fire_in_order {
     }
 }
 
-# A timer bound to an entity dies with it: no callback after the owner is destroyed, and the timer list is cleaned up.
 law timer_dies_with_its_owner {
     forall (s: float(0.2, 2), kills: int(0, 5), repeat_: bool())
     => after([spawn(shape: "none", dynamic: false), (if repeat_ then timerEvery(id: 1, seconds: s, owner: 0) else timerAfter(id: 1, seconds: s, owner: 0)), step(n: kills), destroy(target: 0), step(n: 200)]) {
@@ -63,7 +54,6 @@ law timer_dies_with_its_owner {
     }
 }
 
-# Paused worlds do not advance timers; they continue afterwards.
 law timers_wait_while_paused {
     forall (s: float(0.1, 1), paused: int(1, 120))
     => after([timerAfter(id: 1, seconds: s), pause(paused: true), step(n: paused), pause(paused: false), step(n: ticksFor(s) + 3)]) {
@@ -71,7 +61,6 @@ law timers_wait_while_paused {
     }
 }
 
-# Time scale stretches timer time: at scale k a timer of s seconds fires after about s * 60 / k ticks.
 law timers_follow_time_scale {
     forall (s: float(0.2, 1.5), k: elements([0.5, 2.0, 4.0]))
     => after([timeScale(s: k), timerAfter(id: 1, seconds: s), step(n: ticksFor(s / k) + 4)]) {
@@ -79,25 +68,21 @@ law timers_follow_time_scale {
     }
 }
 
-# clear() drops every pending timer (their entities are gone).
 law world_clear_cancels_timers {
     forall (p: program, s: float(0.05, 1))
     => after(p ++ [timerAfter(id: 1, seconds: s), timerEvery(id: 2, seconds: s), clear(), step(n: 100)]) { timerLog() == [] and timerCount() == 0 }
 }
 
-# A pathologically small interval is capped per update (no hang, no unbounded catch-up).
 law tiny_timer_interval_is_capped {
     forall (interval: float(0.000001, 0.00001), n: int(1, 3))
     => after([timerEvery(id: 1, seconds: interval), step(n: n)]) { len(timerLog()) == 1000 * n }
 }
 
-# Timers are observation of time only: a timer's presence never changes the simulation.
 law timers_do_not_disturb_the_simulation {
     forall (p: program, s: float(0.05, 1))
     => after(p ++ [step(n: 40)]) { contentHash() } == after(p ++ [timerAfter(id: 1, seconds: s), timerEvery(id: 2, seconds: s), step(n: 40)]) { contentHash() }
 }
 
-# A paused world is frozen: nothing moves however many ticks pass; resuming continues from the same state.
 law pause_freezes_the_world {
     forall (p: program, n: int(1, 60))
     => after(p ++ [pause(paused: true)]) { contentHash() } == after(p ++ [pause(paused: true), step(n: n)]) { contentHash() }
@@ -107,8 +92,6 @@ law zero_time_scale_freezes_the_world {
     forall (p: program, n: int(1, 60))
     => after(p ++ [timeScale(s: 0)]) { contentHash() } == after(p ++ [timeScale(s: 0), step(n: n)]) { contentHash() }
 }
-
-# ---------------------------------------------------------------- event bus
 
 gen busOp = frequency([
     [3, ["sub"]],
@@ -135,9 +118,6 @@ fn busModel(ops) = fold(enumerate(ops), {subs: [], queue: [], log: []}, fn(m, pa
     else if op[0] == "emitNow" then with(m, log: m.log ++ deliver(m.subs, op[1]))
     else with(m, queue: [], log: m.log ++ flatten(map(m.queue, fn(v) => deliver(m.subs, v)))))
 
-# The event bus behaves like its specification under any interleaving of subscribe, unsubscribe, emit (queued), emitNow and
-# dispatch: handlers run in subscription order, queued events in emission order, events emitted with nobody listening are dropped,
-# unsubscribed handlers never run.
 law event_bus_matches_a_model {
     forall (ops: listOf(busOp, 1, 40))
     => let m = busModel(ops) in
@@ -146,7 +126,6 @@ law event_bus_matches_a_model {
        }
 }
 
-# A handler may unsubscribe itself while it runs: it gets that one event, the others are unaffected.
 law bus_handler_may_unsubscribe_itself {
     forall (modes: listOf(int(0, 1), 1, 6), values: listOf(int(0, 50), 1, 6))
     => after(map(enumerate(modes), fn(pair) => busSubscribe(id: pair[0], mode: pair[1])) ++ map(values, fn(v) => busEmitNow(value: v))) {
@@ -154,7 +133,6 @@ law bus_handler_may_unsubscribe_itself {
     }
 }
 
-# Handlers that emit while handling: the dispatch drains the follow-up events too, in later rounds, and leaves nothing pending.
 law bus_dispatch_drains_reentrant_events {
     forall (values: listOf(int(0, 50), 1, 8))
     => after([busSubscribe(id: 0, mode: 2)] ++ map(values, fn(v) => busEmit(value: v)) ++ [busDispatch()]) {
@@ -162,7 +140,6 @@ law bus_dispatch_drains_reentrant_events {
     }
 }
 
-# A unsubscribed id never hears again; resubscribing hears only new events.
 law bus_unsubscribe_is_final {
     forall (before: int(0, 5), after_: int(0, 5))
     => after([busSubscribe(id: 0, mode: 0)] ++ repeat(busEmitNow(value: 1), before) ++ [busUnsubscribe(id: 0)] ++ repeat(busEmitNow(value: 2), after_)) {

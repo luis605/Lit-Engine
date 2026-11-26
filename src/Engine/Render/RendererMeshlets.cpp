@@ -20,28 +20,6 @@ import Engine.Render.observation;
 
 #include "RendererInternal.hpp"
 
-// Cluster LOD rendering (dense geometry). See resources/shaders/meshlet_*.comp.
-//
-// Per visibility phase, after the object cull built its sorted visible entries
-// (buildVisibilityDraws), cluster meshes are expanded into work items (meshlet_instances), culled
-// per cluster with the DAG cut, frustum, cone and Hi-Z (meshlet_cull) and written as one indexed
-// draw per work item into a phase-owned expanded index buffer. drawSurfaces then issues those draws
-// with the phase's existing surface pipelines and bindings, so G-buffer, transparency, cascaded and
-// local shadows and portal views all render clusters. The early opaque phase records clusters that
-// failed only the previous-frame Hi-Z; the retest phase tests them again against the new Hi-Z.
-//
-// With `clusterHierarchy` (default) the expansion is a per-instance traversal of a BVH over the DAG
-// levels (Engine.meshlet buildClusterHierarchy, built at upload): meshlet_instances queues each
-// instance's root node, meshlet_node_args + meshlet_nodes run once per tree level (LOD cut bound,
-// frustum and Hi-Z per node; occluded nodes of the early phase are recorded for the retest phase),
-// accepted leaves become the work items of meshlet_cull. The flat path tests every chunk of every
-// instance in one thread (`clusterHierarchy 0`, kept for A/B comparisons).
-//
-// Shadow phases (cascades, local shadow maps) select the cut from shadow-texel error
-// (`clusterShadowTexelLod`): per shadow view an orthographic (cascade texels per unit) or
-// perspective (light origin, texels per unit at distance 1) metric, set by the shadow passes via
-// setMeshletShadowLod before their visibility build.
-
 namespace {
 
 using BufferPtr = Diligent::RefCntAutoPtr<Diligent::IBuffer>;
@@ -55,11 +33,11 @@ constexpr uint32_t kMeshletRetestCapacity = 1u << 18;
 constexpr uint32_t kMeshletStatsWords = 20;
 constexpr uint32_t kMeshletStatsPerView = 10;
 constexpr uint32_t kMeshletShadowStatsBase = 10;
-constexpr uint32_t kMeshletNodeQueueCapacity = 1u << 18;  // (instance, node) items per traversal level
-constexpr uint32_t kMeshletMaxDepth = 28;                 // node counter words: level + 1 per level + 1
+constexpr uint32_t kMeshletNodeQueueCapacity = 1u << 18;
+constexpr uint32_t kMeshletMaxDepth = 28;
 constexpr uint32_t kMeshletNodeCounterWords = kMeshletMaxDepth + 4;
 constexpr uint32_t kMeshletLodViews = kMaxLocalShadowViews;
-constexpr uint32_t kMeshletLodSlots = kLodLevelCount - 1;  // triangle LOD slots replaced by clusters (not the point slot)
+constexpr uint32_t kMeshletLodSlots = kLodLevelCount - 1;
 constexpr std::array<uint32_t, kPhaseCount> kMeshletIndexCapacity = {24u << 20, 8u << 20, 4u << 20, 40u << 20};
 constexpr uint32_t kFlagFrustum = 1;
 constexpr uint32_t kFlagHiZ = 2;
@@ -76,9 +54,6 @@ struct GpuClusterMesh {
 };
 static_assert(sizeof(GpuClusterMesh) == 32);
 
-// Spatial chunk of up to 64 consecutive clusters of one DAG level: a sphere enclosing every culling
-// and LOD sphere of its clusters plus their error range. meshlet_instances tests chunks (distance-
-// bounded LOD range, frustum) so only chunks that can contain selected clusters become work items.
 struct GpuClusterChunk {
     glm::vec4 sphere{0.0f};
     float minSelfError = 0.0f;
@@ -194,7 +169,6 @@ struct MeshletState {
     bool hierarchyFailed = false;
     Phase phases[kPhaseCount];
 
-    // Shadow LOD views of the next shadow-phase build (setMeshletShadowLod).
     std::array<glm::vec4, kMeshletLodViews> shadowLodViews{};
     uint32_t shadowOrthoMask = 0;
     bool shadowLodValid = false;
@@ -230,8 +204,6 @@ void Renderer::uploadClusterMesh(uint32_t meshId, const ClusterMesh& source) {
     auto& state = *Meshlets(m_meshlets);
     if (state.meshes[meshId].info[1] != 0) return;
 
-    // The hierarchy reorders clusters inside their level (leaves are contiguous ranges); everything
-    // below (chunks, offsets) uses the reordered copy.
     ClusterMesh ordered = source;
     const ClusterHierarchy hierarchy = buildClusterHierarchy(ordered);
     if (hierarchy.depth > kMeshletMaxDepth) Lit::Log::Error("Cluster hierarchy of mesh {} is {} levels deep (max {}); deeper leaves are not drawn", meshId, hierarchy.depth, kMeshletMaxDepth);
@@ -292,7 +264,6 @@ void Renderer::releaseClusterMesh(uint32_t meshId) {
     if (!m_meshlets || meshId >= kMaxMeshes) return;
     auto& state = *Meshlets(m_meshlets);
     if (state.meshes[meshId].info[1] == 0) return;
-    // The cluster arrays are append-only (their space is not reused); the mesh just stops referencing them so the slot can hold another mesh.
     state.meshes[meshId] = GpuClusterMesh{};
     state.meshIds.erase(std::remove(state.meshIds.begin(), state.meshIds.end(), meshId), state.meshIds.end());
     state.geometryDirty = true;
@@ -335,11 +306,10 @@ void Renderer::ensureMeshletBuffers() {
         }
     }
     if (!state.statsBuffer) {
-        const std::vector<uint32_t> zeros(1024, 0u);  // counters and draw counters (<= kMaxSurfaceShaders * kMaxLocalShadowViews)
+        const std::vector<uint32_t> zeros(1024, 0u);
         state.statsBuffer = Structured(device, "Meshlet Stats", sizeof(uint32_t), kMeshletStatsWords, zeros.data());
         state.retestCounter = Structured(device, "Meshlet Retest Counter", sizeof(uint32_t), 1, zeros.data());
         state.retestItems = Structured(device, "Meshlet Retest Items", sizeof(uint32_t) * 4, static_cast<size_t>(kMeshletRetestCapacity) * 2);
-        // Shared by every phase: the traversal runs and finishes inside buildMeshletDraws.
         state.nodeQueue = Structured(device, "Meshlet Node Queue", sizeof(uint32_t) * 4, static_cast<size_t>(kMeshletNodeQueueCapacity) * 2);
         state.nodeCounters = Structured(device, "Meshlet Node Counters", sizeof(uint32_t), kMeshletNodeCounterWords, zeros.data());
         state.nodeArgs = CreateDispatchArgsBuffer(device, "Meshlet Node Args");
@@ -522,7 +492,7 @@ void Renderer::buildMeshletDraws(int phaseIndex, uint32_t views) {
     const bool hierarchy = settings.clusterHierarchy && !state.hierarchyFailed && phase.nodesSRB[frame] && state.maxDepth > 0;
     const bool shadowTexels = phaseIndex == kPhaseShadow && settings.clusterShadowTexelLod && state.shadowLodValid;
     MeshletConstants constants{};
-    constants.maxDraws = static_cast<uint32_t>(VisibleEntryCapacity(m_maxObjects));  // size of the sorted entries (objects plus instances)
+    constants.maxDraws = static_cast<uint32_t>(VisibleEntryCapacity(m_maxObjects));
     constants.views = std::max(views, 1u);
     constants.viewBuckets = ActiveBucketCount(m_numDrawingShaders);
     constants.shaderCount = shaderCount;
@@ -532,8 +502,6 @@ void Renderer::buildMeshletDraws(int phaseIndex, uint32_t views) {
     constants.maxWorkItems = kMeshletMaxWorkItems;
     constants.indexCapacity = kMeshletIndexCapacity[static_cast<size_t>(phaseIndex)];
     constants.drawsPerSlot = phase.perSlot;
-    // Shadow views: error in shadow texels of the view (cascade or local shadow map). Without texel LOD
-    // (or before any shadow view was set) the camera's cut metric with a coarser threshold, as before.
     const float shadowScale = phaseIndex == kPhaseShadow ? kMeshletShadowErrorScale : 1.0f;
     constants.errorThreshold = shadowTexels ? std::max(settings.clusterShadowErrorTexels, 0.05f) / std::max(m_lodBias, 0.01f) : shadowScale * std::max(settings.clusterErrorPixels, 0.05f) / std::max(m_lodBias, 0.01f);
     constants.twoSidedMask = twoSided;
@@ -547,7 +515,7 @@ void Renderer::buildMeshletDraws(int phaseIndex, uint32_t views) {
     LIT_UP(context)->UpdateBuffer(phase.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (hierarchy) {
         std::array<uint32_t, kMeshletNodeCounterWords> counters{};
-        counters[0] = 0xFFFFFFFFu;  // meshlet_node_args advances it to level 0
+        counters[0] = 0xFFFFFFFFu;
         LIT_UP(context)->UpdateBuffer(state.nodeCounters, 0, sizeof(counters), counters.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     ClearCounter(context, phase.workCounter);

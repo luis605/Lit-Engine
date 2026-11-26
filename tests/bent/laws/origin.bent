@@ -1,9 +1,7 @@
-# Floating origin (docs/LargeWorld.md): rebasing moves the frame, never the world.
 include "../lib/prelude.bent"
 
 gen bigDelta = vec3(float(-200000, 200000), float(-1000, 1000), float(-200000, 200000))
 
-# Float precision of the local coordinates: allow a few ulps of the largest magnitude involved.
 fn tol(a, d) = 1e-6 * 16 * (1 + length(a) + length(d)) + 1e-4
 
 law rebase_preserves_world_positions {
@@ -17,15 +15,11 @@ law rebase_preserves_world_positions {
     }
 }
 
-# Everything that is not a position is untouched by a rebase.
 law rebase_preserves_relative_hash {
     forall (p: program, d: bigDelta)
     => after(p) { relativeHash() } == after(p ++ [rebase(delta: d)]) { relativeHash() }
 }
 
-# Rebasing there and back restores the origin exactly; positions come back within the float precision of the shift (a 1 mm
-# offset is lost in a 32 km round trip: bent's first counterexample, an inherent limit of float local coordinates).
-# Rebasing there and back restores the origin exactly and the positions within precision.
 law rebase_roundtrip {
     forall (p: program, d: bigDelta)
     => after(p ++ [rebase(delta: d), rebase(delta: vec3(0, 0, 0) - d)]) {
@@ -34,15 +28,11 @@ law rebase_roundtrip {
     }
 }
 
-# The camera keeps its absolute position across a rebase.
 law rebase_keeps_camera {
     forall (c: smallVec, d: bigDelta)
     => after([camera(pos: c), rebase(delta: d)]) { cameraView().pos ~= c within tol(c, d) }
 }
 
-# Integration after a rebase matches integration without it (within float precision). A single free body: with collisions the
-# 1-ulp differences a shift introduces are amplified chaotically (bent's first counterexample: 5 colliding spheres, a 3e-13 m
-# shift, 5 cm apart after 86 ticks), which is expected behaviour, not a bug.
 law rebase_then_simulate_equivalent {
     forall (bodies: listOf(latticeBody, 1, 1), d: vec3(float(-3000, 3000), 0, float(-3000, 3000)), n: int(1, 120))
     => let scene = placeBodies(bodies) in
@@ -52,7 +42,6 @@ law rebase_then_simulate_equivalent {
        }
 }
 
-# Automatic floating origin keeps the camera within the threshold of the origin, wherever it goes.
 law floating_origin_bounds_camera {
     forall (path: listOf(vec3(float(-50000, 50000), float(-100, 100), float(-50000, 50000)), 1, 6))
     => always after([floatingOrigin(threshold: 2000, snap: 1024)] ++ flatten(map(path, fn(p) => [cameraWorld(pos: p), step(n: 1)]))) {

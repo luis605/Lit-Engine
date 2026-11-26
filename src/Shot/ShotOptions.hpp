@@ -19,14 +19,14 @@ struct ShotOptions {
     std::vector<std::pair<std::string, std::string>> settings;
     float lightIntensity = kDefaultLightIntensity;
     bool hasCamera = false;
-    float cameraValues[6] = {};  // x, y, z, yaw, pitch, roll (degrees, roll optional)
+    float cameraValues[6] = {};
     bool noProbe = false;
-    bool deterministic = false;  // LIT_FIXED_DT=1/60 and LIT_FIXED_WINDOW=1 (reproducible frames, fixed window size)
+    bool deterministic = false;
     int bakeFrame = 0;
     int lightCount = 4096;
-    double originKm = 500.0;  // largeworld scene: distance from the world origin
-    float flySpeed = 0.0f;    // largeworld scene: camera speed along +x, m/s (60 fps steps)
-    int rebaseFrame = 0;      // largeworld scene: rebase the floating origin at this frame (camera held still)
+    double originKm = 500.0;
+    float flySpeed = 0.0f;
+    int rebaseFrame = 0;
     int frames = kDefaultFrames;
     int width = kDefaultWidth;
     int height = kDefaultHeight;
@@ -34,4 +34,3 @@ struct ShotOptions {
 
 void printUsage();
 bool parseArguments(int argc, char** argv, ShotOptions& options);
-

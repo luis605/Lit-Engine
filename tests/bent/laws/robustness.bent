@@ -1,5 +1,3 @@
-# Hostile inputs: NaN, infinities, denormals, huge values. The engine may reject them, but must not crash, hang, corrupt its
-# bookkeeping or become nondeterministic; the scene validator must stay total and flag the damage.
 include "../lib/prelude.bent"
 
 law validator_total_on_fuzzed_scenes {
@@ -22,7 +20,6 @@ law nasty_programs_deterministic {
     => after(p ++ [step(n: 5)]) { worldHash() } == after(p ++ [step(n: 5)]) { worldHash() }
 }
 
-# A non-finite transform is reported by the validator.
 law validator_flags_non_finite_position {
     forall (p: program, bad: elements([nan, inf, 0 - inf]), axis: int(0, 2))
     => let v = if axis == 0 then vec3(bad, 0, 0) else if axis == 1 then vec3(0, bad, 0) else vec3(0, 0, bad) in
@@ -31,7 +28,6 @@ law validator_flags_non_finite_position {
        }
 }
 
-# Physics never turns finite state into NaN, even with extreme but finite masses, sizes and speeds.
 gen extremeBody = spawn(shape: elements(["sphere", "box", "capsule", "hull", "compound"]), pos: vec3(float(-50, 50), float(0, 50), float(-50, 50)),
                         size: oneof(float(1e-4, 1e-2), float(0.1, 2), float(50, 500)), mass: oneof(float(1e-6, 1e-3), float(0.1, 10), float(1e4, 1e7)),
                         vel: vec3(float(-1000, 1000), float(-1000, 1000), float(-1000, 1000)), restitution: float(0, 1), scale: oneof(vec3(1, 1, 1), scaleGen))

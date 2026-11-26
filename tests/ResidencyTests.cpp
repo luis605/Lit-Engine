@@ -88,7 +88,7 @@ TerrainLoaderConfig terrainLoader(const std::shared_ptr<std::vector<int>>& order
     loader.terrain = terrainConfig();
     loader.uploadMesh = [order, uploads](const Mesh&) {
         const int id = ++*uploads;
-        if (order) order->push_back(-id);  // negative: terrain upload, in commit order
+        if (order) order->push_back(-id);
         return static_cast<uint32_t>(id);
     };
     return loader;
@@ -112,14 +112,12 @@ void testPriorityAcrossKinds() {
     tile.distance = 30.0f;
     ResidencyDemand cell;
     cell.kind = ResidentKind::PortalCell;
-    cell.hops = 1;  // 40 m
+    cell.hops = 1;
     CHECK(manager.score(tile) < manager.score(cell));
     tile.distance = 100.0f;
     CHECK(manager.score(cell) < manager.score(tile));
-    // Distance and hops are one currency: 40 m of tile distance equals one hop.
     tile.distance = 40.0f;
     CHECK(std::abs(manager.score(tile) - manager.score(cell)) < 0.01f);
-    // Moving toward an item shortens its time-to-needed; an item behind does not benefit.
     ResidencyDemand ahead;
     ahead.kind = ResidentKind::TerrainTile;
     ahead.distance = 120.0f;
@@ -132,11 +130,9 @@ void testPriorityAcrossKinds() {
     ahead.space = 1;
     behind.space = 1;
     CHECK(manager.score(ahead) < manager.score(behind));
-    // Deterministic mode ignores velocity.
     manager.config().deterministic = true;
     CHECK(manager.score(behind) < manager.score(ahead));
     manager.config().deterministic = false;
-    // Out of view is later; resident items keep their place (hysteresis); bigger breaks ties.
     ResidencyDemand seen = behind;
     ResidencyDemand hidden = behind;
     hidden.inView = false;
@@ -145,7 +141,6 @@ void testPriorityAcrossKinds() {
     loaded.resident = true;
     CHECK(manager.score(loaded) < manager.score(behind));
 
-    // The commit queue runs across kinds in metric order, whoever offered first.
     std::vector<int> order;
     manager.offer(&order, ResidentKind::TerrainTile, 5.0f, [&](StreamBudget&) { order.push_back(5); });
     manager.offer(&order, ResidentKind::PortalCell, 1.0f, [&](StreamBudget&) { order.push_back(1); });
@@ -156,7 +151,6 @@ void testPriorityAcrossKinds() {
     manager.flush(budget);
     CHECK((order == std::vector<int>{1, 2, 3, 5}));
 
-    // The shared pool orders jobs by the same metric: one worker, blocked, then released.
     std::atomic<bool> release{false};
     std::mutex mutex;
     std::vector<int> ran;
@@ -175,9 +169,9 @@ void testPriorityAcrossKinds() {
         }, nullptr);
     };
     submit(1, ResidentKind::TerrainTile, 200.0f, 0);
-    submit(2, ResidentKind::PortalCell, 0.0f, 1);   // 40 m
+    submit(2, ResidentKind::PortalCell, 0.0f, 1);
     submit(3, ResidentKind::TerrainTile, 10.0f, 0);
-    submit(4, ResidentKind::GridCell, 0.0f, 3);     // 120 m
+    submit(4, ResidentKind::GridCell, 0.0f, 3);
     release = true;
     manager.jobs().waitIdle();
     CHECK((ran == std::vector<int>{3, 2, 4, 1}));
@@ -205,11 +199,10 @@ void testCancellation() {
     token->store(true);
     release = true;
     manager.jobs().waitIdle();
-    CHECK(reported == 2);  // completion is always reported
-    CHECK(worked == 1);    // the cancelled job did no work
+    CHECK(reported == 2);
+    CHECK(worked == 1);
     CHECK(manager.jobs().cancelledJobs() == 1);
 
-    // Streaming: a cell evicted while still preparing is cancelled, never committed, and counted.
     PortalSystem portals;
     buildLine(portals, 8);
     StreamingConfig config;
@@ -222,7 +215,7 @@ void testCancellation() {
     streaming.setLoader(makeLoader(log, std::chrono::milliseconds(40)));
     streaming.update(0);
     streaming.update(0);
-    streaming.update(7);  // far away before the slow prepares finished
+    streaming.update(7);
     for (int i = 0; i < 400 && !streaming.settled(); ++i) {
         streaming.update(7);
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -234,7 +227,6 @@ void testCancellation() {
     CHECK(!farCommitted);
     CHECK(streaming.resident(7));
 
-    // Terrain: tiles unwanted before their prepare started are cancelled and never become resident.
     World w;
     setupWorld(w);
     auto uploads = std::make_shared<std::atomic<int>>(0);
@@ -257,7 +249,7 @@ void testMixedBudget() {
     config.loadHops = 1;
     config.keepHops = 2;
     config.commitMillisPerFrame = 1000.0;
-    config.uploadBytesPerFrame = 1500;  // one cell (1000) plus a bit: forces the queue to span frames
+    config.uploadBytesPerFrame = 1500;
     auto log = std::make_shared<Log>();
     StreamingSystem streaming(portals, config);
     streaming.setLoader(makeLoader(log));
@@ -288,14 +280,12 @@ void testMixedBudget() {
     const StreamingStats stats = streaming.stats();
     const auto& cells = stats.kinds[static_cast<size_t>(ResidentKind::PortalCell)];
     const auto& tiles = stats.kinds[static_cast<size_t>(ResidentKind::TerrainTile)];
-    CHECK(cells.resident >= 2);  // camera cell and its neighbour
+    CHECK(cells.resident >= 2);
     CHECK(tiles.resident > 0);
     CHECK(tiles.resident == streamer.stats().resident);
     CHECK(cells.loaded >= 2 && tiles.loaded > 0);
     CHECK(stats.residentBytes >= cells.residentBytes + tiles.residentBytes);
-    // One budget: the per-frame spend stays near the shared limit (the first step of a flush may exceed it by one step), not cells plus tiles each.
     CHECK(maxSpentPerFrame < static_cast<size_t>(config.uploadBytesPerFrame) + 6 * (1u << 20));
-    // Terrain and cells ran in one frame sequence: every kind that committed has a commit time recorded.
     CHECK(tiles.commitMillisMax >= 0.0);
 }
 
@@ -354,8 +344,8 @@ void testMemoryBudget() {
     PortalSystem portals;
     buildLine(portals, 8);
     StreamingConfig config;
-    config.loadHops = 0;   // only the camera cell is wanted
-    config.keepHops = 3;   // neighbours stay unless memory forces them out
+    config.loadHops = 0;
+    config.keepHops = 3;
     config.residency.byteBudget = 2 * kCellBytes + 500;
     auto log = std::make_shared<Log>();
     StreamingSystem streaming(portals, config);
@@ -373,14 +363,13 @@ void testMemoryBudget() {
     for (int cell = 0; cell < 6; ++cell) {
         settle(cell);
         CHECK(streaming.resident(cell));
-        if (cell > 0) CHECK(streaming.resident(cell - 1));   // nearest non-wanted stays
-        if (cell > 1) CHECK(!streaming.resident(cell - 2));  // farthest goes first
+        if (cell > 0) CHECK(streaming.resident(cell - 1));
+        if (cell > 1) CHECK(!streaming.resident(cell - 2));
         CHECK(streaming.residency().residentBytes() <= config.residency.byteBudget);
     }
     CHECK(streaming.stats().memoryEvictions > 0);
     CHECK(streaming.stats().residentBytes <= config.residency.byteBudget);
 
-    // Cross-kind eviction order at the registry level: highest score (least needed) first, protected never, any kind.
     ResidencyManager manager(1);
     manager.config().byteBudget = 250;
     std::vector<std::string> evicted;
@@ -394,7 +383,7 @@ void testMemoryBudget() {
     add(ResidentKind::GpuMesh, 1, 7.0f, false, "mesh");
     add(ResidentKind::PortalCell, 1, 8.0f, false, "cell");
     add(ResidentKind::GridCell, 1, 20.0f, true, "grid-protected");
-    manager.track(ResidentKind::ScatterBatch, 1, 100, 99.0f, false, nullptr);  // pinned: counts, never evicted
+    manager.track(ResidentKind::ScatterBatch, 1, 100, 99.0f, false, nullptr);
     CHECK(manager.residentBytes() == 500);
     CHECK(manager.enforceByteBudget() == 3);
     CHECK((evicted == std::vector<std::string>{"tile-far", "cell", "mesh"}));
@@ -403,7 +392,6 @@ void testMemoryBudget() {
     CHECK(stats.memoryEvictions == 3);
     CHECK(stats.kinds[static_cast<size_t>(ResidentKind::TerrainTile)].evictedForMemory == 1);
 
-    // Terrain tiles under a byte budget: tiles kept only by the eviction delay are unloaded early, wanted ones stay.
     World w;
     setupWorld(w);
     auto uploads = std::make_shared<std::atomic<int>>(0);
@@ -432,7 +420,7 @@ void testHitchAttribution() {
     CHECK(stats.kinds[static_cast<size_t>(ResidentKind::TerrainTile)].hitches == 1);
     CHECK(stats.kinds[static_cast<size_t>(ResidentKind::PortalCell)].hitches == 0);
     CHECK(stats.kinds[static_cast<size_t>(ResidentKind::TerrainTile)].commitMillisMax >= 5.0);
-    manager.recordFrame(50.0, 33.0);  // no commit work this frame: nobody blamed
+    manager.recordFrame(50.0, 33.0);
     CHECK(manager.stats().kinds[static_cast<size_t>(ResidentKind::TerrainTile)].hitches == 1);
 }
 }

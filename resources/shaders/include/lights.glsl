@@ -14,10 +14,6 @@ layout(std430) readonly buffer LightBuffer {
     GpuLight lights[];
 };
 
-// 3D clustered light lists (light_cull.comp). Layout of ClusterBuffer, in uints:
-//   [2c], [2c+1]            offset and count of cluster c's index list (offset relative to CLUSTER_INDEX_BASE)
-//   [CLUSTER_ALLOC_COUNTER] index allocation cursor, [CLUSTER_VISIBLE_COUNTER] frustum-visible light count
-//   [CLUSTER_INDEX_BASE..]  light indices, variable length per cluster
 #ifndef CLUSTER_BUFFER_WRITABLE
 layout(std430) readonly buffer ClusterBuffer {
     uint clusterLights[];
@@ -33,7 +29,6 @@ const uint CLUSTER_ALLOC_COUNTER = CLUSTER_COUNT * 2u;
 const uint CLUSTER_VISIBLE_COUNTER = CLUSTER_COUNT * 2u + 1u;
 const uint CLUSTER_INDEX_BASE = CLUSTER_COUNT * 2u + 16u;
 
-// Light params.w: >= 0 ranked local shadow view base, <= -2 virtual shadow map face base (-2 - base), -1 unshadowed.
 bool lightHasVirtualShadow(GpuLight light) { return light.params.w < -1.5; }
 uint lightVirtualFace(GpuLight light) { return uint(-light.params.w - 2.0 + 0.5); }
 
@@ -48,15 +43,10 @@ uint clusterIndex(vec2 pixel, float viewDepth) {
 }
 
 #ifndef CLUSTER_BUFFER_WRITABLE
-// x: first index into clusterLights, y: light count.
 uvec2 clusterRange(uint cluster) { return uvec2(CLUSTER_INDEX_BASE + clusterLights[cluster * 2u], min(clusterLights[cluster * 2u + 1u], CLUSTER_MAX_LIGHTS)); }
 #endif
 
-// Portal lights (docs/Portals.md): lights from cellParams.y - 1 on are images of lights of a neighbouring cell seen
-// through a portal. Each has an aperture record at LIGHT_APERTURE_BASE + (index - first): positionRange = quad centre and
-// edge softness, colorType.xyz / directionCos.xyz = half-extent vectors, params = plane (normal toward the receivers, w).
-// The light reaches a receiver only along the segment through the quad; returns that transmission (1 for other lights).
-const uint LIGHT_APERTURE_BASE = 32768u;  // lighting_detail::kMaxLights
+const uint LIGHT_APERTURE_BASE = 32768u;
 
 float lightAperture(uint index, vec3 lightPos, vec3 position) {
     uint first = uint(cellParams.y + 0.5);
@@ -72,7 +62,6 @@ float lightAperture(uint index, vec3 lightPos, vec3 position) {
     vec3 v = aperture.directionCos.xyz;
     float halfU = length(u);
     float halfV = length(v);
-    // Distance (metres) from the crossing point to the nearest quad edge, positive inside.
     float inside = min(halfU - abs(dot(hit, u)) / max(halfU, 1e-6), halfV - abs(dot(hit, v)) / max(halfV, 1e-6));
     return smoothstep(-aperture.positionRange.w, aperture.positionRange.w, inside);
 }

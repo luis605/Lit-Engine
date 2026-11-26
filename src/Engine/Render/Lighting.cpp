@@ -76,7 +76,6 @@ void createStaticBuffers(Lighting::Data& state) {
     Diligent::IRenderDevice* device = state.device;
     const std::vector<MaterialGpu> defaultMaterials(kMaxMaterials, packMaterial(Material{}));
     state.materials = litgpu::structuredBuffer(device, "Material Buffer", sizeof(MaterialGpu), kMaxMaterials, defaultMaterials.data());
-    // Lights, then the apertures of portal lights (one GpuLight-sized record each, see setLightApertures).
     const std::vector<GpuLight> noLights(kMaxLights + kMaxPortalLights, GpuLight{});
     state.lights = litgpu::structuredBuffer(device, "Light Buffer", sizeof(GpuLight), kMaxLights + kMaxPortalLights, noLights.data());
     const std::vector<uint32_t> emptyClusters(static_cast<size_t>(kClusterHeaderWords) + kClusterIndexCapacity, 0u);
@@ -231,7 +230,7 @@ void loadHdri(Lighting::Data& state) {
 }
 
 MaterialGpu packMaterial(const Material& material) {
-    // A NaN parameter (it compares false with everything, so std::clamp returns it) must not reach the shader: it packs as the lower bound.
+    // std::clamp passes NaN through, so NaN packs as the lower bound.
     const auto clamp = [](float value, float lo, float hi) { return std::isnan(value) ? lo : std::clamp(value, lo, hi); };
     MaterialGpu packed{};
     packed.baseColorOpacity = glm::vec4(material.baseColor, clamp(material.opacity, 0.0f, 1.0f));
@@ -478,11 +477,7 @@ void Lighting::releaseTexture(int slot) {
 
 void Lighting::shiftOrigin(const glm::vec3& delta) {
     Data& state = *m_data;
-    // Virtual shadow maps: light slots and the previous-object copy are in the old frame, so every cached page is stale. Invalidating (not
-    // shifting) re-renders the requested pages once; the face matrices are rebuilt from the shifted lights on the next fit.
     state.vsm.allDirty = true;
-    // World-space reflection voxel grid: contents are relative to its corner, so a translation is exact. The box hash is origin independent.
     if (state.reflections.grid.valid()) state.reflections.grid.minCorner -= delta;
     state.reflections.cameraPosition -= delta;
-    // Probe cubemaps hold directions, not positions; planar reflection and the sky capture are rebuilt every frame / keyed on altitude.
 }

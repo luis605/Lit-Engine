@@ -181,8 +181,6 @@ bool probeBakeNeeded(const ProbeBakeState& state, int probeCount, uint32_t resol
 
 uint64_t hashReflectionBoxes(const std::vector<ReflectionBox>& boxes) {
     uint64_t hash = kHashSeed;
-    // Relative to the first box: a floating-origin rebase translates every box and must not look like a scene change
-    // (the voxel grid is shifted instead, Lighting::shiftOrigin).
     const glm::vec3 reference = boxes.empty() ? glm::vec3(0.0f) : boxes.front().center;
     for (const ReflectionBox& box : boxes) {
         mixHash(hash, box.center - reference);

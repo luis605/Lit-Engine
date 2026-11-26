@@ -13,9 +13,6 @@ import Engine.Render.entity;
 import Engine.Render.component;
 import Engine.Render.material;
 
-// showcase: a lit room with coloured walls, a pillar, a block, five spheres of rising roughness and two area lights, opening onto an
-// outdoor apron. probes: a closed colour box with a chrome sphere, one lamp and (optionally) a reflection probe.
-
 uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material);
 
 namespace {

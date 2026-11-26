@@ -3,8 +3,6 @@
 #include "scene.glsl"
 #include "meshlet.glsl"
 
-// Cluster LOD: indirect dispatch arguments for meshlet_cull (one workgroup per work item, split
-// over x and y because a dimension is limited to 65535 groups).
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430) readonly buffer WorkCounterBuffer {

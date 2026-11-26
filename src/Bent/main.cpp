@@ -1,5 +1,3 @@
-// bent: declare immutable laws about the engine in .bent files and try to break them (docs/Bent.md).
-
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -184,7 +182,6 @@ const bent::LawDecl* pickLaw(const Cli& cli, const bent::Program& program) {
     return own.front();
 }
 
-// Laws under a gpu/ directory need a device: skipped without --gpu (exit 0), skipped with exit 77 when --gpu finds none.
 bool gpuFile(const std::string& path) { return path.find("/gpu/") != std::string::npos || path.rfind("gpu/", 0) == 0; }
 
 int gpuSkip() {
@@ -302,8 +299,6 @@ int runList(Cli& cli, bent::Host& host) {
     return 0;
 }
 
-// memsafe: the whole suite, one forked process per case, in a sanitizer build. Any sanitizer abort (ASan, UBSan incl. bounds, libstdc++
-// assertions) kills one case; its log is attached to the failure, and the single law `memory_safe` fails with seed/case to replay.
 int runSuite(Cli& cli, bent::Host& host);
 
 int runMemsafe(Cli& cli, bent::Host& host) {
@@ -324,7 +319,7 @@ int runMemsafe(Cli& cli, bent::Host& host) {
         std::fprintf(stderr, "bent: re-exec failed\n");
         return 2;
     }
-    bent::setSanitizerLogPrefix(prefix);  // exec keeps the pid, so the prefix is the same before and after
+    bent::setSanitizerLogPrefix(prefix);
     return runSuite(cli, host);
 #else
     (void)cli; (void)host;
@@ -342,7 +337,7 @@ int runSuite(Cli& cli, bent::Host& host) {
     cli.options.shrinkLimit = std::min<int64_t>(cli.options.shrinkLimit, 600);
     cli.options.shrinkSeconds = std::min(cli.options.shrinkSeconds, 30.0);
     const std::string regressions = cli.options.regressionDir;
-    cli.options.regressionDir.clear();  // CI never writes regressions
+    cli.options.regressionDir.clear();
     const auto bentFiles = [](const std::string& dir) {
         std::vector<std::filesystem::path> files;
         std::error_code ec;
@@ -352,7 +347,6 @@ int runSuite(Cli& cli, bent::Host& host) {
         std::sort(files.begin(), files.end());
         return files;
     };
-    // Regressions first: a law with a `known` regression is an expected failure (its fixed-seed run may fail too).
     std::vector<bent::ExampleReport> examples;
     int failures = 0;
     int memsafeHits = 0;

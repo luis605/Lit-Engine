@@ -24,15 +24,6 @@ import Engine.Render.material;
 
 #include "LightingInternal.hpp"
 
-// Virtual (paged) shadow maps for local lights. Overview (details in docs/Lighting.md):
-//   CPU, once per frame: every point/spot light gets stable face slots (1 or 6); a light keeps its
-//   slots while its parameters are unchanged (clean) or while it moves (matched by colour/range/type
-//   near its old position, dirty). Faces are uploaded with their projection and dirty flag.
-//   GPU, per rendered view after its depth pass: requests from this view's depth buffer -> release of
-//   stale pages / invalidation of dirty faces -> allocation from the physical pool -> per-page caster
-//   culling -> instanced draws into the atlas. Nothing reads a previous frame's image; the only state
-//   kept across frames is the page cache, invalidated by schedule (moved lights, moved casters).
-
 using namespace lighting_detail;
 
 namespace {
@@ -113,7 +104,6 @@ void ensurePool(Lighting::Data& state) {
     ++state.bindingVersion;
 }
 
-// Empties the page cache: all page table entries, stamps and owners cleared, every physical page free.
 void resetPool(Lighting::Data& state) {
     VirtualShadowGpu& vsm = state.vsm;
     Diligent::IDeviceContext* context = state.context;
@@ -121,7 +111,6 @@ void resetPool(Lighting::Data& state) {
     std::vector<uint32_t> physical(static_cast<size_t>(kMaxPoolPages) * 2, kInvalid);
     for (uint32_t page = 0; page < pool; ++page) physical[pool + page] = page;
     LIT_UP(context)->UpdateBuffer(vsm.physical, 0, sizeof(uint32_t) * physical.size(), physical.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    // Clear on the GPU from a 1 MB zero buffer: a CPU upload of two ~42 MB zero tables filled the upload heap at start-up.
     constexpr uint32_t kZeroChunkWords = 262144;
     if (litgpu::legacyUploads()) {
         const std::vector<uint32_t> zeros(static_cast<size_t>(kVsmMaxFaces) * kVsmPagesPerFace, 0u);
@@ -295,14 +284,10 @@ void loadVirtualShadowPipelines(Lighting::Data& state) {
 void assignVirtualShadowFaces(Lighting::Data& state, SceneUniforms& uniforms) {
     VirtualShadowGpu& vsm = state.vsm;
     ensurePool(state);
-    // Portal views call fitShadows again within the frame: the assignment (and the params.w encoding
-    // already written into cpuLights) stays the one made for the main camera.
     if (vsm.assignedFrame == state.frame) return;
     vsm.assignedFrame = state.frame;
     for (uint32_t face = 0; face < vsm.highWater; ++face) vsm.cpuFaces[face].info.z = 0.0f;
 
-    // Lights in the main frustum first (they are the ones that request pages), then the rest in the
-    // collector's distance order so portal views still find shadows for nearby off-screen lights.
     std::vector<uint32_t> order;
     order.reserve(state.cpuLights.size());
     for (uint32_t index = 0; index < state.cpuLights.size(); ++index) {
@@ -352,7 +337,6 @@ void assignVirtualShadowFaces(Lighting::Data& state, SceneUniforms& uniforms) {
             }
         }
         if (match < 0) {
-            // A moving light: same colour, range and type, nearest previous light within one cell.
             dirty = true;
             float best = kIdentityCell * kIdentityCell;
             const glm::ivec3 cell = cellOf(position);
@@ -380,13 +364,10 @@ void assignVirtualShadowFaces(Lighting::Data& state, SceneUniforms& uniforms) {
             continue;
         }
         if (!state.settings.vsmCache) dirty = true;
-        // Portal lights only see casters on the receiving side of their portal plane (the other side is not their cell).
         const bool portalLight = index >= state.firstPortalLight && index - state.firstPortalLight < state.lightApertures.size();
         const glm::vec4 clipPlane = portalLight ? state.lightApertures[index - state.firstPortalLight].plane : glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
         writeLightFaces(vsm, light, index, slot.faceBase, dirty, clipPlane);
         light.params.w = -2.0f - static_cast<float>(slot.faceBase);
-        // Overflow priority: projected angular size of the light's range (range / distance), lights outside the
-        // main frustum last (they only serve portal views and reflections).
         const bool inFrustum = sphereVisible(uniforms.frustumPlanes, position, light.positionRange.w);
         visibleLights += inFrustum ? 1u : 0u;
         ranked.push_back({(inFrustum ? 1.0f : 1e-3f) * light.positionRange.w / (glm::distance(position, uniforms.viewPos) + 1.0f), index, static_cast<uint32_t>(next.size())});
@@ -397,15 +378,12 @@ void assignVirtualShadowFaces(Lighting::Data& state, SceneUniforms& uniforms) {
         for (uint32_t face = 0; face < previous.faceCount; ++face) vsm.cpuFaces[previous.faceBase + face].info = glm::vec4(1.0f, 0.0f, 1.0f, 0.0f);
         (previous.faceCount == 1 ? vsm.freeSingle : vsm.freeCube).push_back(previous.faceBase);
     }
-    // Deterministic tiers: rank by score (ties by light index), equal-sized tiers; tier 0 gets pages first on overflow.
     std::sort(ranked.begin(), ranked.end(), [](const Ranked& a, const Ranked& b) { return a.score != b.score ? a.score > b.score : a.index < b.index; });
     for (size_t rank = 0; rank < ranked.size(); ++rank) {
         const VsmLightSlot& slot = next[ranked[rank].slot];
         const float tier = static_cast<float>(rank * kVsmTiers / ranked.size());
         for (uint32_t face = 0; face < slot.faceCount; ++face) vsm.cpuFaces[slot.faceBase + face].info.w = 1.0f + tier;
     }
-    // Automatic resolution scale: coarser shadow texels as the visible light count outgrows what the pool can serve
-    // (about pool / 32 lights at scale 1, then +1 per 4x more lights, clamped to 1..4).
     const float lightBudget = std::max(static_cast<float>(vsm.poolSide * vsm.poolSide) / 32.0f, 1.0f);
     const float autoFactor = state.settings.vsmAutoScale ? std::clamp(1.0f + 0.5f * std::log2(std::max(static_cast<float>(visibleLights) / lightBudget, 1.0f)), 1.0f, 4.0f) : 1.0f;
     vsm.effectiveScale = std::clamp(state.settings.vsmResolutionScale * autoFactor, 0.25f, 8.0f);
@@ -458,7 +436,6 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
 
     const bool firstRun = vsm.lastRunFrame != state.frame;
     if (firstRun) {
-        // Diagnostics: counters of the run kStatsLag frames ago (the GPU is done with it by then).
         const uint32_t old = (state.frame + 1) % kVsmReadbackRing;
         if (vsm.readbackFrame[old] != 0 && state.frame - vsm.readbackFrame[old] >= kStatsLag) {
             Diligent::MapHelper<uint32_t> mapped(context, vsm.readback[old], Diligent::MAP_READ, Diligent::MAP_FLAG_DO_NOT_WAIT);
@@ -491,7 +468,6 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
     constants.misc[1] = pool;
     constants.tuning = glm::vec4(inputs.lodBias, 0.0f, 0.0f, 0.0f);
     LIT_UP(context)->UpdateBuffer(vsm.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    // Per-run counters (request, pop, render, overflow, instance, moved, move-overflow); the free count persists.
     const uint32_t zeros[7] = {};
     LIT_UP(context)->UpdateBuffer(vsm.counters, sizeof(uint32_t), sizeof(zeros), zeros, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     const std::array<uint32_t, kVsmHistWords> histZeros{};
@@ -505,7 +481,6 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
     const uint32_t drawCount = 0;
     LIT_UP(context)->UpdateBuffer(vsm.args, sizeof(uint32_t) * 12, sizeof(drawCount), &drawCount, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    // Bindings: two cached sets (the renderer double-buffers its per-frame object buffers).
     Diligent::ITextureView* depthView = litgpu::srv(inputs.depth);
     const std::vector<const void*> key = {inputs.sceneUniforms, inputs.worldMatrices, inputs.cullSpheres, inputs.renderables, inputs.meshInfos, inputs.dynamicStamps, depthView, vsm.atlas.RawPtr(), vsm.previousObjects.RawPtr(), state.gbuffer[1].RawPtr(), state.lights.RawPtr()};
     VirtualShadowGpu::Bindings* bindings = nullptr;
@@ -575,9 +550,6 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
     litgpu::dispatch(context, vsm.requestPso, bindings->request, groups((static_cast<uint32_t>(state.width) + 1) / 2, kTileGroup), groups((static_cast<uint32_t>(state.height) + 1) / 2, kTileGroup));
     litgpu::dispatch(context, vsm.releasePso, bindings->release, groups(pool, kGroup));
     if (firstRun) litgpu::dispatch(context, vsm.clearDirtyPso, bindings->clearDirty, groups(vsm.faceSlots, kGroup));
-    // Overflow is decided before anything is popped: unallocated requests are counted per (mip, face priority tier) and
-    // whole groups are granted, coarse mips first and by tier within a mip, while free pages last. The outcome does not
-    // depend on thread order, and the finest pages of the least important faces are the ones that go missing.
     litgpu::dispatch(context, vsm.histPso, bindings->hist, groups(kVsmRequestCapacity, kGroup));
     litgpu::dispatch(context, vsm.planPso, bindings->plan, 1);
     litgpu::dispatch(context, vsm.allocatePso, bindings->allocate, groups(kVsmRequestCapacity, kGroup));
@@ -593,7 +565,6 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
     litgpu::dispatch(context, vsm.prefixPso, bindings->prefix, 1);
     indirectDispatch(vsm.scatterPso, bindings->scatter, 8);
 
-    // Rasterise: clear the queued pages, then all caster instances in one multi-draw.
     Diligent::ITextureView* dsv = litgpu::dsv(vsm.atlas);
     context->SetRenderTargets(0, nullptr, dsv, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     Diligent::Viewport viewport;

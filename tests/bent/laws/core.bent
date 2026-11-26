@@ -1,9 +1,7 @@
-# World core: handles, hierarchy, transforms, internal consistency.
 include "../lib/prelude.bent"
 
 gen churn = listOf(frequency([[5, spawnAny], [4, destroy(target: target)], [2, stepAction], [1, reparent(target: target, parent: int(-1, 31))]]), 0, 40)
 
-# Every handle ever handed out is unique: destroy + create never resurrects an old (index, generation) pair.
 law handles_unique {
     forall (p: churn)
     => after(p) {
@@ -13,26 +11,22 @@ law handles_unique {
     }
 }
 
-# A destroyed entity's handle is dead forever, no matter what is created afterwards.
 law destroyed_stays_dead {
     forall (p: churn, s: spawnAny, k: target, q: churn)
     => let n = after(p ++ [s]) { len(spawned()) } in
        after(p ++ [s, destroy(target: k)] ++ q) { not alive(entity(k % n)) }
 }
 
-# The three ways of counting the live set agree.
 law alive_count_consistent {
     forall (p: programPlus)
     => always after(p) { entityCount() == liveCount() and liveCount() == len(entities()) }
 }
 
-# World::validate finds no internal inconsistency (hierarchy links, spatial index, free list) after any action sequence.
 law world_validate_clean {
     forall (p: programPlus)
     => always after(p) { worldErrors() == [] }
 }
 
-# Operations on a stale handle are no-ops: they must not touch any live entity.
 law stale_handle_ops_harmless {
     forall (p: program, e: spawnAny, k: target, d: offset, r: unitQuat(), s: scaleGen)
     => after(p ++ [e, destroy(target: k)]) { contentHash() } ==
@@ -40,13 +34,11 @@ law stale_handle_ops_harmless {
                    setScale(target: k, scale: s), setName(target: k, name: "zombie"), reparent(target: k, parent: 0), destroy(target: k)]) { contentHash() }
 }
 
-# Finite inputs never produce NaN or infinity in transforms, velocities or the camera, at any tick.
 law no_nan_from_finite_programs {
     forall (p: program)
     => always after(p ++ [step(n: 30)]) { not hasNaN() }
 }
 
-# teleport sets exactly the local position it was given.
 law teleport_sets_position {
     forall (p: program, s: spawnAny, k: target, v: smallVec)
     => after(p ++ [s, teleport(target: k, pos: v)]) {
@@ -54,7 +46,6 @@ law teleport_sets_position {
     }
 }
 
-# Reparenting with keepWorld keeps the world position (for sane scales).
 law reparent_keeps_world_position {
     forall (p: listOf(spawn(pos: smallVec, scale: scaleGen, rot: unitQuat(), shape: "none", dynamic: false), 2, 8), k: target, j: target)
     => after(p) {
@@ -68,13 +59,11 @@ law reparent_keeps_world_position {
 
 fn depth(e, limit) = if limit <= 0 then 1000000 else (let p = parent(e) in if p == -1 then 0 else 1 + depth(p, limit - 1))
 
-# Random reparenting never builds a cycle: every parent chain ends at a root.
 law hierarchy_acyclic {
     forall (p: listOf(oneof(spawn(shape: "none", pos: smallVec, dynamic: false), reparent(target: target, parent: int(-1, 31), keepWorld: bool()), destroy(target: target)), 0, 40))
     => after(p) { let n = len(entities()) in forall e in entities(): depth(e, n + 1) <= n }
 }
 
-# Spawning N entities makes exactly N more live entities, and destroying a parent destroys its subtree.
 law spawn_destroy_counts {
     forall (n: int(0, 30), p: program)
     => after(p) { entityCount() } + n == after(p ++ repeat(spawn(shape: "none", dynamic: false), n)) { entityCount() }
@@ -85,15 +74,11 @@ law destroy_removes_subtree {
     => after([spawn(shape: "none", dynamic: false)] ++ repeat(spawn(shape: "none", dynamic: false, parent: 0), n) ++ [destroy(target: 0)]) { entityCount() == 0 }
 }
 
-# compact() keeps content and handle uniqueness, and leaves no holes.
 law compact_preserves_content {
     forall (p: churn)
     => after(p) { contentHash() } == after(p ++ [compact()]) { contentHash() }
 }
 
-# Degenerate but finite scales (zero, denormal) never turn into NaN through hierarchy operations (keepWorld reparenting inverts
-# the parent's world matrix).
-# (No 1e30 here: chained 1e30 scales overflow float and inf * 0 = NaN, which is arithmetic, not a bug.)
 gen degenerateScale = oneof(vec3(0, 0, 0), vec3(0, 1, 1), vec3(1e-30, 1, 1), vec3(1e-6, 1e-6, 1e-6), scaleGen)
 gen hierarchyAction = frequency([
     [4, spawn(shape: "none", dynamic: false, pos: smallVec, scale: degenerateScale, rot: unitQuat(), parent: frequency([[2, just(-1)], [1, target]]))],

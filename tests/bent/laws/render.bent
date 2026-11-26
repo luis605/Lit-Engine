@@ -1,11 +1,9 @@
-# Render settings (Engine.Render.settings) through the headless engine: set / get is a fixpoint and values stay sane.
 include "../lib/prelude.bent"
 
 gen settingValue = oneof(float(-10, 10), int(-5, 5), bool(), elements([0, 1, 2, 3, 4]), float(-100000, 100000))
 
 fn settingKey(i) = let names = after([]) { renderSettingNames() } in names[i % len(names)]
 
-# Reading a setting back and writing that text again changes nothing.
 law render_setting_fixpoint {
     forall (i: int(0, 100000), v: settingValue)
     => let key = settingKey(i) in
@@ -13,14 +11,12 @@ law render_setting_fixpoint {
        after([render(key: key, value: v), render(key: key, value: once)]) { renderSetting(key) } == once
 }
 
-# Garbage values never make a setting non-finite.
 law render_setting_rejects_nonfinite {
     forall (i: int(0, 100000), v: elements(["nan", "inf", "-inf", "1e999", "-1e999"]))
     => let key = settingKey(i) in
        after([render(key: key, value: v)]) { let text = renderSetting(key) in not contains(text, "nan") and not contains(text, "inf") }
 }
 
-# Setting one key leaves every other key alone.
 law render_setting_isolated {
     forall (i: int(0, 100000), v: settingValue)
     => let key = settingKey(i) in

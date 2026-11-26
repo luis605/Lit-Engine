@@ -26,14 +26,9 @@ bool sphereOccluded(vec3 worldCenter, float radius) {
     ivec2 lastTexel = textureSize(u_hizTexture, mip) - 1;
     ivec2 lo = min(ivec2(pixelMin) >> mip, lastTexel);
     ivec2 hi = min(ivec2(pixelMax) >> mip, lastTexel);
-    // Reversed Z: depth 1 is the near plane, 0 the far plane; the farthest occluder is the smallest value.
     float farthest = min(min(texelFetch(u_hizTexture, lo, mip).r, texelFetch(u_hizTexture, ivec2(hi.x, lo.y), mip).r),
                          min(texelFetch(u_hizTexture, ivec2(lo.x, hi.y), mip).r, texelFetch(u_hizTexture, hi, mip).r));
 
-    // Nearest (largest reversed-Z) depth of the sphere: the maximum over the corners of its view-space box.
-    // Depth is linear-fractional in view space, so a box attains its maximum at a corner; this also holds
-    // for the oblique projections of portal views, whose depth row depends on x and y (the depth at the
-    // centre's x/y alone under-estimated it and culled visible floors behind portals).
     float nearest = 0.0;
     for (int corner = 0; corner < 8; ++corner) {
         vec3 offset = vec3((corner & 1) != 0 ? radius : -radius, (corner & 2) != 0 ? radius : -radius, (corner & 4) != 0 ? radius : -radius);

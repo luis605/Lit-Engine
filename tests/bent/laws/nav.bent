@@ -1,4 +1,3 @@
-# Navigation (docs/Nav.md): paths start and end where asked, keep the agent radius away from obstacles and report their length.
 include "../lib/prelude.bent"
 
 gen obstacle = navObstacle(center: vec3(float(-15, 15), 1, float(-15, 15)), half: vec3(float(0.3, 4), 1, float(0.3, 4)))
@@ -6,9 +5,6 @@ gen floorPoint = vec3(float(-18, 18), 0, float(-18, 18))
 gen navSetup = navBuild(half: 20, cell: elements([0.25, 0.5, 1.0]), radius: float(0, 1))
 
 fn flat(v) = vec3(v.x, 0, v.z)
-# Horizontal clearance of a point from a box (negative strictly inside; a point on the boundary has clearance 0).
-# Walkability is decided per grid cell, so a path point may sit up to one cell inside an obstacle footprint ("inside" means
-# deeper than `slack`; bent's counterexample: radius 0, cell 0.25, the goal 1 cm inside a box).
 fn clearance(p, box, slack) =
     let dx = max([box.min.x - p.x, 0.0, p.x - box.max.x]) in
     let dz = max([box.min.z - p.z, 0.0, p.z - box.max.z]) in
@@ -29,7 +25,6 @@ law nav_path_endpoints {
     }
 }
 
-# Endpoints must be walkable: a path asked for from inside an obstacle starts at the requested point (by design).
 law nav_path_avoids_obstacles {
     forall (obs: listOf(obstacle, 0, 8), nav: navSetup, from: floorPoint, to: floorPoint)
     => after(obs ++ [nav]) {
@@ -47,7 +42,6 @@ law nav_path_length_consistent {
     }
 }
 
-# A clear floor always has a path between two walkable points.
 law nav_open_floor_connected {
     forall (nav: navSetup, from: floorPoint, to: floorPoint)
     => after([nav]) { not (navWalkable(from) and navWalkable(to)) or navPath(from, to).found }

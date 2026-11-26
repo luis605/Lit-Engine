@@ -1,10 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 
-// Pastes a child view into the parent inside the portal opening (ray / shape test per pixel). Edge treatment (docs/Portals.md,
-// "Frames and edges"): anti-aliased coverage blended over the frame behind the contour, refraction and a chromatic split near
-// the rim, rim glow with a Fresnel term. All spatial: nothing reads a previous frame.
-
 #include "portal_shape.glsl"
 
 layout(std140) uniform PortalSurfaceData {
@@ -20,7 +16,7 @@ layout(std140) uniform PortalSurfaceData {
     vec4 shape;
     vec4 edge;
     vec4 rim;
-    vec4 misc;  // x time (s), y shimmer speed, z near plane distance
+    vec4 misc;
 };
 
 uniform sampler2D u_child;
@@ -45,14 +41,13 @@ void main() {
     vec2 outward;
     float alpha = portalCoverage(gl_FragCoord.xy, origin, invView, params, center, axisU, axisV, normal, shape, edge, p, sd, distancePixels, outward);
     if (alpha <= 0.0) discard;
-    float depth = 1.0;  // reversed Z: nearest
+    float depth = 1.0;
     if (mode == 1) {
         vec4 clip = viewProjection * vec4(origin + dir * t, 1.0);
         depth = clamp(clip.z / max(clip.w, 1e-6), 0.0, 1.0);
     }
     gl_FragDepth = depth;
 
-    // Rim band: 1 at the contour, 0 rimWidth inside it.
     float band = 1.0 - smoothstep(0.0, max(edge.y, 1e-4), -sd);
     vec3 result;
     if (camera.w > 0.5) {

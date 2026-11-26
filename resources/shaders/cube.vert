@@ -41,7 +41,7 @@ void main() {
     out_alpha = entityAlpha(objectId);
 #endif
     mat4 model = loadWorld(worldRows[objectId]);
-    // cofactor matrix == inverse-transpose up to a scale that is normalised away; the determinant sign keeps mirrored transforms correct
+    // the cofactor matrix is the inverse-transpose up to a scale; the determinant sign keeps mirrored transforms correct.
     mat3 m3 = mat3(model);
     mat3 cofactor = mat3(cross(m3[1], m3[2]), cross(m3[2], m3[0]), cross(m3[0], m3[1]));
     float detSign = dot(m3[0], cofactor[0]) < 0.0 ? -1.0 : 1.0;

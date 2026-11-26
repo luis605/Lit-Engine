@@ -89,10 +89,10 @@ struct PortalSurfaceUniforms {
     glm::vec4 camera;
     glm::vec4 params;
     glm::vec4 color;
-    glm::vec4 shape;  // portal_shape.glsl: opening and edge of the surface (PortalSurface::shape / edge / rim)
+    glm::vec4 shape;
     glm::vec4 edge;
     glm::vec4 rim;
-    glm::vec4 misc;   // x time (s), y shimmer speed
+    glm::vec4 misc;
 };
 
 struct PortalDepthUniforms {
@@ -120,17 +120,16 @@ struct PortalResolveUniforms {
     glm::vec4 normal;
     glm::vec4 camera;
     glm::vec4 params;
-    glm::vec4 shape;  // same coverage as the composite (portal_shape.glsl)
+    glm::vec4 shape;
     glm::vec4 edge;
 };
 
 enum VisibilityPhaseIndex : int { kPhaseOpaque = 0, kPhaseRetest = 1, kPhaseTransparent = 2, kPhaseShadow = 3, kPhaseCount = 4 };
 
-inline constexpr uint32_t kMaxMeshes = 4096;  // also MAX_MESHES in resources/shaders/include/mesh.glsl (7 slots per mesh; terrain streaming needs headroom)
+inline constexpr uint32_t kMaxMeshes = 4096;
 inline constexpr uint32_t kInvalidMeshId = 0xFFFFFFFFu;
 inline constexpr uint32_t kNormalSamples = 64;
 inline constexpr Diligent::TEXTURE_FORMAT kSceneDepthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
-// Reversed Z (Camera::getProjectionMatrix): near = 1, far = 0. Scene depth tests are GREATER_EQUAL and clear to this value.
 inline constexpr float kFarDepthValue = 0.0f;
 inline constexpr Diligent::TEXTURE_FORMAT kAccumulationFormat = Diligent::TEX_FORMAT_RGBA16_FLOAT;
 inline constexpr Diligent::TEXTURE_FORMAT kRevealageFormat = Diligent::TEX_FORMAT_R16_FLOAT;
@@ -146,8 +145,6 @@ inline constexpr int kMaxPortalViews = 24;
 inline constexpr size_t kMaxSurfaceShaders = 16;
 inline constexpr size_t kMaxDebugVertices = 1u << 17;
 inline constexpr size_t kInitialMaxObjects = 500000;
-// GPU instancing (docs/Instancing.md): visible entries of instances per phase on top of the object capacity, and the
-// visibility words reserved after the objects' bits for the instance pool (Engine.Instancing kMaxPoolInstances / 32).
 inline constexpr size_t kInstanceDrawCapacity = 1u << 19;
 inline constexpr uint32_t kInstanceVisibilityWords = (1u << 22) / 32;
 inline size_t VisibleEntryCapacity(size_t maxObjects) { return maxObjects + kInstanceDrawCapacity; }

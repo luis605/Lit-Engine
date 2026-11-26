@@ -4,13 +4,6 @@
 #include "hiz.glsl"
 #include "meshlet.glsl"
 
-// Cluster LOD, stage 2: one level of the per-instance hierarchy traversal. Runs once per tree level
-// (level-synchronous, indirect dispatch sized by meshlet_node_args). Each thread tests one
-// (instance, node) item from this level's queue half: LOD cut bound on the node's LOD sphere, then
-// frustum and Hi-Z on its culling sphere. Accepted internal nodes push their children to the other
-// queue half; accepted leaves become work items for meshlet_cull (unchanged per-cluster tests).
-// In the early opaque phase a node rejected only by the previous-frame Hi-Z is recorded for the
-// retest phase, which resumes the traversal from that node against the new Hi-Z.
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430) readonly buffer SortedVisibleObjectBuffer {
@@ -28,13 +21,12 @@ layout(std430) readonly buffer ClusterNodeBuffer {
     ClusterNode clusterNodes[];
 };
 
-// [0] current level (written by meshlet_node_args), [1 + k] items queued for level k.
 layout(std430) buffer NodeCounterBuffer {
     uint nodeCounters[];
 };
 
 layout(std430) buffer NodeQueueBuffer {
-    uvec4 nodeQueue[];  // (visible-entry slot, node, command slot | mesh << 16, 0), two halves
+    uvec4 nodeQueue[];
 };
 
 layout(std430) buffer WorkCounterBuffer {

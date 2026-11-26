@@ -402,9 +402,6 @@ static void testImpact() {
     CHECK(c.position().x > 1.0f);
 }
 
-// Wall-to-floor portal (docs/Physics.md, "Character"): X has a floor portal (normal +Y), Y a wall end (normal -X). Falling into the
-// floor portal comes out of Y's wall moving horizontally with up turned toward the wall; up and the view frame then turn back to
-// gravity-up (0.3 s, or at once with uprightSeconds = 0) while position, velocity and the view stay continuous.
 static const char* kTilted = R"({
   "cells": [
     {"name": "X", "min": [-30, -10, -30], "max": [30, 8, 30]},
@@ -450,7 +447,6 @@ static void tiltedFall(float uprightSeconds) {
             expected = previousView * glm::inverse(A.transform);
             CHECK(glm::dot(glm::normalize(velocityAfter), glm::normalize(rot(A.transform, velocityBefore))) > 0.98f);
         }
-        // View direction continuity in the frame of the current cell (a crossing maps the previous view through the transform).
         const glm::vec3 frontBefore = -glm::vec3(glm::transpose(glm::mat3(expected))[2]);
         const glm::vec3 frontNow = -glm::vec3(glm::transpose(glm::mat3(view))[2]);
         worstTurn = std::max(worstTurn, glm::degrees(std::acos(std::clamp(glm::dot(frontBefore, frontNow), -1.0f, 1.0f))));
@@ -459,18 +455,16 @@ static void tiltedFall(float uprightSeconds) {
     CHECK(crossedAt > 0);
     CHECK(c.crossings() == 1);
     CHECK(c.cell() == p.findCell("Y"));
-    // Out of the wall (gravity is blended across the portal plane, docs/Portals.md, so the fall already curved a little).
     CHECK(glm::dot(glm::normalize(velocityAfter), glm::vec3(-1.0f, 0.0f, 0.0f)) > 0.5f);
-    if (uprightSeconds > 0.0f) CHECK(upAfter.x > 0.5f);                                     // up followed the transform
-    else CHECK(glm::dot(upAfter, gravityUpAfter) > 0.999f);                                 // immediate reorientation
-    CHECK(worstTurn < 6.0f);  // no pop of the view direction at the crossing (pitch relax is gradual)
+    if (uprightSeconds > 0.0f) CHECK(upAfter.x > 0.5f);
+    else CHECK(glm::dot(upAfter, gravityUpAfter) > 0.999f);
+    CHECK(worstTurn < 6.0f);
     CHECK(c.up().y > 0.99f);
     CHECK(std::abs(c.roll()) < 0.5f);
-    CHECK(std::abs(w.camera().getRight().y) < 0.01f && w.camera().getUp().y > 0.0f);  // upright view, no roll
+    CHECK(std::abs(w.camera().getRight().y) < 0.01f && w.camera().getUp().y > 0.0f);
     CHECK(c.grounded());
 }
 
-// Thrown body through a rolled (45 degree) portal: velocity and spin carried by the transform, twin while straddling.
 static void testThrownRolled() {
     World w;
     setup(w);
@@ -510,7 +504,7 @@ static void testThrownRolled() {
             crossed = true;
             CHECK(glm::length(w.get<RigidBody>(ball)->velocity - rot(A.transform, vBefore)) < 0.3f);
             const Portal& B = p.portals()[static_cast<size_t>(A.partner)];
-            CHECK(glm::dot(w.get<RigidBody>(ball)->velocity, B.normal()) > 9.0f);  // leaves along the rolled exit's normal
+            CHECK(glm::dot(w.get<RigidBody>(ball)->velocity, B.normal()) > 9.0f);
         }
     }
     CHECK(twin);

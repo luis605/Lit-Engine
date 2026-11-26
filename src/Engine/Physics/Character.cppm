@@ -27,8 +27,6 @@ export struct CharacterSettings {
     float airAcceleration = 8.0f;
     float jumpSpeed = 4.5f;
     float upResponse = 8.0f;
-    // After a tilted portal crossing (docs/Physics.md): up and the view frame turn back to gravity-up over about this many seconds
-    // (the leftover camera roll decays to 0 meanwhile); 0 = at once. Velocity, position and orientation take the transform exactly.
     float uprightSeconds = 0.3f;
     float impactMinSpeed = 1.5f;
     float impactMaxShove = 3.0f;
@@ -80,7 +78,6 @@ export class CharacterController {
     [[nodiscard]] bool grounded() const { return m_grounded; }
     [[nodiscard]] int cell() const { return m_cell; }
     [[nodiscard]] int crossings() const { return m_crossings; }
-    // Look angles relative to the view frame (identity while upright; a tilted crossing rotates the frame, see Camera).
     [[nodiscard]] float yaw() const { return m_view.yaw; }
     [[nodiscard]] float pitch() const { return m_view.pitch; }
     [[nodiscard]] float roll() const { return m_view.roll; }

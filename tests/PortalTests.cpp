@@ -115,7 +115,6 @@ static void testObliqueClip() {
         const glm::vec4 c = oblique * view * glm::vec4(p, 1.0f);
         return c.z / c.w;
     };
-    // Reversed Z: the clip plane maps to depth 1 (near), visible points are below it, clipped points above.
     CHECK(std::abs(ndcZ(glm::vec3(0.3f, 0.2f, 1.0f)) - 1.0f) < 1.0e-4f);
     CHECK(std::abs(ndcZ(glm::vec3(-1.0f, 0.5f, 1.0f)) - 1.0f) < 1.0e-4f);
     CHECK(ndcZ(glm::vec3(0.0f, 0.0f, 0.0f)) < 1.0f);
@@ -479,8 +478,6 @@ static void testPortalPresentUntilCrossing() {
     CHECK(missing == 0);
 }
 
-// Light through portals: a lamp of cell B has an image in A behind A's end of the AB pair (and one in C), at the same
-// distance from the receiving quad; the receiving cell's frame nodes carry the cell grade and bounds.
 static void testLightTransport() {
     World w;
     setupWorld(w);
@@ -500,7 +497,7 @@ static void testLightTransport() {
         CHECK(image.cell == receiver.cell);
         CHECK(source.cell == b);
         const glm::vec3 position(image.transform * glm::vec4(lamp, 1.0f));
-        CHECK(glm::dot(image.normal, position - image.center) < 0.0f);  // behind the receiving quad
+        CHECK(glm::dot(image.normal, position - image.center) < 0.0f);
         CHECK(std::abs(glm::distance(position, image.center) - glm::distance(lamp, source.center())) < 1.0e-3f);
         CHECK(nearlyEqual(image.normal, receiver.normal()));
         CHECK(nearlyEqual(image.axisU, receiver.right() * receiver.half.x));
@@ -508,7 +505,7 @@ static void testLightTransport() {
         sawC = sawC || image.cell == c;
     }
     CHECK(sawA && sawC);
-    CHECK(p.lightImages(b, lamp, 2.0f).empty());               // does not reach either quad
+    CHECK(p.lightImages(b, lamp, 2.0f).empty());
     CHECK(p.lightImages(-1, lamp, 16.0f).empty());
     p.settings().lightTransport = false;
     CHECK(p.lightImages(b, lamp, 16.0f).empty());
@@ -544,7 +541,6 @@ static void testLightTransport() {
     CHECK(std::abs(copy.settings().tintLighting - 0.5f) < 1.0e-6f && !copy.settings().lightTransport);
 }
 
-// Camera roll / frame basics: roll rotates the view about the front, set/getRotation round trip, straight up / down decompose.
 static void testCameraOrientation() {
     Camera cam;
     cam.setPos(glm::vec3(1.0f, 2.0f, 3.0f));
@@ -569,7 +565,6 @@ static void testCameraOrientation() {
         CHECK(matrixDifference(decoded.getViewMatrix(), vertical.getViewMatrix()) < 1.0e-4f);
         CHECK(std::isfinite(decoded.getYaw()) && std::abs(std::abs(decoded.getPitch()) - 90.0f) < 1.0e-3f);
     }
-    // Upright transforms fold back into identity frame + yaw, so yaw/pitch consumers keep working.
     Camera turned;
     turned.setOrientation(10.0f, 5.0f);
     turned.transformBy(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
@@ -577,9 +572,6 @@ static void testCameraOrientation() {
     CHECK(std::abs(std::fmod(turned.getYaw() - 10.0f + 720.0f, 360.0f) - 270.0f) < 1.0e-3f);
 }
 
-// Crossing every tilted portal of portal_tilt (wall-to-floor, ceiling, 45 degree roll, 180 flip) from several approach angles:
-// the camera's view matrix after the swap equals the portal view's virtual camera before it (what was on screen), the cell
-// switches, and the upright relax keeps the view at first and ends with an upright camera.
 static void testTiltedCrossings() {
     World w;
     setupWorld(w);
@@ -628,20 +620,16 @@ static void testTiltedCrossings() {
                     ++crossings;
                     CHECK(crossedId == id);
                     CHECK(p.cameraCell() == exit.cell);
-                    // Exact continuity: view after = view before * inverse(T).
                     worstSwap = std::max(worstSwap, matrixDifference(cam.getViewMatrix(), moved.getViewMatrix() * glm::inverse(portal.transform)));
-                    // ... which is the virtual camera the portal view of this portal was rendered with.
                     for (const PortalSurface& surface : frame.nodes.empty() ? std::vector<PortalSurface>{} : frame.nodes[0].surfaces) {
                         if (surface.child > 0 && nearlyEqual(surface.center, portal.center(), 1.0e-4f)) worstChild = std::max(worstChild, matrixDifference(cam.getViewMatrix(), frame.nodes[static_cast<size_t>(surface.child)].view));
                     }
                     (void)before;
-                    // Relax: the first call keeps the view, then the camera ends upright (cell gravity -Y) with no roll.
                     const glm::mat4 crossedView = cam.getViewMatrix();
                     cam.relaxFrame(p.cellUp(p.cameraCell()), 0.0f, 0.3f);
                     CHECK(matrixDifference(cam.getViewMatrix(), crossedView) < 2.0e-4f);
                     for (int tick = 0; tick < 60; ++tick) cam.relaxFrame(p.cellUp(p.cameraCell()), 1.0f / 60.0f, 0.3f);
                     CHECK(!cam.relaxing());
-                    // An upright transform (ceiling to floor) keeps the camera's own roll; a tilted one ends with none.
                     const bool upright = glm::vec3(portal.transform * glm::vec4(0.0f, 1.0f, 0.0f, 0.0f)).y > 0.9999f;
                     CHECK(std::abs(cam.getRoll() - (upright ? roll : 0.0f)) < 1.0e-3f && std::abs(cam.getPitch()) <= 89.0f + 1.0e-3f);
                     if (!upright) CHECK(cam.getUp().y > 0.0f && glm::length(glm::cross(cam.getRight(), glm::vec3(0.0f, 1.0f, 0.0f))) > 0.999f - 1.0e-3f);
@@ -652,12 +640,10 @@ static void testTiltedCrossings() {
         }
     }
     CHECK(crossings == 7 * 3 * 2);
-    // Matrix entries include translations of up to ~165 m: 5e-4 is float precision there (0.5 mm), rotations agree to ~1e-6.
     CHECK(worstSwap < 5.0e-4f);
     CHECK(worstChild < 5.0e-4f);
 }
 
-// Immediate upright option (uprightSeconds 0) and a 180 degree flip: one call leaves an upright camera looking the same way.
 static void testFlipUprightImmediate() {
     Camera cam;
     cam.setOrientation(-30.0f, 10.0f);
@@ -671,7 +657,6 @@ static void testFlipUprightImmediate() {
     CHECK(cam.getUp().y > 0.9f && !cam.relaxing() && cam.getRoll() == 0.0f);
 }
 
-// Save / scene text: roll and frame survive; old saves (no roll / frame) load upright.
 static void testOrientationPersistence() {
     World w;
     setupWorld(w);
@@ -703,7 +688,6 @@ static void testOrientationPersistence() {
     CHECK(restoredSaves.apply(saved, &error));
     CHECK(matrixDifference(restored.camera().getViewMatrix(), view) < 1.0e-4f);
 
-    // Legacy scene text: 8 camera values, no roll / frame.
     World legacy;
     setupWorld(legacy);
     legacy.camera().transformBy(glm::rotate(glm::mat4(1.0f), glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
@@ -714,7 +698,6 @@ static void testOrientationPersistence() {
     CHECK(std::abs(legacy.camera().getUp().x) < 1.0e-4f);
 }
 
-// Shapes: crossing and ray casts follow the opening (ellipse corners and rounded corners are outside), JSON keeps the look.
 static void testShapesAndLook() {
     PortalSystem p;
     CHECK(p.parseJson(R"({
@@ -743,9 +726,8 @@ static void testShapesAndLook() {
     CHECK(copy.parseJson(p.toJson()));
     const Portal& c = copy.portals()[0];
     CHECK(c.look.shape == PortalShape::Ellipse && std::abs(c.look.edge.rim - 0.7f) < 1.0e-6f && nearlyEqual(c.look.frame.emissive, glm::vec3(1.0f, 0.0f, 0.0f)));
-    CHECK(matrixDifference(c.pose, a.pose) < 1.0e-5f);  // pitched + rolled pose survives the round trip
+    CHECK(matrixDifference(c.pose, a.pose) < 1.0e-5f);
     CHECK(nearlyEqual(c.euler, glm::vec3(0.0f, -90.0f, 30.0f)));
-    // Frame mesh: closed rings, finite, both parts non-empty, every index valid.
     for (PortalShape shape : {PortalShape::Rect, PortalShape::Ellipse, PortalShape::Rounded}) {
         PortalLook look;
         look.shape = shape;
@@ -762,13 +744,11 @@ static void testShapesAndLook() {
         for (size_t v = 0; v < reveal.vertices.size(); v += 8) {
             minZ = std::min(minZ, reveal.vertices[v + 2]);
             maxZ = std::max(maxZ, reveal.vertices[v + 2]);
-            // Reveal lies on the opening contour.
             finite = finite && std::abs(portalShapeDistance(shape, glm::vec2(1.1f, 1.6f), look.cornerRadius, reveal.vertices[v], reveal.vertices[v + 1])) < 1.0e-3f;
         }
         CHECK(finite);
-        CHECK(minZ < -0.05f && maxZ > 0.2f);  // behind the plane (covers the contour) and in front of it (the visible reveal)
+        CHECK(minZ < -0.05f && maxZ > 0.2f);
     }
-    // Light spill: a lamp in Y in front of the far end gives the near end a spill colour; off when spill is 0.
     std::vector<glm::vec4> packed = {glm::vec4(100.0f, 2.0f, 0.0f, 10.0f), glm::vec4(1.0f, 0.5f, 0.25f, 1000.0f), glm::vec4(0.0f), glm::vec4(0.0f)};
     const std::vector<int32_t> cells = {copy.findCell("Y")};
     const glm::vec3 spill = copy.spillIrradiance(0, packed, cells, glm::vec3(0.0f), glm::vec3(0.0f));

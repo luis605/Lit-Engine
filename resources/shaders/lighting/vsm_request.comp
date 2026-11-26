@@ -3,12 +3,6 @@
 #include "lights.glsl"
 #include "vsm_pass.glsl"
 
-// Page requests from this frame's depth buffer (no history). For every opaque pixel and every
-// clustered light with a virtual shadow face, mark the page(s) the shading pass will sample: the
-// pixel's mip (texel <= screen pixel) around the filter footprint, plus mip 0 of the face as the
-// always-present fallback. The first thread to stamp a page with this frame appends it to the
-// request list, so the list is unique per frame across all views.
-
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 uniform sampler2D u_depth;
@@ -39,8 +33,6 @@ void requestPage(uint index) {
 }
 
 void main() {
-    // One pixel per 2x2 block (rotating through the block by frame parity is not used: no history).
-    // The page footprint is widened by the block size so the skipped pixels' pages are covered.
     ivec2 pixel = min(ivec2(gl_GlobalInvocationID.xy) * 2 + 1, ivec2(screenParams.xy) - 1);
     if (any(greaterThanEqual(ivec2(gl_GlobalInvocationID.xy) * 2, ivec2(screenParams.xy)))) return;
     float depth = texelFetch(u_depth, pixel, 0).r;
@@ -56,7 +48,6 @@ void main() {
         uint index = clusterLights[range.x + i];
         GpuLight light = lights[index];
         if (!lightHasVirtualShadow(light)) continue;
-        // Portal lights: only receivers that see the light through its portal quad need pages.
         if (lightAperture(index, light.positionRange.xyz, worldPos) <= 0.0) continue;
         vec3 toLight = light.positionRange.xyz - worldPos;
         float d2 = dot(toLight, toLight);
@@ -69,11 +60,9 @@ void main() {
         if (clip.w <= 0.0) continue;
         vec2 faceUv = vec2(clip.x / clip.w * 0.5 + 0.5, 0.5 - clip.y / clip.w * 0.5);
         requestPage(face * VSM_PAGES_PER_FACE);
-        // Back-facing receivers are only shaded through subsurface wrap, which falls back to mip 0.
         if (dot(N, L) <= -0.05) continue;
         uint mip = vsmMipFor(clip.w, f.info.x, footprint);
         if (mip == 0u) continue;
-        // Filter footprint plus two screen pixels (the skipped block neighbours) in face texels.
         float pixelTexels = 2.0 * footprint * float(VSM_PAGE << mip) / (2.0 * clip.w * f.info.x);
         float reach = (margin + pixelTexels) / float(VSM_PAGE << mip);
         uint lo = vsmPageIndex(face, mip, faceUv - reach);

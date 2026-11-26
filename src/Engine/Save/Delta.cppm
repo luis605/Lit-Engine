@@ -42,14 +42,9 @@ export class DeltaStore {
     [[nodiscard]] EntityHandle find(const std::string& cell, const std::string& key) const;
     [[nodiscard]] std::vector<EntityHandle> liveEntities(const std::string& cell) const;
 
-    // Records the removal of a base entity that has no entity of its own (an instance merged into a batch mesh). The key joins
-    // the cell's `removed` set (saved, applied and thread-safely readable through removedSnapshot).
     void markRemoved(const std::string& cell, const std::string& key);
-    // Copy of the removed keys of a cell as of the last capture/markRemoved/fromJson. Safe to call from worker threads.
     [[nodiscard]] std::set<std::string> removedSnapshot(const std::string& cell) const;
-    // Bumped whenever a removed set may have changed (markRemoved, fromJson, capture with a different set).
     [[nodiscard]] uint64_t revision() const { return m_revision.load(std::memory_order_acquire); }
-    // Entities of this cell are shown or hidden by their owner (LOD swap), so visibility is neither captured nor applied.
     void ignoreVisibility(const std::string& cell, bool ignore = true);
 
     void snapshotParams();
@@ -58,7 +53,6 @@ export class DeltaStore {
     void applyCell(const std::string& cell);
     void releaseCell(const std::string& cell);
     void clear();
-    // Floating origin: call after World::shiftOrigin. Live baselines of root entities follow the world; stored deltas stay origin independent (root translations are kept in absolute world coordinates).
     void shiftOrigin(const glm::vec3& shift);
 
     [[nodiscard]] size_t deltaCount() const;

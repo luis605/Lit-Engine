@@ -16,11 +16,8 @@ export struct PortalSurface {
     glm::vec3 normal{0.0f, 0.0f, 1.0f};
     glm::vec3 fallback{0.05f};
     int child = -1;
-    // Opening and edge (PortalLook): x shape (0 rect, 1 ellipse, 2 rounded), y corner radius (m), z feather (px), w dissolve (0..1).
     glm::vec4 shape{0.0f, 0.0f, 1.0f, 0.0f};
-    // x rim glow strength (exposed HDR), y rim width (m), z refraction (px), w chromatic split (px).
     glm::vec4 edge{0.0f};
-    // rgb rim colour, w Fresnel strength.
     glm::vec4 rim{0.0f};
 };
 
@@ -34,8 +31,8 @@ export struct PortalViewNode {
     int cell = -1;
     float sunScale = 1.0f;
     float ambientScale = 1.0f;
-    glm::vec3 lightTint{1.0f};  // cell lighting grade (sun and ambient colour), from the cell tint
-    glm::vec3 cellMin{-1.0e9f};  // bounds of the view's cell (shared sun cascades test their coverage against them)
+    glm::vec3 lightTint{1.0f};
+    glm::vec3 cellMin{-1.0e9f};
     glm::vec3 cellMax{1.0e9f};
     bool masked = false;
     glm::vec3 entryCenter{0.0f};
@@ -56,6 +53,6 @@ export struct PortalViewStats {
     int depth = 0;
     uint32_t drawn = 0;
     double gpuMilliseconds = 0.0;
-    bool sunCascades = false;     // the view is sunlit and shades with cascades
-    bool sharedCascades = false;  // ... reusing the set of another view (no cascade rendering of its own)
+    bool sunCascades = false;
+    bool sharedCascades = false;
 };

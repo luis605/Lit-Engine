@@ -231,4 +231,3 @@ std::optional<glm::vec2> Engine::worldToScreen(const glm::vec3& point) {
     const glm::vec2 ndc = glm::vec2(clip.x, clip.y) / clip.w;
     return glm::vec2((ndc.x * 0.5f + 0.5f) * static_cast<float>(m_windowWidth), (0.5f - ndc.y * 0.5f) * static_cast<float>(m_windowHeight));
 }
-

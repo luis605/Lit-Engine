@@ -22,7 +22,6 @@ const float OCCLUDED_HIT_DIM = 0.45;
 vec3 toScreen(vec3 viewPosition, vec2 size) {
     vec4 clip = projection * vec4(viewPosition, 1.0);
     vec3 ndc = clip.xyz / clip.w;
-    // The march runs on 1 - depth (0 near, 1 far, the pre-reversed-Z convention): ranges are at most 200 m, where that is precise enough.
     return vec3((ndc.x * 0.5 + 0.5) * size.x, (0.5 - ndc.y * 0.5) * size.y, 1.0 - ndc.z);
 }
 
@@ -117,9 +116,6 @@ void main() {
         if (occludedS < 0.0) occludedS = sHit;
         s = sExit;
     }
-    // A ray that only passed behind geometry has no valid hit. Reusing the occluder's colour there
-    // (previous behaviour) smeared foreground objects into their own reflections as dim ghosts and
-    // streaks; leave those pixels to the probe/environment fallback instead.
     bool occluded = false;
     if (hitS < 0.0) {
         imageStore(u_output, pixel, vec4(0.0));

@@ -30,10 +30,6 @@ vec3 heatmap(float t) {
     return saturate(vec3(1.5 - abs(4.0 * t - 3.0), 1.5 - abs(4.0 * t - 2.0), 1.5 - abs(4.0 * t - 1.0)));
 }
 
-// Aerial perspective and height fog in-scatter sky and sun light into the view ray. Under a roof
-// that light does not reach the medium, so the in-scattered term is scaled by the receiver's sky
-// openness (the same screen/voxel sky-visibility estimate used for sky ambient). Without it the
-// full outdoor sky colour was mixed into every interior pixel, veiling rooms in a grey haze.
 vec3 applyAerial(vec3 color, vec2 uv, float distanceMeters, float skyOpen) {
     if (fogParams.w <= 0.0 || int(skyParams.x + 0.5) != 0) return color;
     float slice = saturate(distanceMeters * 0.001 * fogParams.w / 32.0);

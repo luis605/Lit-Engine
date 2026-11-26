@@ -57,12 +57,8 @@ import Engine.Render.observation;
 import Engine.Render.lighting;
 
 namespace {
-// Local lights handed to the renderer per frame (clustered culling and virtual shadows scale to this;
-// must not exceed lighting_detail::kMaxLights).
 constexpr size_t kMaxSceneLights = 32768;
 
-// Portal cell of every collected light (packed order), so each view only gathers the lights of its own cell.
-// Only cells that own a portal are enclosed spaces; lights of portal-less cells (streaming grid cells) stay unfiltered (-1).
 std::vector<bool> portalOwningCells(const PortalSystem& portals) {
     std::vector<bool> owning(portals.cells().size(), false);
     for (const Portal& portal : portals.portals()) {
@@ -77,9 +73,6 @@ struct PortalLightPlan {
     std::vector<LightAperture> apertures;
 };
 
-// Light through portals (docs/Portals.md): every light of a portal-owning cell that reaches one of the cell's portal quads
-// gets an image in the cell behind it (the portal transform applied to its pose), appended after the collected lights
-// with the receiving cell as its cell and the receiving quad as its aperture. One hop; images never chain.
 constexpr float kApertureSoftness = 0.03f;
 
 PortalLightPlan portalLights(const PortalSystem& portals, LightSet& lights) {
@@ -114,13 +107,10 @@ PortalLightPlan portalLights(const PortalSystem& portals, LightSet& lights) {
             plan.apertures.push_back(aperture);
         }
     }
-    // Light spill (docs/Portals.md, "Frames and edges"): each open portal end glows with the far room's light. A cheap proxy: a soft
-    // spot just behind the opening, aimed into the end's own cell, coloured by the far room's irradiance at the partner quad and
-    // confined to the opening by its aperture (so it lights and shadows only what is in front of the portal).
     const std::vector<glm::vec4> collected(lights.packed.begin(), lights.packed.begin() + static_cast<std::ptrdiff_t>(count * 4));
     const std::vector<int32_t> collectedCells(plan.cells.begin(), plan.cells.begin() + static_cast<std::ptrdiff_t>(count));
     constexpr float kSpillReflectance = 0.25f / 3.14159265f;
-    constexpr float kSpillOuterCos = 0.17f;  // ~80 degrees
+    constexpr float kSpillOuterCos = 0.17f;
     constexpr float kSpillInnerCos = 0.8f;
     for (size_t id = 0; id < portals.portals().size(); ++id) {
         const Portal& portal = portals.portals()[id];
@@ -203,8 +193,6 @@ bool Engine::open(const WindowConfig& config) {
         return false;
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    // LIT_FIXED_WINDOW=1: fixed-size (non-resizable) window, so tiling window managers float it at the requested size
-    // (pixel comparisons between runs, docs/RenderGraph.md).
     if (const char* fixed = std::getenv("LIT_FIXED_WINDOW"); fixed && fixed[0] == '1') glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     GLFWwindow* window = glfwCreateWindow(config.width, config.height, config.title.c_str(), nullptr, nullptr);
     if (!window) {
@@ -221,8 +209,6 @@ bool Engine::open(const WindowConfig& config) {
 
 int Engine::run(const std::function<void(float)>& frame) {
     double last = glfwGetTime();
-    // LIT_FIXED_DT=<seconds>: every frame advances by exactly this step (the renderer clock follows, RendererFrame.cpp),
-    // so two runs of the same scene produce the same frames.
     const char* fixedStep = std::getenv("LIT_FIXED_DT");
     const float fixedDelta = fixedStep ? std::strtof(fixedStep, nullptr) : 0.0f;
     while (m_window && !glfwWindowShouldClose(m_window)) {
@@ -477,7 +463,7 @@ void Engine::update() {
     LightSet lights;
     const bool hasLights = collectLights(m_world, m_world.camera().getPosition(), lights, kMaxSceneLights);
     uploadLights(m_renderer, m_portals, hasLights, lights);
-    if (m_renderer.worldOrigin() != m_world.origin()) m_reflectionFrame = 0;  // rebased: re-collect the reflection boxes in the new frame now
+    if (m_renderer.worldOrigin() != m_world.origin()) m_reflectionFrame = 0;
     m_renderer.setWorldOrigin(m_world.origin());
     refreshReflectionScene();
     syncWindowSize(m_world.camera());
@@ -507,13 +493,10 @@ void Engine::updatePortals(World& world) {
     const EntityHandle cameraEntity = world.getActiveCamera();
     if (crossed >= 0) m_renderer.portalCrossed();
     if (crossed >= 0 && world.isAlive(cameraEntity)) world.setWorldMatrix(cameraEntity, m_portals.portals()[static_cast<size_t>(crossed)].transform * world.getWorldMatrix(cameraEntity));
-    // Free camera after a tilted crossing: turn the frame back to the cell's gravity-up keeping the view, decay the roll (the
-    // character controller does this itself; docs/Portals.md "Camera crossing").
     if (!m_character && m_portals.settings().uprightCamera) world.camera().relaxFrame(m_portals.cellUp(m_portals.cameraCell()), world.time().unscaledDeltaTime, m_portals.settings().uprightSeconds);
     m_portals.updateObjects(world);
     PortalFrame frame = m_portals.buildFrame(world.camera(), static_cast<float>(std::max(m_renderer.height(), 1)));
     m_visibleCells = ::visibleCells(frame);
-    // The renderer filters local lights by the view's cell; views in portal-less cells must not filter.
     const std::vector<bool> owning = portalOwningCells(m_portals);
     for (PortalViewNode& node : frame.nodes) {
         if (node.cell < 0 || static_cast<size_t>(node.cell) >= owning.size() || !owning[static_cast<size_t>(node.cell)]) node.cell = -1;
@@ -541,5 +524,3 @@ void Engine::cleanup() {
     m_window = nullptr;
     m_ownsWindow = false;
 }
-
-

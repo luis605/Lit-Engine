@@ -34,7 +34,6 @@ void writeClusterStats(Engine& engine, const std::string& path) {
     };
     view("camera", stats.camera);
     view("shadow", stats.shadow);
-    // GPU instancing (docs/Instancing.md): main-view and shadow cull counters of the last read-back frame.
     const InstanceRenderStats instances = engine.instanceStats();
     out << "instancingEnabled " << instances.enabled << "\ninstanceBatches " << instances.batches << "\ninstances " << instances.instances << "\ninstancePoolCells " << instances.poolCells << "\ninstanceFrame " << instances.frame << '\n';
     auto instanceView = [&](const char* prefix, const InstanceViewStats& v) {
@@ -66,10 +65,8 @@ int main(int argc, char** argv) {
         setenv("LIT_FIXED_DT", "0.016666667", 1);
         setenv("LIT_FIXED_WINDOW", "1", 1);
     }
-    // Animated scenes (testscene.* systems) advance by world time: a fixed step makes frame N identical from run to run.
     if (options.testScene == "light_stress" || options.testScene == "vsm_mixed" || options.testScene == "largeworld") setenv("LIT_FIXED_DT", "0.016666667", 0);
     if (!options.timingsFile.empty() && !std::getenv("LIT_UPLOAD_STATS")) {
-        // Upload traffic report next to the pass timings (docs/GpuTimings.md).
         setenv("LIT_UPLOAD_STATS", "1", 0);
         setenv("LIT_UPLOAD_STATS_FILE", (options.timingsFile + ".uploads").c_str(), 0);
     }

@@ -1,6 +1,3 @@
-// Bent builtins for portals and the camera orientation (tests/bent/laws/ext_portal_*.bent, docs/Bent.md "Portal, streaming, terrain,
-// instancing and save laws"). Every function is pure: each call builds its own PortalSystem / Camera / World, so cases stay independent.
-
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -27,15 +24,13 @@ import Engine.glm;
 
 namespace bent::xp {
 
-void registerExtPortalStreaming(Program& program);  // Ext_PortalStreaming.cpp
-void registerExtPortalTerrain(Program& program);    // Ext_PortalTerrain.cpp
-void registerExtPortalSave(Program& program);       // Ext_PortalSave.cpp
+void registerExtPortalStreaming(Program& program);
+void registerExtPortalTerrain(Program& program);
+void registerExtPortalSave(Program& program);
 
 namespace {
 
 constexpr float kPi = 3.14159265358979f;
-
-// ---------------------------------------------------------------- scenes
 
 struct PairSpec {
     glm::vec3 a{0.0f, 1.5f, -5.0f};
@@ -127,8 +122,6 @@ float orthoErr(const glm::mat4& m) {
     return worst;
 }
 
-// ---------------------------------------------------------------- matrix helpers
-
 void registerMatrix(Program& p) {
     reg(p, "xmMul", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 2, loc, "xmMul");
@@ -151,7 +144,6 @@ void registerMatrix(Program& p) {
         checkArity(a, 1, loc, "xmDet");
         return numV(det3(matOf(a[0], loc, "xmDet")));
     });
-    // Largest deviation of the rotation part from orthonormal (R^T R - I).
     reg(p, "xmOrtho", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 1, loc, "xmOrtho");
         return numV(orthoErr(matOf(a[0], loc, "xmOrtho")));
@@ -165,8 +157,6 @@ void registerMatrix(Program& p) {
         return vecV(glm::vec3(matOf(a[0], loc, "xmTranslation")[3]));
     });
 }
-
-// ---------------------------------------------------------------- pairs
 
 void registerPairs(Program& p) {
     reg(p, "xpPair", [](const ValueList& a, const SrcLoc& loc) {
@@ -196,8 +186,6 @@ void registerPairs(Program& p) {
                      {"partnerB", intV(pb.partner)}});
     });
 
-    // Walk a point through the opening of end A with the engine's own crossing code, then walk back through end B along the mapped
-    // segment: the point must return to where it started.
     reg(p, "xpRoundTrip", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 4, loc, "xpRoundTrip");
         PairSpec spec = readPair(a[0], loc);
@@ -234,8 +222,6 @@ void registerPairs(Program& p) {
                      {"expectedMapped", vecV(glm::vec3(pa.transform * glm::vec4(q1, 1.0f)))}});
     });
 
-    // A ring of n cells joined by n pairs (end A of pair i in cell i, end B in cell i + 1 mod n): the product of the transforms walked
-    // forward then back is the identity, to float precision that must not degrade with n.
     reg(p, "xpRing", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 1, loc, "xpRing");
         std::vector<PairSpec> pairs;
@@ -253,7 +239,6 @@ void registerPairs(Program& p) {
         for (int i = 0; i < n; ++i) forward = system.portals()[static_cast<size_t>(2 * i)].transform * forward;
         for (int i = n - 1; i >= 0; --i) backward = system.portals()[static_cast<size_t>(2 * i + 1)].transform * backward;
         const glm::mat4 round = backward * forward;
-        // Independent composition straight from the poses.
         const glm::mat4 flip = glm::rotate(glm::mat4(1.0f), kPi, glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 direct(1.0f);
         for (int i = 0; i < n; ++i) {
@@ -265,15 +250,12 @@ void registerPairs(Program& p) {
     });
 }
 
-// ---------------------------------------------------------------- crossing and view continuity
-
 Camera makeCamera(const glm::vec3& position, float yaw, float pitch, float roll) {
     Camera camera(position);
     camera.setOrientation(yaw, pitch, roll);
     return camera;
 }
 
-// Camera aiming at `target` from `position` plus an extra roll.
 Camera aimedCamera(const glm::vec3& position, const glm::vec3& target, float roll, float yawOffset, float pitchOffset) {
     const glm::vec3 d = glm::normalize(target - position);
     const float yaw = glm::degrees(std::atan2(d.z, d.x)) + yawOffset;
@@ -282,9 +264,6 @@ Camera aimedCamera(const glm::vec3& position, const glm::vec3& target, float rol
 }
 
 void registerCrossing(Program& p) {
-    // Camera in front of end A looking at it: the portal view (virtual camera of the frame's child node) must equal the camera view
-    // right after the crossing swap (transformBy of the portal transform), and a real PortalSystem::step crossing must keep the
-    // orientation exactly.
     reg(p, "xpCrossView", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 2, loc, "xpCrossView");
         PairSpec spec = readPair(a[0], loc);
@@ -324,7 +303,6 @@ void registerCrossing(Program& p) {
         out.emplace_back("upErr", numV(glm::length(swapped.getUp() - expectedUp)));
         out.emplace_back("rightOrtho", numV(std::abs(glm::dot(swapped.getRight(), swapped.getFront())) + std::abs(glm::dot(swapped.getRight(), swapped.getUp())) + std::abs(glm::dot(swapped.getFront(), swapped.getUp()))));
 
-        // Real crossing through PortalSystem::step: start so that the near centre is just in front of the plane, then move through.
         Camera walker = aimedCamera(position, pa.center(), c.f("roll", 0.0f), c.f("yawOff", 0.0f), c.f("pitchOff", 0.0f));
         const glm::vec3 direction = glm::normalize(pa.center() - position);
         const float cosine = -glm::dot(direction, pa.normal());
@@ -332,14 +310,13 @@ void registerCrossing(Program& p) {
         float rotErr = 1.0e30f;
         float posErr = 1.0e30f;
         if (cosine > 0.2f) {
-            // Place the near centre 0.01 m in front of the plane along the view axis, then advance by 0.02 m.
             const glm::vec3 front = walker.getFront();
             const float cosFront = -glm::dot(front, pa.normal());
             if (cosFront > 0.2f) {
                 const glm::vec3 nearTarget = pa.center() + pa.normal() * 0.01f + pa.right() * (c.f("u", 0.0f) * pa.half.x * 0.5f) + pa.up() * (c.f("v", 0.0f) * pa.half.y * 0.5f);
                 walker.setPos(nearTarget - front * walker.getNearPlane());
                 system.setCameraCell(0);
-                const int idle = system.step(walker);  // primes the previous near centre
+                const int idle = system.step(walker);
                 const glm::vec3 before = walker.getPosition();
                 const glm::vec3 beforeFront = walker.getFront();
                 const glm::vec3 beforeUp = walker.getUp();
@@ -359,8 +336,6 @@ void registerCrossing(Program& p) {
         return recV(std::move(out));
     });
 }
-
-// ---------------------------------------------------------------- frame builder
 
 struct FrameInput {
     std::vector<PairSpec> pairs;
@@ -467,7 +442,6 @@ Value frameNodeInfo(const BuiltFrame& built, const FrameInput& in) {
         f.emplace_back("surfaces", intV(static_cast<int64_t>(node.surfaces.size())));
         f.emplace_back("label", strV(node.label));
         f.emplace_back("view", matV(node.view));
-        // Surfaces: each belongs to a portal of the node's cell.
         int stray = 0;
         for (const PortalSurface& surface : node.surfaces) {
             bool found = false;
@@ -487,7 +461,6 @@ Value frameNodeInfo(const BuiltFrame& built, const FrameInput& in) {
         float maskErr = -1.0f;
         float maskInside = 1.0f;
         if (n > 0 && viaPortal[n] >= 0 && parent[n] >= 0) {
-            // Chain of portal transforms from the root: camera world matrix of this node = T_k ... T_1 * root camera world.
             std::vector<int> chain;
             for (int cursor = static_cast<int>(n); cursor > 0; cursor = parent[static_cast<size_t>(cursor)]) {
                 if (viaPortal[static_cast<size_t>(cursor)] < 0 || parent[static_cast<size_t>(cursor)] < 0) {
@@ -570,7 +543,6 @@ void registerFrame(Program& p) {
         out.emplace_back("nodes", frameNodeInfo(*built, in));
         return recV(std::move(out));
     });
-    // Same frame built twice: identical nodes (views, keys, labels).
     reg(p, "xpFrameTwice", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 1, loc, "xpFrameTwice");
         const FrameInput in = readFrameInput(a[0], loc);
@@ -583,8 +555,6 @@ void registerFrame(Program& p) {
         return boolV(same);
     });
 }
-
-// ---------------------------------------------------------------- queries
 
 struct SphereSpec {
     glm::vec3 position{0.0f};
@@ -624,7 +594,6 @@ struct QueryWorld {
     }
 };
 
-// Reference: straight-line ray / sphere intersection (distance of the nearest hit at or beyond the origin), or negative.
 float raySphere(const glm::vec3& origin, const glm::vec3& direction, const glm::vec3& center, float radius) {
     const glm::vec3 oc = center - origin;
     const float along = glm::dot(oc, direction);
@@ -637,8 +606,6 @@ float raySphere(const glm::vec3& origin, const glm::vec3& direction, const glm::
 }
 
 void registerQueries(Program& p) {
-    // Engine PortalSystem::raycast against a brute-force reference written here with explicit transforms: the nearest sphere on the
-    // straight ray, else, when the ray hits a portal opening first, the same test on the transformed ray (one hop).
     reg(p, "xpRaycast", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 4, loc, "xpRaycast");
         const std::vector<PairSpec> pairs = {[&] {
@@ -654,7 +621,6 @@ void registerQueries(Program& p) {
         const float maxDistance = r.f("max", 100.0f);
         const int startCell = static_cast<int>(r.integer("cell", 0));
         const PortalRayHit hit = scene.system.raycast(scene.world, origin, direction, maxDistance, startCell, static_cast<int>(r.integer("maxCrossings", 8)));
-        // Reference.
         const Portal& entry = scene.system.portals()[static_cast<size_t>(startCell == 0 ? 0 : 1)];
         float portalDistance = -1.0f;
         {
@@ -719,8 +685,6 @@ void registerQueries(Program& p) {
         return listV(std::move(list));
     });
 
-    // Straddling twins: a tracked entity half way through the opening has a twin at transform * entity matrix; a full crossing moves
-    // the entity itself by the transform.
     reg(p, "xpTwin", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 2, loc, "xpTwin");
         PairSpec spec = readPair(a[0], loc);
@@ -744,7 +708,6 @@ void registerQueries(Program& p) {
         system.updateObjects(world);
         Fields out;
         const bool noGhostFar = !world.isAlive(system.ghostOf(entity)) || !world.isVisible(system.ghostOf(entity));
-        // Straddle: centre in front of the plane by 0.4 * radius.
         world.setWorldMatrix(entity, glm::translate(glm::mat4(1.0f), pa.center() + pa.normal() * (radius * 0.4f) + lateral));
         system.updateObjects(world);
         const EntityHandle ghost = system.ghostOf(entity);
@@ -756,7 +719,6 @@ void registerQueries(Program& p) {
             ghostVisible = world.isVisible(ghost);
         }
         const bool cellBefore = system.objectCell(entity) == 0;
-        // Cross.
         const glm::mat4 beforeCross = world.getWorldMatrix(entity);
         world.setWorldMatrix(entity, glm::translate(glm::mat4(1.0f), pa.center() - pa.normal() * (radius * 0.4f) + lateral));
         const glm::mat4 moved = world.getWorldMatrix(entity);
@@ -764,7 +726,6 @@ void registerQueries(Program& p) {
         const float crossErr = maxAbsDiff(world.getWorldMatrix(entity), pa.transform * moved);
         const int cellAfter = system.objectCell(entity);
         (void)beforeCross;
-        // Far away again: the twin is hidden or gone.
         world.setWorldMatrix(entity, glm::translate(glm::mat4(1.0f), glm::vec3(world.getWorldMatrix(entity)[3]) + glm::vec3(0.0f, 60.0f, 0.0f)));
         system.updateObjects(world);
         const EntityHandle ghostFar = system.ghostOf(entity);
@@ -782,8 +743,6 @@ void registerQueries(Program& p) {
     });
 }
 
-// ---------------------------------------------------------------- cell parameters and light
-
 struct CellSpec {
     glm::vec3 gravity{0.0f, -9.81f, 0.0f};
     glm::vec3 tint{0.1f};
@@ -795,7 +754,6 @@ struct CellSpec {
 void registerCells(Program& p) {
     reg(p, "xpSample", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 3, loc, "xpSample");
-        // a[0]: {pairs, cells: [{gravity, tint, sun, ambient, scalar}], blend}; a[1]: cell index; a[2]: position
         const Rec r = rec(a[0], loc);
         std::vector<PairSpec> pairs;
         for (const Value& item : r.list("pairs")) pairs.push_back(readPair(item, loc));
@@ -843,8 +801,6 @@ void registerCells(Program& p) {
     });
 }
 
-// ---------------------------------------------------------------- shapes, json, frame meshes
-
 std::string jsonOf(const std::vector<PairSpec>& pairs, const ValueList& cellValues, const SrcLoc& loc, int minCells = 2) {
     PortalSystem system;
     const int count = std::max<int>(static_cast<int>(cellValues.size()), cellCountOf(pairs, minCells));
@@ -874,7 +830,6 @@ void registerJsonShapes(Program& p) {
         for (const Value& item : argList(a[0], loc, "pairs")) pairs.push_back(readPair(item, loc));
         return strV(jsonOf(pairs, argList(a[1], loc, "cells"), loc));
     });
-    // toJson -> parseJson -> toJson must be a fixpoint and the reloaded transforms must equal the originals.
     reg(p, "xpJsonRoundTrip", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 2, loc, "xpJsonRoundTrip");
         std::vector<PairSpec> pairs;
@@ -916,8 +871,6 @@ void registerJsonShapes(Program& p) {
         }
         return recV({{"ok", boolV(ok)}, {"fixpoint", boolV(first == second)}, {"sameShape", boolV(sameShape)}, {"transformErr", numV(transformErr)}, {"paramErr", numV(paramErr)}, {"portals", intV(static_cast<int64_t>(original.portals().size()))}});
     });
-    // Parse arbitrary text into a system that already holds a known world: a rejected document must leave it untouched; an accepted one
-    // must be self consistent (partners are mutual, cells in range, transforms rigid).
     reg(p, "xpJsonTry", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 2, loc, "xpJsonTry");
         std::vector<PairSpec> pairs;
@@ -975,7 +928,6 @@ void registerJsonShapes(Program& p) {
             int degenerate = 0;
             std::map<std::pair<int64_t, int64_t>, int> edges;
             const auto weld = [&](unsigned int index) {
-                // Position quantised to 0.1 mm so seams (duplicated vertices with other normals / uvs) weld.
                 const int64_t qx = std::llround(mesh.vertices[index * 8] * 10000.0f);
                 const int64_t qy = std::llround(mesh.vertices[index * 8 + 1] * 10000.0f);
                 const int64_t qz = std::llround(mesh.vertices[index * 8 + 2] * 10000.0f);
@@ -1035,8 +987,6 @@ void registerJsonShapes(Program& p) {
     });
 }
 
-// ---------------------------------------------------------------- camera orientation
-
 ViewOrientation orientationOf(const Value& value, const SrcLoc& loc) {
     const Rec r = rec(value, loc);
     ViewOrientation o;
@@ -1085,7 +1035,6 @@ void registerCamera(Program& p) {
         rotateOrientation(o, glm::mat3_cast(glm::normalize(quatOf(a[1], loc, "rotation"))));
         return orientationV(o);
     });
-    // Many rotations in a row: the frame must stay a proper rotation (no drift).
     reg(p, "xcRotateMany", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 2, loc, "xcRotateMany");
         ViewOrientation o = orientationOf(a[0], loc);
@@ -1098,14 +1047,12 @@ void registerCamera(Program& p) {
         canonicalOrientation(o);
         return orientationV(o);
     });
-    // Re-express a world front / up in the frame of `o`.
     reg(p, "xcDecompose", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 4, loc, "xcDecompose");
         ViewOrientation o = orientationOf(a[0], loc);
         decomposeOrientation(o, glm::normalize(vec3Of(a[1], loc, "front")), glm::normalize(vec3Of(a[2], loc, "up")), static_cast<float>(argNumber(a[3], loc, "yawHint")));
         return orientationV(o);
     });
-    // Relax toward targetUp: `steps` calls of `dt` seconds each, returns every state.
     reg(p, "xcRelax", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 5, loc, "xcRelax");
         ViewOrientation o = orientationOf(a[0], loc);

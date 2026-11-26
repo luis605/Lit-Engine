@@ -119,13 +119,12 @@ export struct RenderSettings {
     int localShadowCount = 4;
     int localShadowResolution = 512;
     float localShadowSoftness = 1.0f;
-    // Virtual (paged) shadow maps for every local light; off falls back to the ranked local shadows above.
     bool virtualShadows = true;
-    int vsmPoolSize = 8192;           // physical page atlas edge in texels (2048, 4096, 8192)
-    float vsmResolutionScale = 1.0f;  // shadow texel per screen pixel; > 1 coarser, fewer pages
-    bool vsmAutoScale = true;         // multiply vsmResolutionScale by a factor chosen from the visible light count and pool size
-    int vsmMaxMip = 4;                // finest virtual resolution 128 << mip (0..4 = 128..2048)
-    bool vsmCache = true;             // keep pages of static lights/casters between frames
+    int vsmPoolSize = 8192;
+    float vsmResolutionScale = 1.0f;
+    bool vsmAutoScale = true;
+    int vsmMaxMip = 4;
+    bool vsmCache = true;
 
     bool fog = true;
     float fogDensity = 0.0015f;
@@ -145,18 +144,18 @@ export struct RenderSettings {
     float targetFrameMs = 16.6f;
     float governorMinScale = 0.6f;
 
-    bool clusterLod = true;          // dense geometry: GPU cluster culling + LOD DAG cut for meshes with clusters
-    float clusterErrorPixels = 1.0f;  // screen-space error threshold of the cluster LOD cut
-    bool clusterHierarchy = true;     // per-instance BVH traversal over the cluster DAG (0: flat chunk loop)
-    bool clusterShadowTexelLod = true;  // shadow cluster LOD from shadow-texel error (0: camera metric x4)
-    float clusterShadowErrorTexels = 2.0f;  // shadow-texel error threshold of the shadow cluster LOD cut
+    bool clusterLod = true;
+    float clusterErrorPixels = 1.0f;
+    bool clusterHierarchy = true;
+    bool clusterShadowTexelLod = true;
+    float clusterShadowErrorTexels = 2.0f;
 
-    bool instancing = true;            // draw InstanceBatch components (docs/Instancing.md)
-    bool instanceOcclusion = true;     // Hi-Z occlusion of instance cells and instances (0: frustum, distance and LOD only)
-    bool instanceCellCull = true;      // reject whole 64-instance cells first (0: every instance is tested)
-    float instanceDistanceScale = 1.0f;  // multiplies every batch's draw distance and fade start
+    bool instancing = true;
+    bool instanceOcclusion = true;
+    bool instanceCellCull = true;
+    float instanceDistanceScale = 1.0f;
 
-    bool renderGraph = true;  // record the frame as a render graph (docs/RenderGraph.md); 0 = previous immediate path
+    bool renderGraph = true;
 
     bool fxaa = true;
     bool specularAntiAliasing = true;
@@ -321,7 +320,7 @@ namespace render_settings_detail {
 inline bool parseFloat(std::string_view& text, float& out) {
     while (!text.empty() && text.front() == ' ') text.remove_prefix(1);
     const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), out);
-    if (error != std::errc{} || !std::isfinite(out)) return false;  // nan / inf / out of range never reach a setting
+    if (error != std::errc{} || !std::isfinite(out)) return false;
     text.remove_prefix(static_cast<size_t>(end - text.data()));
     return true;
 }
@@ -345,7 +344,7 @@ bool parseValue(std::string_view text, T& value) {
         } else if constexpr (std::is_same_v<T, float>) {
             value = number;
         } else {
-            value = static_cast<T>(static_cast<int>(std::clamp(number, -2.0e9f, 2.0e9f)));  // saturate: float -> int of a huge value is undefined
+            value = static_cast<T>(static_cast<int>(std::clamp(number, -2.0e9f, 2.0e9f)));  // float -> int of a huge value is undefined
         }
         return true;
     }

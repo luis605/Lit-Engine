@@ -132,7 +132,6 @@ struct TerrainStreamer::Impl {
         tile.tracked = true;
     }
 
-    // Moves the streamer between its own manager and a shared one: resident tiles are re-registered there. Jobs already submitted finish on their pool.
     void rebind(ResidencyManager* target, bool isAttached) {
         res->dropOwner(this);
         untrackAll();
@@ -242,7 +241,6 @@ struct TerrainStreamer::Impl {
                 continue;
             }
             if (tile.cancelled) {
-                // Cancelled while preparing: the payload is empty, never commit it. A tile wanted again is simply requested again.
                 {
                     std::lock_guard lock(mutex);
                     byCell.erase(tile.cell);
@@ -259,7 +257,6 @@ struct TerrainStreamer::Impl {
         }
     }
 
-    // One resumable commit step of a tile, run from the shared commit queue.
     void commitTile(const TileKey& key, StreamBudget& budget) {
         const auto it = tiles.find(key);
         if (it == tiles.end()) return;
@@ -285,7 +282,6 @@ struct TerrainStreamer::Impl {
         }
     }
 
-    // Resident tiles that show the wanted leaves: the leaf itself, else the nearest resident ancestor, else resident descendants.
     std::set<TileKey> visibleSet(std::set<TileKey>* protectedTiles) {
         std::set<TileKey> vis;
         const auto resident = [&](const TileKey& key) {
@@ -329,7 +325,6 @@ struct TerrainStreamer::Impl {
     void evictAndUnload(StreamBudget& budget, const std::set<TileKey>& protectedTiles) {
         std::set<TileKey> wantedKeys;
         for (const SelectedTile& tile : wanted) wantedKeys.insert(tile.key);
-        // Over the resident cap the oldest unwanted tiles go regardless of the delay.
         size_t residentCount = 0;
         for (const auto& [key, tile] : tiles) residentCount += tile.state == TileState::Resident ? 1 : 0;
         std::vector<Tile*> candidates;
@@ -348,7 +343,6 @@ struct TerrainStreamer::Impl {
             const bool overCap = residentCount > config.maxResidentTiles || loader->meshCount() > config.maxGpuMeshes;
             if (!aged && !overCap) continue;
             if (tile->state == TileState::Loading) {
-                // Not needed any more: skip the job if it has not started; the tile is dropped when the worker reports done.
                 if (!tile->cancelled) {
                     tile->cancelled = true;
                     if (tile->cancel) tile->cancel->store(true, std::memory_order_release);
@@ -357,7 +351,6 @@ struct TerrainStreamer::Impl {
             }
             if (tile->state == TileState::Ready) {
                 tile->payload.reset();
-                // Nothing was committed yet: nothing on the GPU or in the World.
                 {
                     std::lock_guard lock(mutex);
                     byCell.erase(tile->cell);
@@ -413,7 +406,6 @@ struct TerrainStreamer::Impl {
         ownCommit.bytes = config.uploadBytesPerFrame;
         ownCommit.unlimited = unlimited;
         StreamBudget ownUnload = ownCommit;
-        // One frame budget with the spatial StreamingSystem (portal cells, assets): both draw from the same object. Unlimited (prime/deterministic) stays unlimited.
         StreamBudget* shared = !unlimited && sharedProvider ? sharedProvider() : nullptr;
         stats.sharedBudget = shared != nullptr;
         stats.sharedPool = attached;

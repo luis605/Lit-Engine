@@ -25,11 +25,6 @@ import Engine.asset;
 import Engine.Rng;
 import Engine.camera;
 
-// GPU instancing stress scene (docs/Instancing.md): 1.2M instances of three meshes (trees, rocks, grass tufts) over a
-// 2 km ground plane, one InstanceBatch per 128 m tile and species (768 batches). Trees draw at any distance (LOD chain, point
-// impostor), rocks up to 900 m, grass up to 160 m with a dithered fade from 110 m and no shadows. The camera flies a
-// circle at tree-top height. LIT_INSTANCING_DENSITY scales the counts, LIT_INSTANCING_SPEED the flight (m/s, 0 = still).
-
 uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material);
 uint32_t testSceneMesh(Engine& engine, const std::string& key, const std::function<uint32_t()>& upload);
 uint32_t testSceneRockMesh(Engine& engine, const TestSceneKit& kit, int subdivisions, float roughness, float seed);
@@ -53,7 +48,6 @@ struct Builder {
         vertices.insert(vertices.end(), {p.x, p.y, p.z, n.x, n.y, n.z, u, v});
         return static_cast<unsigned int>(vertices.size() / kVertexFloats - 1);
     }
-    // Cone from y0 (radius r) to y1 (apex radius r1); uv.x = crown flag (foliage.surface).
     void cone(float y0, float y1, float r, float r1, int sides, float crown) {
         for (int s = 0; s < sides; ++s) {
             const float a0 = 2.0f * kPi * static_cast<float>(s) / static_cast<float>(sides);
@@ -79,7 +73,6 @@ Mesh makeTree() {
     return b.build();
 }
 
-// Three crossed blade cards, both windings.
 Mesh makeGrass() {
     Builder b;
     for (int card = 0; card < 3; ++card) {
@@ -185,7 +178,6 @@ bool buildInstancingTestScene(Engine& engine, const TestSceneKit& kit, TestScene
                         const float yaw = rng.uniform() * 2.0f * kPi;
                         const float scale = rng.range(sp.minScale, sp.maxScale);
                         const uint32_t seed = rng.next();
-                        // Clumping: low-frequency density so forests and clearings alternate.
                         const glm::vec2 p(origin.x + (static_cast<float>(cx) + jx) * spacing, origin.z + (static_cast<float>(cz) + jz) * spacing);
                         const float clump = 0.5f + 0.5f * std::sin(p.x * 0.013f + kind) * std::cos(p.y * 0.011f - kind * 2.0f);
                         if (roll > sp.density * (0.4f + 1.2f * clump)) continue;
@@ -221,7 +213,6 @@ bool buildInstancingTestScene(Engine& engine, const TestSceneKit& kit, TestScene
         const glm::vec3 position(std::cos(state->angle) * radius, 14.0f + 4.0f * std::sin(state->angle * 3.0f), std::sin(state->angle) * radius);
         Camera& camera = world.camera();
         camera.setPos(position);
-        // Tangent of the circle (counter-clockwise flight), looking slightly down.
         const float yaw = glm::degrees(state->angle) + 90.0f;
         camera.setOrientation(yaw, -8.0f);
         ++state->ticks;

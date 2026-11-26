@@ -17,12 +17,6 @@ import Engine.Portal.view;
 
 #include "PortalSceneInternal.hpp"
 
-// portal_tilt (docs/Portals.md, "Test scenes"): a hub H and four rooms. Every portal is a surface portal (no hole in the wall: the
-// plane sits 1 cm in front of the surface, so the wall is behind it and the composite covers it).
-//   floor   H east wall  -> F floor     (90 degrees: walk in horizontally, come out of the floor going up)
-//   ceiling H ceiling    -> C floor     (look / fly up through the ceiling, come out of C's floor)
-//   rolled  H north wall -> R south wall rolled 45 degrees
-//   flip    H west wall  -> U east wall rolled 180 degrees (come out upside down, the camera rolls back upright)
 void portal_scene::tiltScene(PortalSystem& portals, World& world, const PortalSceneKit& kit) {
     Builder builder{portals, world, kit};
     constexpr float kSurfaceOffset = 0.01f;
@@ -56,11 +50,9 @@ void portal_scene::tiltScene(PortalSystem& portals, World& world, const PortalSc
         buildRoom(builder, room.name, room.center, room.size, room.style, {});
         const std::string name(room.name);
         builder.light(name + " lamp", room.center + glm::vec3(0.0f, room.size.y - 1.0f, 0.0f), room.accent * 0.5f + glm::vec3(0.5f), 11000.0f, 18.0f);
-        // Props off the portal axes, so each room reads clearly through a tilted opening.
         props(builder, name + " a", room.center + glm::vec3(-2.6f, 0.0f, 2.4f), room.accent, 1.0f);
         props(builder, name + " b", room.center + glm::vec3(2.4f, 0.0f, -2.6f), glm::vec3(1.0f) - room.accent * 0.6f, 0.8f);
     }
-    // Arrow on each room floor (points +X), to read orientation through the portals.
     const uint32_t arrow = builder.material(glm::vec3(0.95f), 0.5f, glm::vec3(1.0f), 1500.0f);
     for (const Room& room : rooms) {
         builder.box(std::string(room.name) + " arrow", room.center + glm::vec3(-3.4f, 0.0f, -3.2f), room.center + glm::vec3(-1.4f, 0.02f, -3.0f), arrow);

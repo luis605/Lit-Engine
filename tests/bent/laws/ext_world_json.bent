@@ -1,12 +1,7 @@
-# Engine.Json: parse / dump beyond the round trips of json.bent: strictness, depth limit, NUL, big numbers, unicode escapes,
-# duplicate keys, jsonDiff / jsonFind. Facts the engine documents in JsonParse.cpp: nesting is limited to 512 levels, a raw NUL
-# byte is rejected, duplicate object keys keep the last value (the first position).
 include "../lib/ext_world.bent"
 
 fn nest(open, close, n) = join(repeat(open, n), "") ++ join(repeat(close, n), "")
 fn failsCleanly(r) = r.ok or len(r.error) > 0
-
-# ---------------------------------------------------------------- depth
 
 law json_deep_nesting_never_crashes {
     forall (n: oneof(int(0, 40), int(500, 530), int(1000, 5000), int(100000, 300000)), kind: elements([0, 1, 2]))
@@ -14,7 +9,6 @@ law json_deep_nesting_never_crashes {
        failsCleanly(jsonParse(text))
 }
 
-# The limit is sharp: depth 512 parses, depth 513 is rejected with an error that says so.
 law json_depth_limit_is_512 {
     forall (n: oneof(int(1, 512), int(513, 700)), kind: bool())
     => let text = if kind then nest("[", "]", n) else join(repeat("{\"k\":", n), "") ++ "0" ++ join(repeat("}", n), "") in
@@ -22,14 +16,11 @@ law json_depth_limit_is_512 {
        cover("accepted", r.ok) and cover("rejected", not r.ok) and (r.ok == (n <= 512)) and (r.ok or contains(r.error, "deep"))
 }
 
-# Values nested within the limit survive a dump / parse round trip.
 fn nestedValue(n) = if n <= 0 then 1 else [nestedValue(n - 1)]
 law json_deep_value_roundtrips {
     forall (n: int(0, 300))
     => jsonParse(jsonDump(nestedValue(n))).value == nestedValue(n)
 }
-
-# ---------------------------------------------------------------- bytes
 
 law json_raw_nul_is_rejected {
     forall (v: xJsonGen(2), at: int(0, 400))
@@ -40,33 +31,27 @@ law json_raw_nul_is_rejected {
        not r.ok and len(r.error) > 0
 }
 
-# NUL inside a string value is escaped by dump and comes back.
 law json_nul_in_strings_roundtrips {
     forall (a: text(0, 6), b: text(0, 6))
     where xValid(a) and xValid(b)
     => jsonParse(jsonDump(a ++ "\0" ++ b)).value == a ++ "\0" ++ b and not contains(jsonDump(a ++ "\0" ++ b), "\0")
 }
 
-# A parsed document never contains a string that is not valid UTF-8, whatever bytes went in.
 law json_parsed_strings_are_valid_utf8 {
     forall (bytes: listOf(oneof(int(0, 255), int(32, 126), elements([34, 92, 0xe2, 0x82, 0xac, 0xd8, 0xed, 0xa0, 0xf0, 0x9f])), 0, 20))
     => let r = jsonParse("\"" ++ bytesStr(bytes) ++ "\"") in
        not r.ok or isValidUtf8(r.value)
 }
 
-# Raw control characters inside a string literal are invalid JSON (they must be escaped).
 law json_raw_control_characters_in_strings_are_rejected {
     forall (c: int(1, 31), a: text(0, 4))
     where xValid(a) and not contains(a, "\"") and not contains(a, "\\")
     => not jsonParse("\"" ++ a ++ bytesStr([c]) ++ "\"").ok
 }
 
-# ---------------------------------------------------------------- unicode escapes
-
 fn hex4(n) = substr("0123456789abcdef", (n / 4096) % 16, 1) ++ substr("0123456789abcdef", (n / 256) % 16, 1) ++ substr("0123456789abcdef", (n / 16) % 16, 1) ++ substr("0123456789abcdef", n % 16, 1)
 fn escaped(cp) = if cp < 65536 then "\\u" ++ hex4(cp) else (let v = cp - 65536 in "\\u" ++ hex4(55296 + v / 1024) ++ "\\u" ++ hex4(56320 + v % 1024))
 
-# \uXXXX escapes (and surrogate pairs for astral code points) decode to the same string as the raw UTF-8 bytes.
 law json_unicode_escape_equals_raw_utf8 {
     forall (cp: oneof(int(1, 127), int(128, 2047), int(2048, 55295), int(57344, 65535), int(65536, 1114111)))
     => let esc = jsonParse("\"" ++ escaped(cp) ++ "\"") in
@@ -74,7 +59,6 @@ law json_unicode_escape_equals_raw_utf8 {
        cover("astral", cp >= 65536) and (cp < 32 or cp == 34 or cp == 92 or (esc.ok and raw.ok and esc.value == raw.value))
 }
 
-# Lone or reversed surrogates: either an error or valid UTF-8 text, never garbage bytes.
 law json_lone_surrogates_are_total {
     forall (hi: int(55296, 57343), lo: int(55296, 57343), mode: int(0, 2))
     => let body = if mode == 0 then "\\u" ++ hex4(hi) else (if mode == 1 then "\\u" ++ hex4(hi) ++ "\\u" ++ hex4(lo) else "\\u" ++ hex4(hi) ++ "x") in
@@ -82,9 +66,6 @@ law json_lone_surrogates_are_total {
        failsCleanly(r) and (not r.ok or isValidUtf8(r.value))
 }
 
-# ---------------------------------------------------------------- numbers
-
-# Strict JSON number grammar: -? (0 | [1-9][0-9]*) (. [0-9]+)? ([eE] [+-]? [0-9]+)?
 fn digit(c) = contains("0123456789", c) and c != ""
 fn digitsFrom(cs, i) = if i < len(cs) and digit(cs[i]) then 1 + digitsFrom(cs, i + 1) else 0
 fn validNumber(s) =
@@ -112,7 +93,6 @@ law json_number_grammar_is_exactly_json {
        cover("valid", validNumber(s)) and cover("invalid", not validNumber(s)) and (r.ok == validNumber(s))
 }
 
-# Valid numbers parse to the nearest double, even far beyond 2^53; overflow never yields a silent infinity.
 law json_numbers_parse_to_finite_values {
     forall (digits: listOf(int(0, 9), 1, 40), exp: oneof(int(-5, 5), int(-400, 400)), negative: bool())
     => let body = join(map(digits, str), "") in
@@ -121,7 +101,6 @@ law json_numbers_parse_to_finite_values {
        cover("overflow", abs(exp) > 308) and (not r.ok or isFinite(r.value))
 }
 
-# The same real number written two ways parses to the same double (correct rounding, also beyond 2^53).
 law json_equal_reals_parse_to_equal_doubles {
     forall (digits: listOf(int(0, 9), 17, 60))
     => let ds = join(map(digits, str), "") in
@@ -131,8 +110,6 @@ law json_equal_reals_parse_to_equal_doubles {
        a.ok and b.ok and c.ok and a.value == b.value and a.value == c.value
 }
 
-# ---------------------------------------------------------------- structure
-
 law json_duplicate_keys_keep_the_last_value {
     forall (vals: listOf(int(0, 99), 1, 6))
     => let body = join(map(vals, fn(v) => "\"k\":" ++ str(v)), ",") in
@@ -141,7 +118,6 @@ law json_duplicate_keys_keep_the_last_value {
 }
 
 gen jsonWs = elements([" ", "\t", "\n", "\r", "  ", " \n "])
-# Whitespace between tokens and around the document is insignificant.
 law json_whitespace_is_insignificant {
     forall (v: xJsonGen(3), pad: jsonWs, at: int(0, 300))
     where xFinite(v) and xValid(v)
@@ -149,34 +125,28 @@ law json_whitespace_is_insignificant {
        jsonParse(pad ++ s ++ pad).value == jsonParse(s).value and jsonParse(pad ++ s ++ pad).ok
 }
 
-# Anything after the document is an error (strict parsing), as is anything before it.
 law json_trailing_and_leading_garbage_is_rejected {
     forall (v: xJsonGen(3), junk: elements(["x", "[", "]", "}", ",", "\"", "{}", "//", "null", "true"]))
     where xFinite(v) and xValid(v)
     => let s = jsonDump(v) in (not jsonParse(s ++ junk).ok) and (not jsonParse(junk ++ " " ++ s).ok)
 }
 
-# JSON has no comments, trailing commas, single quotes, unquoted keys or hex numbers: all rejected.
 law json_rejects_non_json_extensions {
     forall (s: elements(["[1,]", "{\"a\":1,}", "[,1]", "{,}", "// c\n[]", "[] // c", "/* c */ []", "{'a':1}", "{a:1}", "['x']", "0x10", "[01]", "[1 2]", "{\"a\" 1}", "{\"a\":}", "[nul]", "[True]", "[NaN]", "[Infinity]", "[-Infinity]", "[+1]", "[.5]", "[5.]", "\"\\x41\"", "\"\\u12\"", "\"\\\"", "\"abc", "[\"a\" \"b\"]", ""]))
     => not jsonParse(s).ok and len(jsonParse(s).error) > 0
 }
 
-# The dump is canonical: dumping a re-parsed dump gives the same text.
 law json_dump_is_canonical {
     forall (v: xJsonGen(3))
     where xFinite(v) and xValid(v)
     => jsonDump(jsonParse(jsonDump(v)).value) == jsonDump(v)
 }
 
-# Random token soup never crashes the parser and never yields a value that does not round trip.
 gen jsonToken = elements(["[", "]", "{", "}", ",", ":", "\"a\"", "\"", "1", "-", "null", "true", "fals", "e", "\\", "0.5", "1e9", " ", "\n", "{\"a\":", "[1,"])
 law json_token_soup_is_total {
     forall (toks: listOf(jsonToken, 0, 24))
     => let r = jsonParse(join(toks, "")) in failsCleanly(r) and (not r.ok or jsonParse(jsonDump(r.value)).value == r.value)
 }
-
-# ---------------------------------------------------------------- jsonDiff / jsonFind
 
 law json_diff_of_equal_documents_is_empty {
     forall (v: xJsonGen(3))
@@ -184,7 +154,6 @@ law json_diff_of_equal_documents_is_empty {
     => jsonDiffOf(v, v, 0) == ""
 }
 
-# Changing one number by more than epsilon is reported; changing it by less is not.
 law json_diff_respects_epsilon {
     forall (x: float(-100, 100), delta: float(0, 10), eps: float(0.001, 5))
     where abs(abs(delta) - eps) > 1e-6
@@ -197,7 +166,6 @@ law json_diff_detects_every_single_change {
     => (jsonDiffOf(a, b, 0) == "") == (a == b)
 }
 
-# jsonFind with a dotted / indexed path finds exactly what direct traversal finds.
 law json_find_matches_traversal {
     forall (xs: listOf(int(-50, 50), 1, 8), i: int(0, 12), key: elements(["a", "b", "c"]))
     => let doc = {a: xs, b: {c: xs}} in

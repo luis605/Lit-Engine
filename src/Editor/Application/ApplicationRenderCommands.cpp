@@ -118,7 +118,7 @@ void Application::registerSceneCommands() {
     addCommand("scene.portalTorture", "Load the nested portal torture scene", "File", {}, [this] { replaceSceneWith([this] { buildPortalScene(1); }, "Portal torture scene"); });
     addCommand("view.debugOverlay", "Debug overlay: portals, params, observation, AI, perf", "View", {key(ImGuiKey_F3)}, [this] { m_overlay.toggle(); }).checked = [this] { return m_overlay.visible(); };
     for (const std::string& testName : testSceneNames()) {
-        if (testName == "showcase") continue;  // scene.showcase is the Editor's own showcase; `testscene showcase` / LIT_SCENE=showcase keep that one
+        if (testName == "showcase") continue;
         addCommand("scene.test." + testName, "Load test scene: " + testName, "File", {}, [this, testName] {
             if (buildTestScene(testName)) m_ctx->toast("Test scene " + testName, ToastKind::Success);
         });

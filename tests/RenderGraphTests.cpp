@@ -11,7 +11,6 @@ import Engine.Render.graph;
 
 namespace {
 
-// Records what the graph asks of a GPU backend; native handles are fake pointers numbered by creation.
 struct FakeBackend final : rg::Backend {
     uintptr_t next = 0x1000;
     int created = 0;
@@ -82,13 +81,12 @@ void testOrderAndCulling() {
     graph.execute(backend, pool);
     CHECK(ran.size() == 3);
     CHECK(ran[0] == "produce" && ran[1] == "present" && ran[2] == "marker");
-    CHECK(backend.created == 1);  // culled passes allocate nothing
+    CHECK(backend.created == 1);
     CHECK(graph.native(unused) == nullptr);
     CHECK(graph.native(used) != nullptr);
 }
 
 void testDependenciesFollowDeclarationOrder() {
-    // Write-after-read: the second writer of `depth` must run after the reader, even though it declares no read.
     rg::RenderGraph graph;
     const rg::Handle depth = graph.importTexture("depth", &g_depth);
     graph.addPass("draw", [&](rg::PassBuilder& builder) { builder.write(depth, rg::Usage::DepthWrite); }, {});
@@ -131,8 +129,8 @@ void testTransientReuse() {
     rg::TransientPool pool(2);
     graph.execute(backend, pool);
     CHECK(graph.physicalOf(first) >= 0);
-    CHECK(graph.physicalOf(first) == graph.physicalOf(second));    // same description, disjoint lifetimes
-    CHECK(graph.physicalOf(second) != graph.physicalOf(overlapping));  // alive at the same time
+    CHECK(graph.physicalOf(first) == graph.physicalOf(second));
+    CHECK(graph.physicalOf(second) != graph.physicalOf(overlapping));
     CHECK(graph.physicalOf(otherFormat) != graph.physicalOf(first));
     CHECK(graph.physicalOf(otherFormat) != graph.physicalOf(overlapping));
     CHECK(backend.created == 3);
@@ -142,14 +140,12 @@ void testTransientReuse() {
     const int32_t firstSlot = graph.physicalOf(first);
     pool.endFrame(backend);
 
-    // Next frame, same structure: same placement, nothing created.
     graph.compile();
     graph.execute(backend, pool);
     CHECK(backend.created == 3);
     CHECK(graph.physicalOf(first) == firstSlot);
     pool.endFrame(backend);
 
-    // Unused for `retireFrames` frames: destroyed.
     pool.endFrame(backend);
     pool.endFrame(backend);
     CHECK(backend.destroyed == 3);
@@ -176,13 +172,12 @@ void testBarriersAndTiming() {
     }, {});
     graph.addPass("untimed", [&](rg::PassBuilder& builder) {
         builder.read(scratch, rg::Usage::ShaderResource);
-        builder.write(scratch, rg::Usage::UnorderedAccess);  // read + write in one pass: the write state wins
+        builder.write(scratch, rg::Usage::UnorderedAccess);
         builder.write(out, rg::Usage::RenderTarget);
     }, {});
     FakeBackend backend;
     rg::TransientPool pool;
     graph.execute(backend, pool);
-    // Placement (create) precedes the timing switch of the transient's first pass.
     const std::vector<std::string> expected = {"begin 6", "pass gbuffer", "pass gbuffer-meshlets", "create scratch", "end 6", "begin 7", "pass hiz", "end 7", "pass untimed"};
     CHECK(backend.events == expected);
     CHECK(backend.barriers.size() == 6);

@@ -1,11 +1,9 @@
-# World core: floating origin invariants (docs/LargeWorld.md). local = absolute - origin; rebasing moves the frame, never the world.
 include "../lib/ext_world.bent"
 
 gen bigD = vec3(float(-200000, 200000), float(-1000, 1000), float(-200000, 200000))
 gen bigAbs = vec3(float(-1e6, 1e6), float(-1e4, 1e4), float(-1e6, 1e6))
 fn precision(a, d) = 1e-6 * 16 * (1 + length(a) + length(d)) + 1e-4
 
-# toWorld and toLocal are inverses (within float precision of the local coordinates), at any origin.
 law to_world_and_to_local_are_inverse {
     forall (p: program, d: bigD, v: bigAbs, l: smallVec)
     => after(p ++ [rebase(delta: d)]) {
@@ -14,14 +12,11 @@ law to_world_and_to_local_are_inverse {
     }
 }
 
-# Rebasing by nothing changes nothing.
 law rebase_by_zero_is_a_noop {
     forall (p: program)
     => after(p) { worldHash() } == after(p ++ [rebase(delta: vec3(0, 0, 0))]) { worldHash() }
 }
 
-# Any sequence of rebases leaves every entity at its absolute position (a few ulps of the largest coordinate), and the origin is the
-# sum of the shifts (each shift is applied in float precision).
 law repeated_rebases_keep_world_positions {
     forall (p: program, ds: listOf(bigD, 1, 6))
     => after(p) {
@@ -35,14 +30,12 @@ law repeated_rebases_keep_world_positions {
     }
 }
 
-# Rebasing there and then in one go give the same final origin and the same positions (shifts commute).
 law rebases_commute {
     forall (p: program, a: bigD, b: bigD)
     => after(p ++ [rebase(delta: a), rebase(delta: b)]) { [origin(), map(entities(), worldPosition)] } ~=
        after(p ++ [rebase(delta: b), rebase(delta: a)]) { [origin(), map(entities(), worldPosition)] } within 0.05
 }
 
-# Only roots move: children keep their local transform exactly, and velocities, rotations and scales are untouched.
 law rebase_moves_only_roots {
     forall (p: program, d: bigD)
     => after(p) {
@@ -55,7 +48,6 @@ law rebase_moves_only_roots {
     }
 }
 
-# Spatial queries answer the same questions after a rebase when asked in the new local frame.
 fn qgap(e, c, r) = let b = bounds(e) in distance(b.center, c) - r - b.radius
 law overlap_survives_rebase {
     forall (p: program, d: vec3(float(-3000, 3000), float(-50, 50), float(-3000, 3000)), c: smallVec, r: float(0, 40))
@@ -81,13 +73,11 @@ law raycast_survives_rebase {
     }
 }
 
-# Scene text carries the origin: after a rebase and a save / load every entity is where it was in absolute terms.
 law save_load_keeps_rebased_positions {
     forall (p: program, d: bigD)
     => after(p ++ [rebase(delta: d)]) { map(entities(), worldPosition) } ~= after(p ++ [rebase(delta: d), saveLoad()]) { map(entities(), worldPosition) } within 0.05
 }
 
-# Automatic floating origin: the camera path never moves entities in absolute terms; the origin stays on the snap grid.
 law floating_origin_never_moves_entities_absolutely {
     forall (p: hierProg, path: listOf(vec3(float(-30000, 30000), float(-50, 50), float(-30000, 30000)), 1, 5))
     => after(p) {
@@ -105,7 +95,6 @@ law floating_origin_stays_on_the_snap_grid {
     }
 }
 
-# The camera's absolute position is exactly what cameraWorld asked for, with floating origin on or off.
 law camera_world_position_is_exact {
     forall (v: vec3(float(-30000, 30000), float(-50, 50), float(-30000, 30000)), on: bool())
     => after((if on then [floatingOrigin(threshold: 2000, snap: 1024)] else []) ++ [cameraWorld(pos: v), step(n: 1)]) {

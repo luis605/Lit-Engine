@@ -47,8 +47,6 @@ MeshBounds ComputeBounds(const Mesh& mesh) {
     return {center, glm::sqrt(maxRadiusSquared)};
 }
 
-// Geometry released by Renderer::releaseMesh: ranges of the shared vertex and index buffers plus whole LOD blocks of
-// mesh slots, reused by later uploads (terrain tiles stream in and out, every tile has the same size).
 struct GeometryRange {
     size_t vertexOffset = 0;
     size_t vertexBytes = 0;
@@ -75,7 +73,6 @@ void Renderer::growGeometryBuffers(size_t vertexDataSize, size_t indexDataSize) 
 
     auto resize = [&](Diligent::RefCntAutoPtr<Diligent::IBuffer>& buffer, size_t usedBytes, Diligent::RefCntAutoPtr<Diligent::IBuffer> replacement) {
         if (!replacement) {
-            // Out of device memory (shared GPU): keep the old buffer; the upload that needed the space fails instead of crashing on a null copy.
             Lit::Log::Error("Geometry buffer growth to {} bytes failed (out of device memory?)", usedBytes * 2);
             return;
         }
@@ -96,7 +93,6 @@ uint32_t Renderer::uploadMeshSlot(const Mesh& mesh, uint32_t forcedSlot) {
     const size_t vertexDataSize = mesh.vertices.size() * sizeof(float);
     const size_t indexDataSize = mesh.indices.size() * sizeof(unsigned int);
 
-    // Best fit among released ranges, otherwise append to the buffers.
     GeometryRange range;
     size_t best = gFreeRanges.size();
     for (size_t i = 0; i < gFreeRanges.size(); ++i) {
@@ -157,7 +153,6 @@ uint32_t Renderer::uploadMesh(const Mesh& source) {
 uint32_t Renderer::uploadProcessedMesh(const Mesh& mesh, const std::vector<Mesh>& chain) {
     if (mesh.vertices.empty() || mesh.indices.empty()) return 0;
 
-    // A released block of kLodLevelCount slots is reused before the slot table grows.
     uint32_t block = kInvalidMeshId;
     if (!gFreeBlocks.empty()) {
         block = gFreeBlocks.back();
@@ -207,7 +202,6 @@ uint32_t Renderer::uploadProcessedMesh(const Mesh& mesh, const std::vector<Mesh>
 
 uint32_t Renderer::uploadTerrainMesh(const Mesh& mesh) {
     if (mesh.vertices.empty() || mesh.indices.empty()) return 0;
-    // Tiles are morphed in the vertex shader, so no simplification and no point impostor: every LOD slot shows the base geometry.
     uint32_t block = kInvalidMeshId;
     if (!gFreeBlocks.empty()) {
         block = gFreeBlocks.back();

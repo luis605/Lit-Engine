@@ -1,21 +1,13 @@
-# World core: World snapshot / restore, scene save / load, save format compatibility and robustness against damaged scene files.
-# By design (docs/Bent.md, Findings): save / load changes hashWorldState (World::clear bumps generations so old handles never alias new
-# entities) and snapshots do not contain engine settings or the frame counter, so these laws compare *content*, not worldHash.
 include "../lib/ext_world.bent"
 
 gen edits = listOf(frequency([[6, spawnAny], [6, editAction], [3, structuralAction], [5, stepAction], [1, compact()], [1, clear()], [1, saveLoad()]]), 0, 25)
 gen plainEdits = listOf(frequency([[6, spawnAny], [6, editAction], [3, structuralAction], [5, stepAction]]), 0, 25)
 
-# ---------------------------------------------------------------- snapshots
-
-# Restoring a snapshot undoes everything done after it, including compaction, clear and save / load in between: entity content is
-# identical (slots and handles may differ after a clear).
 law snapshot_restore_restores_content {
     forall (p: program, q: edits)
     => after(p) { contentHash() } == after(p ++ [snapshot(slot: 0)] ++ q ++ [restore(slot: 0)]) { contentHash() }
 }
 
-# The handles of everything that existed at the snapshot are alive again, and everything created afterwards is dead.
 law snapshot_restore_revives_old_and_kills_new_entities {
     forall (p: program, q: plainEdits)
     => after(p) {
@@ -33,14 +25,11 @@ law snapshot_restore_twice_is_restore_once {
     => after(p ++ [snapshot(slot: 0)] ++ q ++ [restore(slot: 0)]) { contentHash() } == after(p ++ [snapshot(slot: 0)] ++ q ++ [restore(slot: 0), restore(slot: 0)]) { contentHash() }
 }
 
-# Taking a snapshot changes nothing.
 law snapshot_is_pure {
     forall (p: program)
     => after(p) { worldHash() } == after(p ++ [snapshot(slot: 0), snapshotText(slot: 1)]) { worldHash() }
 }
 
-# The floating origin moves between snapshot and restore all the time in a streaming game: the restored entities must be at the
-# same absolute world positions as when the snapshot was taken.
 law snapshot_restore_keeps_absolute_positions_across_rebase {
     forall (p: program, d: vec3(float(-3000, 3000), float(-50, 50), float(-3000, 3000)))
     => after(p) {
@@ -52,8 +41,6 @@ law snapshot_restore_keeps_absolute_positions_across_rebase {
 }
 fn tol2(a, d) = 1e-6 * 16 * (1 + length(a) + length(d)) + 1e-3
 
-# World::snapshot() text is a fixpoint of restore: restoring it and snapshotting again gives the same text (the text names entities by
-# slot, and a restore renumbers slots densely, so the comparison starts from a compacted world).
 law text_snapshot_is_a_fixpoint {
     forall (p: program)
     => after(p ++ [compact(), snapshotText(slot: 0), restoreText(slot: 0)]) { snapshotString() } == after(p ++ [compact()]) { snapshotString() }
@@ -64,15 +51,11 @@ law text_snapshot_restore_keeps_content {
     => after(p) { contentHash() } == after(p ++ [snapshotText(slot: 0)] ++ q ++ [restoreText(slot: 0)]) { contentHash() }
 }
 
-# ---------------------------------------------------------------- scene files
-
-# The scene text is a fixpoint of save / load (slots are renumbered densely by a load, so start from a compacted world).
 law scene_text_is_a_fixpoint_of_save_load {
     forall (p: program)
     => after(p ++ [compact()]) { sceneText() } == after(p ++ [compact(), saveLoad()]) { sceneText() }
 }
 
-# Entities stay at the same absolute positions through a save / load, also when the floating origin is away from zero.
 law save_load_preserves_absolute_positions_after_rebase {
     forall (p: program, d: vec3(float(-3000, 3000), float(-50, 50), float(-3000, 3000)))
     => after(p ++ [rebase(delta: d)]) { map(entities(), worldPosition) } ~=
@@ -85,44 +68,34 @@ law save_load_preserves_camera_and_origin {
        after(p ++ [rebase(delta: d), camera(pos: c, yaw: yaw, pitch: pitch), saveLoad()]) { cameraView() } within 1e-3
 }
 
-# The order of siblings is NOT preserved by a load (it follows slot order, the original follows the history of reparenting): by design,
-# nothing may depend on it, so only the set of children is compared.
 law child_sets_survive_persistence {
     forall (p: hierProg, round: elements([saveLoad(), saveRoundtrip()]))
     => after(p) { sort(map(entities(), fn(e) => [name(e), sort(map(children(e), name))])) } == after(p ++ [round]) { sort(map(entities(), fn(e) => [name(e), sort(map(children(e), name))])) }
 }
 
-# Round trips keep every entity's slot-independent state through any number of repetitions (no slow drift).
 law repeated_save_load_is_stable {
     forall (p: program, n: int(1, 6))
     => after(p ++ [saveLoad()]) { contentHash() } == after(p ++ repeat(saveLoad(), n)) { contentHash() }
 }
 
-# ---------------------------------------------------------------- damaged and old scene files
-
 gen damage = [int(0, 4), int(0, 1000000), elements(["n", "a", "i", "f", "-", ".", "e", "9", "\n", "\t", " ", "\0", "\xff", "\"", "1"])]
 
-# A damaged scene file never corrupts the world: loading either fails and leaves the world untouched, or succeeds and leaves a
-# valid world that can be simulated.
 law damaged_scene_never_corrupts_the_world {
     forall (p: program, d: damage)
     => after(p ++ [sceneMutate(mode: d[0], at: d[1], char: d[2]), step(n: 2)]) { worldErrors() == [] and entityCount() == liveCount() }
 }
 
-# When the load is rejected the world content is exactly what it was.
 law rejected_scene_changes_nothing {
     forall (p: program, d: damage)
     => let before = after(p) { contentHash() } in
        after(p ++ [sceneMutate(mode: d[0], at: d[1], char: d[2])]) { cover("load failed", not loadOk()) and cover("load ok", loadOk()) and (loadOk() or contentHash() == before) }
 }
 
-# A scene that loads must be sane: no NaN or infinity ever enters the world from a file.
 law loaded_scene_has_no_non_finite_values {
     forall (p: program, at: int(0, 1000000), c: elements(["n", "a", "i", "f", "N", "I", "e"]))
     => after(p ++ [sceneMutate(mode: 2, at: at, char: c)]) { not loadOk() or not hasNaN() }
 }
 
-# Older save versions (1 and 2) still load and give the same content; unknown versions (0, 4+) are rejected without touching the world.
 law old_scene_versions_still_load {
     forall (p: program, version: int(1, 2))
     => after(p ++ [sceneMutate(mode: 5, at: version, char: "")]) { loadOk() and contentHash() == after(p) { contentHash() } }
@@ -134,7 +107,6 @@ law unknown_scene_versions_are_rejected {
        after(p ++ [sceneMutate(mode: 5, at: version, char: "")]) { not loadOk() and contentHash() == before }
 }
 
-# A newer writer may add lines this reader does not know (extra metadata, future keywords): they are ignored, content is unchanged.
 law unknown_scene_lines_are_ignored {
     forall (p: program)
     => let before = after(p) { contentHash() } in

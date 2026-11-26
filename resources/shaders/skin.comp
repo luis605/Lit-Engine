@@ -2,10 +2,6 @@
 #extension GL_GOOGLE_include_directive : require
 #include "deform.glsl"
 
-// Dynamic mesh pass 1: morph targets -> linear blend skinning -> procedural deform.
-// One thread per vertex; writes 8-float vertices (position, normal, uv) into the instance output buffer,
-// which Renderer copies into the shared vertex buffer slot of the instance mesh.
-
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 layout(std140, binding = 0) uniform SkinUniforms {
@@ -31,7 +27,6 @@ layout(std430, binding = 2) readonly buffer SkinVertexBuffer {
     SkinVertex skinVertices[];
 };
 
-// Two vec4 per (target, vertex): position delta then normal delta.
 layout(std430, binding = 3) readonly buffer MorphBuffer {
     vec4 morphDeltas[];
 };

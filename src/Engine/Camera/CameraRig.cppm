@@ -38,7 +38,6 @@ export class CameraRig {
     [[nodiscard]] const CameraRigSettings& settings() const { return m_settings; }
     void setCollisionQuery(CameraCollisionQuery query) { m_query = std::move(query); }
     void setPivot(const glm::vec3& pivot) { m_pivot = pivot; }
-    // Up of the target (eye offset, shoulder side); a character crossing a tilted portal sets its own up here.
     void setUp(const glm::vec3& up) { m_up = up; }
     [[nodiscard]] const glm::vec3& up() const { return m_up; }
     void shiftOrigin(const glm::vec3& shift) { m_pivot -= shift; }

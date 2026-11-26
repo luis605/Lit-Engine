@@ -1,10 +1,4 @@
-# Generators and helpers shared by the ext_portal_*.bent law files (portals, camera, streaming, terrain, instancing, save).
-# The natives (xp*, xm*, xc*, xr*, xs*, xt*, xi*, xd*, xv*) are implemented in src/Engine/Bent/Ext_Portal*.cpp; every one is a pure function
-# that builds its own PortalSystem / Camera / ResidencyManager / World, so cases stay independent. Matrices are lists of 16 numbers
-# (column-major): xmMul, xmInv, xmPoint, xmDir, xmDiff, xmOrtho, xmDet, xmIdentity, xmTranslation.
 include "prelude.bent"
-
-# ---------------------------------------------------------------- portal pairs
 
 gen xpEuler = vec3(float(-180, 180), float(-89, 89), float(-180, 180))
 gen xpUprightEuler = vec3(float(-180, 180), 0, 0)
@@ -13,14 +7,12 @@ gen xpFarPos = vec3(float(-1500, 1500), float(-100, 100), float(-1500, 1500))
 gen xpHalf = vec3(float(0.5, 3), float(0.5, 3), 0)
 gen xpSignedUnit = float(-0.6, 0.6)
 
-# Any rigid pair (tilted and rolled ends), twist included.
 gen xpPairAny = {a: xpPos, ae: xpEuler, b: xpPos, be: xpEuler, half: xpHalf, twist: float(-180, 180)}
 gen xpPairPlain = {a: xpPos, ae: xpEuler, b: xpPos, be: xpEuler, half: xpHalf}
 gen xpPairUpright = {a: xpPos, ae: xpUprightEuler, b: xpPos, be: xpUprightEuler, half: xpHalf}
 
 fn xpApart(s) = distance(s.a, s.b) > 12
 
-# Camera in front of end A, looking at it.
 gen xpCam = {dist: float(0.8, 6), u: xpSignedUnit, v: xpSignedUnit, roll: float(-180, 180), yawOff: float(-12, 12), pitchOff: float(-12, 12)}
 gen xpCamUpright = {dist: float(0.8, 6), u: xpSignedUnit, v: xpSignedUnit, roll: just(0), yawOff: float(-12, 12), pitchOff: float(-12, 12)}
 
@@ -28,19 +20,13 @@ fn xpUnitDiff(a, b) = length(a - b)
 fn xpMatId(m) = xmDiff(m, xmIdentity())
 fn xpAngleDeg(a, b) = atan2(length(cross(a, b)), dot(a, b)) * 180 / 3.141592653589793
 
-# ---------------------------------------------------------------- cells (parameters)
-
 gen xpCell = {gravity: vec3(float(-12, 12), float(-12, 12), float(-12, 12)), tint: vec3(float(0, 1), float(0, 1), float(0, 1)),
               sun: float(0, 2), ambient: float(0, 2), scalar: float(-5, 5)}
 
-# ---------------------------------------------------------------- frames (buildFrame)
-
-# A pair whose end A is in front of the camera (camera at about (0, 2, 6) looking down -Z), end B anywhere in another cell.
 gen xfPair = {a: vec3(float(-6, 6), float(0.5, 4), float(-9, -1)), ae: vec3(float(-50, 50), float(-20, 20), float(-10, 10)), b: xpPos, be: xpEuler,
               half: vec3(float(0.5, 2.5), float(0.5, 2.5), 0), twist: just(0), cellA: just(0), cellB: int(0, 2)}
 gen xfPairOther = {a: vec3(float(-6, 6), float(0.5, 4), float(-9, -1)), ae: vec3(float(-50, 50), float(-20, 20), float(-10, 10)), b: xpPos, be: xpEuler,
                    half: vec3(float(0.5, 2.5), float(0.5, 2.5), 0), twist: just(0), cellA: just(0), cellB: int(1, 2)}
-# Small, far portals (never "large" on screen): the soft budgets (maxViews, maxDepth) must hold exactly.
 gen xfPairSmall = {a: vec3(float(-6, 6), float(0.5, 4), float(-30, -15)), ae: vec3(float(-50, 50), float(-20, 20), float(-10, 10)), b: xpPos, be: xpEuler,
                    half: vec3(float(0.3, 0.6), float(0.3, 0.6), 0), twist: just(0), cellA: just(0), cellB: int(0, 2)}
 
@@ -52,9 +38,6 @@ gen xfInputOther = {pairs: listOf(xfPairOther, 1, 3), cells: just(3), pos: vec3(
 gen xfInputSmall = {pairs: listOf(xfPairSmall, 1, 3), cells: just(3), pos: vec3(float(-3, 3), float(0.5, 3), float(2, 6)), yaw: float(-100, -80), pitch: float(-8, 8),
                     roll: just(0), maxDepth: int(1, 4), maxViews: int(2, 12), viewport: float(200, 600), minPixels: float(0, 6), occlusion: bool(), fov: float(40, 70)}
 
-# ---------------------------------------------------------------- queries through portals
-
-# Distance of a point to the quad of an end (the engine's rectDistance) and the signed distance to its plane.
 fn xqSide(p, c, n) = dot(n, p - c)
 fn xqRectDistance(p, c, n, right, up, hx, hy) =
     let off = p - c in

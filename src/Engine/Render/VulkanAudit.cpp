@@ -1,6 +1,4 @@
-// Bindless groundwork (docs/RenderGraph.md, "Bindless"): queries the descriptor-indexing features and limits of the
-// Vulkan device Diligent created, through the loader's vkGetInstanceProcAddr (no link-time Vulkan dependency).
-// Plain translation unit (not a module unit): Vulkan headers must come before Diligent's Vulkan interface header.
+// Vulkan headers must precede Diligent's Vulkan interface header.
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 

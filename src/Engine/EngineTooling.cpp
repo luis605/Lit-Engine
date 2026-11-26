@@ -206,4 +206,3 @@ void Engine::uploadParams() {
     m_paramsUploaded = m_params.version();
     m_renderer.custom().setBuffer("EngineParams", sizeof(float), kParamSlots, m_params.values());
 }
-

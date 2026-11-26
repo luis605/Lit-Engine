@@ -16,9 +16,6 @@ module Engine.Portal;
 
 import Engine.glm;
 
-// Generated portal frames (docs/Portals.md, "Frames and edges"). Everything is in the portal's local space: x right, y up, z the
-// normal (toward the end's own cell), the portal plane at z = 0.
-
 namespace {
 
 constexpr float kTwoPi = 6.28318530718f;
@@ -27,11 +24,9 @@ constexpr int kEllipseSegments = 72;
 
 struct ContourPoint {
     glm::vec2 position;
-    glm::vec2 normal;  // outward
+    glm::vec2 normal;
 };
 
-// Rounded rectangle (radius 0 = rectangle with sharp corners: each corner is a fan of coincident points with turning normals,
-// so offsetting it gives the exact rounded offset and straight edges keep a constant normal).
 std::vector<ContourPoint> roundedContour(const glm::vec2& half, float radius, float offset) {
     std::vector<ContourPoint> points;
     points.reserve(4 * (kCornerSegments + 1));
@@ -65,11 +60,8 @@ std::vector<ContourPoint> innerContour(const glm::vec2& half, const PortalLook& 
     return roundedContour(half, look.shape == PortalShape::Rounded ? look.cornerRadius : 0.0f, offset);
 }
 
-// Outer edge of the frame: a rounded rectangle `width` outside the quad (it also covers a rectangular wall opening around an
-// elliptical portal). Its radius is at least the bevel so the inset bevel stays a proper offset.
 std::vector<ContourPoint> outerContour(const glm::vec2& half, const PortalLook& look, float offset) {
     const PortalFrameStyle& frame = look.frame;
-    // The same clamp buildPortalFrameMesh applies to the bevel: a bevel wider than the frame must not round the outer corners into the opening.
     const float bevel = std::clamp(frame.bevel, 0.0f, std::min(frame.width, frame.depth) * 0.45f);
     float radius = bevel;
     if (look.shape == PortalShape::Rounded) radius = std::clamp(look.cornerRadius, 0.0f, std::min(half.x, half.y)) + frame.width;
@@ -88,7 +80,6 @@ class MeshWriter {
         return index;
     }
 
-    // Triangle wound counter-clockwise around its vertices' mean normal (degenerate triangles are kept, they rasterise nothing).
     void triangle(unsigned int a, unsigned int b, unsigned int c) {
         const glm::vec3 pa = position(a);
         const glm::vec3 pb = position(b);
@@ -98,7 +89,6 @@ class MeshWriter {
         m_mesh.indices.insert(m_mesh.indices.end(), {a, b, c});
     }
 
-    // Strip between two contours with the same structure (point i of one belongs to point i of the other).
     void strip(const std::vector<ContourPoint>& first, float firstZ, const std::vector<ContourPoint>& second, float secondZ, const std::function<glm::vec3(const glm::vec2&)>& normalOf) {
         const size_t count = std::min(first.size(), second.size());
         if (count < 2) return;
@@ -117,7 +107,6 @@ class MeshWriter {
         }
     }
 
-    // Flat ring between two closed star-shaped contours (front face): zipper by polar angle.
     void ring(const std::vector<ContourPoint>& inner, const std::vector<ContourPoint>& outer, float z) {
         if (inner.size() < 3 || outer.size() < 3) return;
         auto prepare = [&](const std::vector<ContourPoint>& contour, std::vector<unsigned int>& ids, std::vector<float>& angles) {
@@ -153,7 +142,6 @@ class MeshWriter {
         std::vector<float> outerAngles;
         prepare(inner, innerIds, innerAngles);
         prepare(outer, outerIds, outerAngles);
-        // Both lists start at their smallest angle; align the starts by sharing the first triangle fan.
         size_t i = 0;
         size_t o = 0;
         const size_t innerLast = innerIds.size() - 1;

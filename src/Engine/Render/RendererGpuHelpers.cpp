@@ -166,9 +166,6 @@ uint32_t PackRenderable(const RenderableComponent& renderable) {
     const uint32_t mesh = std::min(renderable.mesh_uuid, meshMask);
     const uint32_t material = std::min(renderable.material_uuid, materialMask);
     const uint32_t shader = std::min(renderable.shaderId, shaderMask);
-    // NO_MESH (lights, empties) clamps to 0xFFF, which the GPU would take for mesh slot 4095 (a zero-sized sphere that passes
-    // culling and lands in a draw bucket outside the table, overwriting other objects' entries: the "missing floor"). Mesh-less
-    // entities are hidden instead.
     const uint32_t noMesh = renderable.mesh_uuid >= meshMask ? RENDER_HIDDEN : 0u;
     const uint32_t flags = (renderable.flags & (RENDER_HIDDEN | RENDER_NO_OCCLUDER | RENDER_MASKED)) | noMesh | (renderable.alpha < 1.0f ? translucentFlag : 0u);
     return mesh | material << materialShift | shader << shaderShift | flags << flagsShift;

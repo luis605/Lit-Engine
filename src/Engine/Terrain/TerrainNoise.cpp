@@ -35,7 +35,6 @@ struct Noised {
     float dz;
 };
 
-// Value noise in [-1, 1] with analytic derivatives (quintic interpolation).
 Noised noised(uint64_t seed, float x, float z) {
     const float fx = std::floor(x);
     const float fz = std::floor(z);

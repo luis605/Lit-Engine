@@ -23,12 +23,9 @@ export struct RigidBody {
     bool isStatic = false;
     bool sleeping = false;
     float sleepTimer = 0.0f;
-    // Coulomb friction: dynamic coefficient, static (stick) coefficient. Contacts mix with sqrt(a * b).
     float friction = 0.5f;
     float staticFriction = 0.6f;
-    // Rolling resistance coefficient (torque = coefficient * radius * normal impulse). Only bodies that spin (a lone SphereCollider) use it.
     float rollingResistance = 0.0f;
-    // Only a lone SphereCollider body spins; its entity rotation follows. Other shapes keep their orientation.
     glm::vec3 angularVelocity{0.0f};
 };
 
@@ -40,13 +37,11 @@ export struct BoxCollider {
     glm::vec3 halfExtents{0.5f};
 };
 
-// Capsule along the world Y axis: a cylinder segment of length 2 * halfHeight capped by two spheres of `radius`.
 export struct CapsuleCollider {
     float radius = 0.5f;
     float halfHeight = 0.5f;
 };
 
-// Convex polyhedron (see makeConvexHull). Hulls follow the entity rotation and scale at step time; the body itself keeps its orientation.
 export struct ConvexHullData {
     struct Face {
         glm::vec3 normal{0.0f, 1.0f, 0.0f};
@@ -63,10 +58,8 @@ export struct ConvexHullCollider {
     std::shared_ptr<const ConvexHullData> hull;
 };
 
-// Brute force hull of up to 128 points. Returns null when degenerate (fewer than 4 points, or coplanar).
 export [[nodiscard]] std::shared_ptr<const ConvexHullData> makeConvexHull(const std::vector<glm::vec3>& points);
 
-// Compound body: extra primitive parts (offsets are in world axes, not rotated) added to the entity's own colliders.
 export struct CompoundPart {
     enum class Kind : uint8_t { Sphere, Box, Capsule };
     Kind kind = Kind::Sphere;
@@ -86,7 +79,6 @@ export struct PlaneCollider {
     float friction = -1.0f;
 };
 
-// Static triangle soup with a BVH. Local space; the entity matrix (translation, rotation, scale) places it.
 export struct TriangleMeshData {
     struct Node {
         glm::vec3 lo{0.0f};
@@ -124,7 +116,6 @@ export struct MeshContact {
 };
 
 export [[nodiscard]] std::shared_ptr<const TriangleMeshData> makeTriangleMesh(std::vector<glm::vec3> vertices, std::vector<uint32_t> indices);
-// Local-space queries. Two sided: normals face the query.
 export void meshQuery(const TriangleMeshData& mesh, const glm::vec3& lo, const glm::vec3& hi, std::vector<uint32_t>& triangles);
 export [[nodiscard]] std::optional<MeshHit> meshRaycast(const TriangleMeshData& mesh, const glm::vec3& origin, const glm::vec3& direction, float maxDistance);
 export [[nodiscard]] std::optional<MeshHit> meshSweepSphere(const TriangleMeshData& mesh, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, float radius);
@@ -145,8 +136,6 @@ export struct HeightfieldData {
     void updateBounds();
 };
 
-// Static terrain: the entity position is the (min x, min z) corner and the height origin. Entity rotation and scale apply (exact for rays, uniform scale for sphere queries; non-uniform uses the geometric mean).
-// Cell (i, j) is split along the (i, j)-(i+1, j+1) diagonal into triangles (00, 01, 11) and (00, 11, 10), 01 = +z neighbour.
 export struct HeightfieldCollider {
     std::shared_ptr<const HeightfieldData> data;
     float restitution = 0.0f;
@@ -164,7 +153,6 @@ export struct HeightfieldContact {
     glm::vec3 point{0.0f};
 };
 
-// All coordinates below are local to the heightfield (entity) origin.
 export [[nodiscard]] bool heightfieldContains(const HeightfieldData& field, float x, float z);
 export [[nodiscard]] float heightfieldHeightAt(const HeightfieldData& field, float x, float z);
 export [[nodiscard]] glm::vec3 heightfieldNormalAt(const HeightfieldData& field, float x, float z);
@@ -221,9 +209,7 @@ export using PhysicsFilter = std::function<bool(EntityHandle)>;
 export void wakeBody(World& world, EntityHandle entity);
 export std::optional<PhysicsHit> physicsRaycast(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 1.0e30f, const PhysicsFilter& skip = {});
 export std::optional<PhysicsHit> physicsSweepSphere(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, float radius, const PhysicsFilter& skip = {});
-// Capsule between a and b (world), swept along direction: sphere sweeps spaced at most `radius` apart along the axis.
 export std::optional<PhysicsHit> physicsSweepCapsule(World& world, const glm::vec3& a, const glm::vec3& b, float radius, const glm::vec3& direction, float maxDistance, const PhysicsFilter& skip = {});
-// Axis aligned box swept along direction: conservative stepping on physicsOverlapBox, then bisection.
 export std::optional<PhysicsHit> physicsSweepBox(World& world, const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec3& direction, float maxDistance, const PhysicsFilter& skip = {});
 export std::vector<PhysicsContact> physicsOverlapBox(World& world, const glm::vec3& center, const glm::vec3& halfExtents, const PhysicsFilter& skip = {});
 export std::vector<PhysicsContact> physicsOverlapCapsule(World& world, const glm::vec3& a, const glm::vec3& b, float radius, const PhysicsFilter& skip = {});

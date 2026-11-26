@@ -6,7 +6,6 @@ inline constexpr Diligent::TEXTURE_FORMAT kHdrFormat = Diligent::TEX_FORMAT_RGBA
 inline constexpr Diligent::TEXTURE_FORMAT kLdrFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
 inline constexpr uint32_t kMaxMaterials = 1024;
 inline constexpr uint32_t kMaxLights = 32768;
-// 3D clusters (froxels): must match CLUSTER_X/Y/Z and the ClusterBuffer layout in lights.glsl.
 inline constexpr uint32_t kClusterX = 32;
 inline constexpr uint32_t kClusterY = 18;
 inline constexpr uint32_t kClusterZ = 32;
@@ -78,7 +77,6 @@ struct Lighting::Data {
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> aoFiltered;
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> aoTemp;
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> aoBentRaw, aoBentTemp, aoBent;
-    // One-bounce GI gathered from this frame's lit colour after the lighting pass (gtao.comp GI_PASS).
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> giFiltered;
     lighting_detail::RefCntAutoPtr<Diligent::IPipelineState> giPso, giBlurPso, giBlurVerticalPso, giApplyPso;
     lighting_detail::RefCntAutoPtr<Diligent::IShaderResourceBinding> giSrb, giBlurSrb, giBlurVerticalSrb, giApplySrb[2];
@@ -113,7 +111,6 @@ struct Lighting::Data {
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> colorTextures;
     lighting_detail::RefCntAutoPtr<Diligent::ITexture> dataTextures;
     int textureCount = 0;
-    // Bindless texture table (docs/RenderGraph.md): one native-size Texture2D per slot; slot indices are what materials store.
     bool bindlessTextures = false;
     texslots::SlotAllocator tableSlots{kBindlessTextureCapacity};
     std::vector<lighting_detail::RefCntAutoPtr<Diligent::ITexture>> tableTextures;
@@ -132,8 +129,6 @@ struct Lighting::Data {
     std::vector<int32_t> lightCells;
     bool lightCellsDirty = true;
     lighting_detail::RefCntAutoPtr<Diligent::IBuffer> lightCellBuffer;
-    // Portal lights (docs/Portals.md): lights [firstPortalLight, firstPortalLight + apertures.size()) are portal images; their
-    // apertures live in the light buffer at kMaxLights + (index - firstPortalLight) (LIGHT_APERTURE_BASE in lights.glsl).
     uint32_t firstPortalLight = 0;
     std::vector<LightAperture> lightApertures;
     bool lightAperturesDirty = false;

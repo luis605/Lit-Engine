@@ -189,7 +189,7 @@ void drawFullscreen(Diligent::IDeviceContext* context, Diligent::IPipelineState*
     context->Draw(Diligent::DrawAttribs{3, Diligent::DRAW_FLAG_NONE});
 }
 
-}  // namespace
+}
 
 Diligent::ITextureView* Lighting::sceneColor() const { return litgpu::srv(m_data->sceneColor); }
 Diligent::ITexture* Lighting::sceneColorTexture() const { return m_data->sceneColor; }

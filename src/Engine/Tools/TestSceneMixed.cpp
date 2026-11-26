@@ -26,11 +26,6 @@ import Engine.Render.component;
 import Engine.Render.material;
 import Engine.Render.settings;
 
-// vsm_mixed: everything the integrated renderer has to survive in one frame. The portal "loop" scene (three rooms, the camera sees room B
-// through a portal), cluster LOD rocks (330k triangles each at the default detail), skinned characters walking and waving in both rooms,
-// and N shadowed point/spot lights (virtual shadow maps). Animation is driven by world time (testscene.vsm_mixed), so a fixed step is
-// repeatable. lightCount 4096 is a pool stress.
-
 uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material);
 uint32_t testSceneRockMesh(Engine& engine, const TestSceneKit& kit, int subdivisions, float roughness, float seed);
 uint32_t testSceneDynamicSource(Engine& engine, const std::string& key, const DynamicMesh& mesh);
@@ -75,12 +70,10 @@ bool buildMixedTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo&
         return testSceneMaterial(engine, kit, material);
     };
     buildPortalScene(engine.portals(), world, testScenePortalKit(engine, kit), PortalTestScene::Loop);
-    // LIT_MIXED_SUN=<scale>: give every cell sun (the loop rooms are indoor, sun 0) to check portal-view cascades.
     if (const char* sun = std::getenv("LIT_MIXED_SUN")) {
         for (int cell = 0; cell < static_cast<int>(engine.portals().cells().size()); ++cell) engine.portals().cellParams(cell).sun = std::strtof(sun, nullptr);
     }
 
-    // Cluster LOD rocks (these are the only cluster meshes; the dynamic characters must never become one).
     const uint32_t rock = testSceneRockMesh(engine, kit, std::max(1, params.denseDetail - 1), 0.35f, 4.0f);
     const uint32_t stone = makeMaterial(glm::vec3(0.55f, 0.5f, 0.45f), glm::vec3(0.0f), 0.0f, 0.8f);
     const glm::vec3 rockPositions[] = {glm::vec3(-3.3f, 0.9f, -3.0f), glm::vec3(21.0f, 0.9f, -3.0f), glm::vec3(3.0f, 0.9f, -3.2f)};
@@ -94,7 +87,6 @@ bool buildMixedTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo&
         world.create(desc);
     }
 
-    // Skinned characters: two in room A, two in room B.
     state->character = makeProceduralCharacter();
     state->skeleton = skeletonFromSkin(state->character);
     const uint32_t walk = state->clips.add(makeWalkClip(state->skeleton));
@@ -117,13 +109,11 @@ bool buildMixedTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo&
         state->actors.push_back(std::move(actor));
     }
 
-    // Shadowed lights: a strong spot on the characters in room A, then N small ones spread over the three rooms.
     {
         EntityDesc desc;
         desc.name = "actor spot";
         desc.mesh = NO_MESH;
         desc.position = glm::vec3(-2.5f, 3.8f, 3.6f);
-        // Forward is -Z: yaw about Y, then pitch about X.
         const glm::vec3 aim = glm::normalize(glm::vec3(0.0f, 1.0f, -0.4f) - desc.position);
         desc.rotation = glm::angleAxis(std::atan2(-aim.x, -aim.z), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::angleAxis(std::asin(aim.y), glm::vec3(1.0f, 0.0f, 0.0f));
         const EntityHandle spot = world.create(desc);

@@ -1,15 +1,10 @@
-# Portal transform algebra and crossing continuity (docs/Portals.md). A portal pair maps the room around end A onto the room around
-# end B; the map must be a proper rigid motion whatever the tilt / roll / twist of the ends, composes with its partner to the identity,
-# and a crossing must not move the view by even a pixel.
 include "../lib/ext_portal.bent"
 
-# The two ends' transforms are inverses: going through and straight back is the identity.
 law portal_xform_mutual_inverses {
     forall (s: xpPairAny)
     => let r = xpPair(s) in xmDiff(xmMul(r.ta, r.tb), xmIdentity()) < 1e-4 and xmDiff(xmMul(r.tb, r.ta), xmIdentity()) < 1e-4
 }
 
-# Rigid: orthonormal rotation part, determinant +1 (no mirroring, no scale), for both directions.
 law portal_xform_is_rigid {
     forall (s: xpPairAny)
     => let r = xpPair(s) in xmOrtho(r.ta) < 1e-5 and xmOrtho(r.tb) < 1e-5 and abs(xmDet(r.ta) - 1) < 1e-5 and abs(xmDet(r.tb) - 1) < 1e-5
@@ -20,8 +15,6 @@ law portal_xform_preserves_distances {
     => let r = xpPair(s) in abs(distance(xmPoint(r.ta, p), xmPoint(r.ta, q)) - distance(p, q)) < 1e-3
 }
 
-# Without twist, end A's frame lands on end B's frame flipped about its up axis: centre to centre, normal to -normal, up to up, right
-# to -right (you leave B facing away from it).
 law portal_xform_maps_end_frames {
     forall (s: xpPairPlain)
     => let r = xpPair(s) in
@@ -32,7 +25,6 @@ law portal_xform_maps_end_frames {
        and xmPoint(r.tb, r.centerB) ~= r.centerA within 1e-3
 }
 
-# Twist is a rotation about the far end's normal through its centre, by exactly the twist angle.
 law portal_xform_twist_is_rotation_about_far_normal {
     forall (s: xpPairPlain, tw: float(-180, 180))
     => let base = xpPair(with(s, twist: 0)) in
@@ -43,10 +35,6 @@ law portal_xform_twist_is_rotation_about_far_normal {
        and abs(dot(xmDir(rel, base.upB), base.upB) - cos(radians(tw))) < 1e-4
 }
 
-# A point that walks through end A with the engine's crossing code, then walks back through end B along the mapped segment, returns to
-# where it started, in the cell it started in. (With twist the opening of A does not coincide with the twisted opening of B unless it
-# is a circle, so twisted pairs are only tested with circular openings; a rectangular twisted pair legitimately lets an object enter A
-# at a spot that is outside B's frame.)
 law portal_crossing_roundtrip_retraces {
     forall (s: xpPairPlain, u: xpSignedUnit, v: xpSignedUnit, front: float(0.05, 1.5), back: float(0.05, 1.5))
     => let r = xpRoundTrip(s, u, v, {front: front, back: back}) in
@@ -62,82 +50,65 @@ law portal_crossing_roundtrip_retraces_circle_with_twist {
        and r.end ~= r.start within 1e-3 and r.mapped ~= r.expectedMapped within 1e-3
 }
 
-# A ring of n cells joined by n pairs: walking the ring transforms forward then back is the identity, to a tolerance that does not
-# degrade with n (large coordinates: float error accumulates per hop, not per metre).
 gen xpRingPairs = bind(int(2, 8), fn(n) => listOf(xpPairAny, n, n))
 law portal_ring_forward_back_identity {
     forall (pairs: xpRingPairs)
     => let r = xpRing(pairs) in r.roundErr < 2e-4 * len(pairs) and r.forwardOrtho < 1e-4 * len(pairs) and abs(r.forwardDet - 1) < 1e-4 * len(pairs)
 }
 
-# Composing the poses straight (independent code path) agrees with composing the engine's per-portal transforms.
 law portal_ring_matches_direct_composition {
     forall (pairs: xpRingPairs)
     => let r = xpRing(pairs) in r.directErr < 1e-3 * len(pairs)
 }
 
-# Far from the origin (floating origin keeps coordinates small, but portal worlds can be large): still rigid.
 law portal_xform_rigid_far_from_origin {
     forall (s: {a: xpFarPos, ae: xpEuler, b: xpFarPos, be: xpEuler, half: xpHalf, twist: float(-180, 180)})
     => let r = xpPair(s) in xmOrtho(r.ta) < 1e-4 and abs(xmDet(r.ta) - 1) < 1e-4
 }
 
-# ---------------------------------------------------------------- crossing continuity (view matrix identical before / after the swap)
-
 fn crossErr(r) = max([r.viewErr / 1.0, r.frontErr * 10.0, r.upErr * 10.0])
 
-# Upright pairs: yaw only.
 law portal_crossview_upright {
     forall (s: xpPairUpright, c: xpCam) where xpApart(s)
     => let r = xpCrossView(s, c) in r.have ==> (r.viewErr < 2e-3 and r.posErr < 1e-3 and r.frontErr < 1e-4 and r.upErr < 1e-4 and r.rightOrtho < 1e-4)
 }
 
-# Tilted ends (pitch).
 law portal_crossview_tilted {
     forall (s: {a: xpPos, ae: vec3(float(-180, 180), float(-89, 89), 0), b: xpPos, be: vec3(float(-180, 180), float(-89, 89), 0), half: xpHalf}, c: xpCam) where xpApart(s)
     => let r = xpCrossView(s, c) in r.have ==> (r.viewErr < 2e-3 and r.posErr < 1e-3 and r.frontErr < 1e-4 and r.upErr < 1e-4 and r.rightOrtho < 1e-4)
 }
 
-# Rolled ends and twisted pairs, camera rolled too.
 law portal_crossview_rolled {
     forall (s: xpPairAny, c: xpCam) where xpApart(s)
     => let r = xpCrossView(s, c) in r.have ==> (r.viewErr < 2e-3 and r.posErr < 1e-3 and r.frontErr < 1e-4 and r.upErr < 1e-4 and r.rightOrtho < 1e-4)
 }
 
-# Floor and ceiling portals: the opening faces straight up or down (pitch +-90), the camera looks down / up through it.
 law portal_crossview_floor_ceiling {
     forall (s: {a: xpPos, ae: vec3(float(-180, 180), elements([-90, 90]), 0), b: xpPos, be: vec3(float(-180, 180), elements([-90, 90, 0]), 0), half: xpHalf}, c: xpCam) where xpApart(s)
     => let r = xpCrossView(s, c) in r.have ==> (r.viewErr < 2e-3 and r.posErr < 1e-3 and r.frontErr < 1e-4 and r.upErr < 1e-4 and r.rightOrtho < 1e-4)
 }
 
-# Both ends face the same way (the crossing is a half turn about the vertical) and the classic door pair (ends face each other, pure
-# translation): the view survives either.
 law portal_crossview_half_turn_and_door {
     forall (a: xpPos, b: xpPos, yaw: float(-180, 180), half: xpHalf, turn: elements([0, 180]), c: xpCamUpright) where distance(a, b) > 12
     => let r = xpCrossView({a: a, ae: vec3(yaw, 0, 0), b: b, be: vec3(yaw + turn, 0, 0), half: half}, c) in
        r.have ==> (r.viewErr < 2e-3 and r.posErr < 1e-3 and r.frontErr < 1e-4 and r.upErr < 1e-4)
 }
 
-# The real crossing through PortalSystem::step (near centre passes the plane): orientation follows the transform exactly, whatever
-# the tilt, and the position is the transformed position. Needs the camera to approach end A roughly head on.
 law portal_step_crossing_keeps_orientation {
     forall (s: xpPairAny, c: xpCam) where xpApart(s)
     => let r = xpCrossView(s, c) in r.crossed ==> (r.stepRotErr < 1e-4 and r.stepPosErr < 1e-3)
 }
 
-# Non vacuity: the crossing scenarios above must actually find the portal (view child exists) and actually cross.
 law portal_crossview_scenarios_are_not_vacuous {
     forall (s: xpPairAny, c: xpCamUpright) where xpApart(s) and c.dist < 4
     => let r = xpCrossView(s, c) in r.have
 }
 
-# Head on (aimed at the opening, no extra yaw / pitch) the step crossing always happens.
 law portal_step_crossing_head_on_always_crosses {
     forall (s: xpPairUpright, c: {dist: float(0.8, 6), u: xpSignedUnit, v: xpSignedUnit, roll: float(-180, 180), yawOff: just(0), pitchOff: just(0)}) where xpApart(s)
     => xpCrossView(s, c).crossed
 }
 
-# Helper natives behave: a scaled matrix is not rigid, a mirror has determinant -1.
 law portal_matrix_helpers_detect_non_rigid {
     forall (k: float(1.2, 3))
     => let m = [k, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] in xmOrtho(m) > 0.1 and xmDet(m) > 1.1

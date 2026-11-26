@@ -21,7 +21,7 @@ import Engine.Streaming;
 import Engine.Render.component;
 
 namespace {
-constexpr uint32_t kNoLayer = 63;  // 6 bits per layer id; a float holds 24 exact bits
+constexpr uint32_t kNoLayer = 63;
 }
 
 uint32_t Engine::uploadTerrainMesh(const Mesh& mesh) { return m_renderer.initialized() ? m_renderer.uploadTerrainMesh(mesh) : 0u; }
@@ -35,7 +35,6 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
     const uint32_t shader = loadShader("Terrain", setup.shaderPath);
     const int maxLevel = std::clamp(setup.stream.lod.maxLevel, 0, 20);
 
-    // Layer textures (6 bits per layer id, 63 = procedural).
     const auto pack = [&](const std::array<std::string, 4>& paths, bool srgb) {
         uint32_t packed = 0;
         for (uint32_t layer = 0; layer < 4; ++layer) {
@@ -73,8 +72,6 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
         return uploadProcessedMesh(processed);
     };
     loader.releaseMesh = [this](uint32_t id) { releaseMesh(id); };
-    // Instanced scatter (docs/Instancing.md): each species' geometry is uploaded once (LOD chain, point impostor) and drawn by
-    // InstanceBatches per tile; the loader caches the id.
     loader.instancedScatter = setup.instancedScatter;
     loader.speciesMesh = [this, species = setup.scatter.species](uint32_t index) -> uint32_t {
         if (!m_renderer.initialized() || index >= species.size()) return NO_MESH;
@@ -102,7 +99,6 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
     }
     m_terrain = std::make_unique<TerrainStreamer>(m_world, std::move(loader), stream);
     m_terrain->setSharedBudget([this]() -> StreamBudget* { return m_streaming ? &m_streaming->sharedBudget() : nullptr; });
-    // One residency system: tiles use the StreamingSystem pool, metric, commit queue and byte budget (Engine::enableStreaming attaches when it comes later).
     if (m_streaming) m_terrain->attachResidency(m_streaming->residency());
 
     const auto frame = [this](bool prime) {
@@ -111,7 +107,6 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
         const glm::mat4 view = camera.getViewMatrix();
         const glm::mat4 viewProjection = camera.getProjectionMatrix() * view;
         auto planes = frustumPlanes(viewProjection);
-        // Local space planes to absolute world space (local = world - origin), far plane off: the view distance bounds the terrain.
         const glm::vec3 origin(m_world.origin());
         for (glm::vec4& plane : planes) plane.w -= glm::dot(glm::vec3(plane), origin);
         planes[5] = glm::vec4(0.0f, 1.0f, 0.0f, 1.0e9f);

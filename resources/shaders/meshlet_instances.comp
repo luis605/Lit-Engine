@@ -5,13 +5,6 @@
 #include "mesh.glsl"
 #include "meshlet.glsl"
 
-// Cluster LOD, stage 1. One thread per sorted visible entry of the phase (output of the object
-// cull + scatter). With MESHLET_FLAG_HIERARCHY an entry whose mesh has a cluster DAG queues its
-// hierarchy root for the level-synchronous node traversal (meshlet_nodes). Otherwise (flat path,
-// `clusterHierarchy 0`) it is expanded into work items, one per chunk (<= 64 clusters of one DAG
-// level) that can hold selected clusters at its distance range and, for camera views, intersects
-// the frustum.
-// Their regular instanced draw is suppressed (command_gen skips meshes with indexCount 0).
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430) readonly buffer AtomicCounterBuffer {
@@ -67,7 +60,6 @@ void main() {
     uvec2 entry = sortedEntries[slot];
     uint objectId = entry.x & 0x1FFFFFFFu;
     if ((entry.x >> 29u) == POINT_LOD) return;
-    // InstanceBatch entries take mesh, material and shader from their batch (docs/Instancing.md).
     uint renderable = isInstanceEntry(objectId) ? instanceBatches[instanceBatchIndex(instanceSlot(objectId))].info.z : renderables[objectId];
     uint meshId = renderableMesh(renderable);
     uint shader = renderableShader(renderable);
@@ -95,8 +87,6 @@ void main() {
     MeshletLod lod = meshletLod(view, scale);
     bool frustum = (u_flags & MESHLET_FLAG_FRUSTUM) != 0u;
 
-    // Chunk level: the LOD cut can only select a cluster of the chunk if some self error is within
-    // the threshold at the farthest possible distance and some parent error exceeds it at the nearest.
     uint emitted = 0u;
     uint overflow = 0u;
     for (uint c = 0u; c < chunkCount; ++c) {

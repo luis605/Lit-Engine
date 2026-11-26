@@ -47,15 +47,13 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pSceneUBO[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBuffer;
-    // Instance pool, cells and batch records (RendererInstancing.cpp); placeholders until the first batch, bound by the surface,
-    // shadow and cluster bindings.
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pInstanceBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pInstanceCellBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pInstanceBatchBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pDynamicStamps;  // per entity deform version (skin_bounds.comp writes, virtual shadows read)
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBufferFull;  // never patched by cluster LOD (virtual shadow casters)
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pDynamicStamps;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pMeshInfoBufferFull;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pNormalSampleBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> pZeroBuffer;  // GPU-side source for zero fills (m_bucketZeros), avoids per-frame uploads of zeros
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pZeroBuffer;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pTransformPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pTransformSRB[NumFrames];
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransformUniforms;
@@ -152,7 +150,7 @@ struct DiligentData {
     std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> shadowSRBs[NumFrames][kShadowViews];
     std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> shadowPointSRBs[NumFrames][kShadowViews];
     uint64_t surfaceBindingVersion = 0;
-    uint64_t textureTableApplied[NumFrames] = {};  // bindless table epoch each frame slot's surface bindings were last brought to
+    uint64_t textureTableApplied[NumFrames] = {};
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCandidateCounter;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentCandidateIds;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pTransparentDispatchArgs;
@@ -179,7 +177,7 @@ struct DiligentData {
     float profileLogTimer = 0.0f;
 
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZMipmapSRB;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZSceneMipmapSRB;  // camera Hi-Z (reversed Z): keeps the minimum
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZSceneMipmapSRB;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pApplyDirtySRB[NumFrames];
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZMipmapPSO;
@@ -220,11 +218,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::ITexture> portalColor[kMaxPortalViews];
     Diligent::RefCntAutoPtr<Diligent::ITexture> portalDepth[kMaxPortalViews];
     Diligent::RefCntAutoPtr<Diligent::ITexture> portalDepthScratch;
-    // Child G-buffer per view (base colour, normal/roughness, material), copied after the view's own
-    // portals were resolved, so a parent can splice the room behind a portal into its G-buffer.
     Diligent::RefCntAutoPtr<Diligent::ITexture> portalGBuffer[kMaxPortalViews][3];
-    // Depth with the rooms behind portals spliced in (no portal planes). Saved before the final
-    // composite writes plane depth for transparency, restored afterwards for post effects.
     Diligent::RefCntAutoPtr<Diligent::ITexture> portalEffectsDepth;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPortalResolvePSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pPortalResolveSRB;
@@ -249,8 +243,6 @@ struct DiligentData {
         bool sharedCascades = false;
     };
     PortalSnapshot portalSnapshot[NumFrames][kMaxPortalViews];
-    // Frame graph state (RendererGraph.hpp): graph, transient pool, Diligent backend. Destroyed before the device.
     std::shared_ptr<RendererGraphState> graph;
-    // Declared last so it is destroyed first (before the device). Defined in RendererSkinning.hpp.
     std::shared_ptr<SkinningGpu> skinning;
 };

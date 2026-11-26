@@ -18,9 +18,6 @@ import Engine.SkinRig;
 import Engine.Render.entity;
 import Engine.Render.component;
 
-// Demo of GPU dynamic meshes: two skinned characters sharing one source (walk and wave clips, ARKit head
-// morph targets), a wave-deformed cloth, a cloth with the user deform shader, and a hanging flag.
-
 bool buildSkinningTestScene(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info);
 uint32_t testSceneDynamicSource(Engine& engine, const std::string& key, const DynamicMesh& mesh);
 uint32_t testSceneDynamicInstance(Engine& engine, uint32_t source);
@@ -157,8 +154,6 @@ bool buildSkinningTestScene(Engine& engine, const TestSceneKit& kit, TestSceneIn
         world.create(pole);
     }
 
-    // Shadow stage: a back wall and three shadowed local lights (virtual shadow maps) so the characters' deformed
-    // silhouettes land on the floor and wall; the lights orbit slowly, the characters walk and wave in place.
     EntityDesc wall;
     wall.name = "skinning back wall";
     wall.mesh = kit.cube;

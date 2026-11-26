@@ -1,8 +1,5 @@
 #pragma once
 
-// Helpers for the portal / camera / streaming / terrain / instancing / save builtins (Ext_Portal*.cpp). Include after the engine
-// module imports (needs glm). Everything lives in bent::xp so it cannot collide with other extension files.
-
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -35,7 +32,6 @@ inline Value strV(std::string s) { return Value::string(std::move(s)); }
 inline Value listV(ValueList items) { return Value::makeList(std::move(items)); }
 inline Value recV(Fields fields) { return Value::record(std::move(fields)); }
 
-// Column-major 4x4 matrix as a list of 16 numbers.
 inline Value matV(const glm::mat4& m) {
     ValueList out;
     out.reserve(16);
@@ -53,7 +49,6 @@ inline glm::mat4 matOf(const Value& value, const SrcLoc& loc, const char* what) 
     return m;
 }
 
-// Field access with defaults on a record value.
 struct Rec {
     const Value& v;
     const SrcLoc& loc;

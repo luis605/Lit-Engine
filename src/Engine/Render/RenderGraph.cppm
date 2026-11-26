@@ -7,18 +7,10 @@ module;
 #include <string_view>
 #include <vector>
 
-// Render graph (docs/RenderGraph.md): passes declare the textures and buffers they read and write, the graph derives
-// the dependency DAG from the declaration order, culls passes whose results nobody consumes, places transient resources
-// in a pool that reuses physical resources of identical description across non-overlapping lifetimes (and across frames),
-// moves every declared resource into the state its pass declared before the pass runs, and brackets passes with the
-// timing scopes of the frame profiler. The module does not know Diligent: a Backend creates resources, issues barriers
-// and records timestamps, so the graph logic is testable without a GPU (tests/RenderGraphTests.cpp).
 export module Engine.Render.graph;
 
 export namespace rg {
 
-// Declared use of a resource by a pass. The backend maps it to a resource state (Diligent RESOURCE_STATE_*).
-// None declares a dependency only: the pass manages the state itself (for example a resource used in several states).
 enum class Usage : uint8_t { None, ShaderResource, UnorderedAccess, RenderTarget, DepthWrite, DepthRead, CopySource, CopyDest, IndirectArgument, VertexBuffer, IndexBuffer, ConstantBuffer };
 
 enum class ResourceType : uint8_t { Texture, Buffer };
@@ -26,8 +18,6 @@ enum class ResourceType : uint8_t { Texture, Buffer };
 [[nodiscard]] const char* usageName(Usage usage);
 [[nodiscard]] bool usageWrites(Usage usage);
 
-// Backend values (Diligent TEXTURE_FORMAT, BIND_FLAGS, RESOURCE_DIMENSION, ...) are stored as integers; two transient
-// resources share a physical resource only when their descriptions compare equal.
 struct TextureDesc {
     uint32_t width = 0;
     uint32_t height = 0;
@@ -59,11 +49,10 @@ struct Barrier {
     void* native = nullptr;
     ResourceType type = ResourceType::Texture;
     Usage usage = Usage::None;
-    bool discard = false;  // first use of a transient: previous contents are not needed
+    bool discard = false;
     std::string_view name;
 };
 
-// Resource of another module (for example Lighting's internal textures) declared by name: imported on first use.
 struct ExternalAccess {
     std::string_view name;
     void* native = nullptr;
@@ -83,13 +72,9 @@ class Backend {
     virtual void endTiming(int scope) = 0;
     virtual void beginPass(std::string_view) {}
     virtual void endPass() {}
-    // Estimated size for the statistics (the graph does not know backend formats).
     [[nodiscard]] virtual uint64_t bytes(const TextureDesc& desc) const { return static_cast<uint64_t>(desc.width) * desc.height * desc.arraySize * 4u; }
 };
 
-// Physical transient resources, kept across frames. A graph acquires one per transient resource at its first use and
-// releases it after its last use; later resources of the same description reuse it within the frame. Resources nobody
-// acquired for `retireFrames` frames are destroyed in endFrame.
 class TransientPool {
   public:
     explicit TransientPool(uint32_t retireFrames = 8) : m_retireFrames(retireFrames) {}
@@ -149,11 +134,11 @@ struct GraphStats {
     uint32_t resources = 0;
     uint32_t importedResources = 0;
     uint32_t transientResources = 0;
-    uint32_t allocatedTransients = 0;  // transients used by a live pass
-    uint32_t physicalTransients = 0;   // distinct physical resources they were placed in
+    uint32_t allocatedTransients = 0;
+    uint32_t physicalTransients = 0;
     uint32_t barriers = 0;
-    uint64_t transientBytes = 0;  // estimated: sum over virtual transients (what separate allocations would hold)
-    uint64_t physicalBytes = 0;   // estimated: sum over the distinct physical resources used
+    uint64_t transientBytes = 0;
+    uint64_t physicalBytes = 0;
 };
 
 [[nodiscard]] std::string viewResourceName(uint64_t viewKey, std::string_view resource);
@@ -167,26 +152,17 @@ class RenderGraph {
     void reset();
     Handle importTexture(std::string_view name, void* native, Usage initial = Usage::None);
     Handle importBuffer(std::string_view name, void* native, Usage initial = Usage::None);
-    // Imports whose native object is looked up when a pass runs (resources another system may recreate while the
-    // frame executes, for example a shadow map resized by the lighting setup pass).
     Handle importTexture(std::string_view name, std::function<void*()> resolve);
     Handle importBuffer(std::string_view name, std::function<void*()> resolve);
-    // Resolver for ExternalAccess imports (by name); without it the pointer given at declaration time is used.
     void setExternalResolver(std::function<void*(std::string_view)> resolve) { m_externalResolver = std::move(resolve); }
-    // Names of the timing scopes for the dump (index = scope id).
     void setTimingNames(std::vector<std::string> names) { m_timingNames = std::move(names); }
     [[nodiscard]] Handle find(std::string_view name) const;
-    // Transient resources declared ahead of the passes that use them (handles can then be captured by execute
-    // callbacks). Placement happens at the first live use; a transient nobody uses is never allocated.
     Handle createTexture(std::string_view name, const TextureDesc& desc);
     Handle createBuffer(std::string_view name, const BufferDesc& desc);
-    // Passes added between beginView and endView belong to that view (dump grouping, view-keyed resource names).
     void beginView(std::string label);
     void endView();
     uint32_t addPass(std::string name, const SetupFn& setup, ExecuteFn execute);
-    // Builds the DAG, culls dead passes, orders the live ones and computes transient lifetimes.
     void compile();
-    // Runs the live passes in order: transient placement, declared state transitions, timing scopes, execution.
     void execute(Backend& backend, TransientPool& pool);
 
     [[nodiscard]] const GraphStats& stats() const { return m_stats; }
@@ -194,7 +170,7 @@ class RenderGraph {
     [[nodiscard]] bool culled(uint32_t pass) const;
     [[nodiscard]] uint32_t passCount() const { return static_cast<uint32_t>(m_passes.size()); }
     [[nodiscard]] const std::string& passName(uint32_t pass) const { return m_passes[pass].name; }
-    [[nodiscard]] int32_t physicalOf(Handle handle) const;  // pool entry of a transient after execute (-1 otherwise)
+    [[nodiscard]] int32_t physicalOf(Handle handle) const;
     [[nodiscard]] void* native(Handle handle) const;
     [[nodiscard]] std::string dumpText() const;
     [[nodiscard]] std::string dumpDot() const;
@@ -205,7 +181,7 @@ class RenderGraph {
         uint32_t resource = 0;
         Usage usage = Usage::None;
         bool write = false;
-        uint32_t producer = Handle::kInvalid;  // pass that wrote the version this access reads (or overwrites)
+        uint32_t producer = Handle::kInvalid;
     };
     struct Pass {
         std::string name;
@@ -229,7 +205,7 @@ class RenderGraph {
         uint32_t creator = Handle::kInvalid;
         uint32_t lastWriter = Handle::kInvalid;
         std::vector<uint32_t> readersSinceWrite;
-        uint32_t first = Handle::kInvalid;  // positions in m_order
+        uint32_t first = Handle::kInvalid;
         uint32_t last = Handle::kInvalid;
         int32_t physical = -1;
     };

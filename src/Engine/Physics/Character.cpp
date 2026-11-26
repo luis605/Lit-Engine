@@ -239,7 +239,6 @@ void CharacterController::checkCross(const glm::vec3& previousProbe) {
     m_position = place(transform, m_position);
     m_velocity = rotate(transform, m_velocity);
     m_up = glm::normalize(rotate(transform, m_up));
-    // The view frame takes the rotation (exact view continuity); alignUp then turns it back to gravity-up.
     rotateOrientation(m_view, glm::mat3(transform));
     m_cell = cell;
     ++m_crossings;
@@ -252,14 +251,12 @@ void CharacterController::alignUp(const glm::vec3& gravityVector, float stepSeco
         if (m_settings.uprightSeconds <= 0.0f) {
             m_up = target;
         } else {
-            // Opposite up (180 degree flip): blend through a perpendicular so the result never collapses to zero.
             glm::vec3 from = m_up;
             if (glm::dot(from, target) < -0.999f) from = glm::normalize(from + glm::cross(from, glm::vec3(0.0f, 0.0f, 1.0f)) * 0.05f + glm::cross(from, glm::vec3(1.0f, 0.0f, 0.0f)) * 0.05f);
             const glm::vec3 blended = glm::mix(from, target, 1.0f - std::exp(-m_settings.upResponse * stepSeconds));
             if (glm::length(blended) > kMinDirection) m_up = glm::normalize(blended);
         }
     }
-    // The view frame follows the physics up keeping the view direction; the leftover roll decays over uprightSeconds.
     relaxOrientation(m_view, m_up, stepSeconds, m_settings.uprightSeconds, kMaxCameraPitch);
 }
 
@@ -344,7 +341,6 @@ void CharacterController::updateCamera() {
         const glm::vec3 anchor = eye() + shoulder * m_rig.settings().shoulderOffset;
         const PortalCast trace = portalSweep(m_portals, m_world, anchor, -forward, distance, 0.0f, m_cell, {}, false);
         camera.setPos(trace.point);
-        // Orientation carried through the portals the boom crossed (any rigid transform, rolled ones included).
         camera.rotateBy(glm::mat3(trace.transform));
         cell = trace.cell;
     }

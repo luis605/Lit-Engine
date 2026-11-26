@@ -1,38 +1,29 @@
-# PortalSystem::buildFrame: the tree of portal views a renderer draws. Budgets (maxDepth, maxViews, the hard cap of 24 views), the
-# transform chain of every node, oblique clip planes and masked frusta, determinism.
 include "../lib/ext_portal.bent"
 
 fn nodesOf(r) = r.nodes
 fn planeDist(p, pos) = let r = xpPair(p) in dot(r.normalA, pos - r.centerA)
 fn maxDepthOf(r) = fold(r.nodes, 0, fn(m, n) => max(m, n.depth))
 
-# The root view is the camera itself.
 law portal_frame_root_is_the_camera {
     forall (f: xfInput)
     => let r = xpFrame(f) in r.count >= 1 ==> (r.rootErr < 1e-5 and r.rootProjErr < 1e-5 and r.nodes[0].depth == 0 and r.nodes[0].parent == -1 and r.nodes[0].cell == 0)
 }
 
-# However generous the settings, a frame never holds more than the hard cap of 24 views, and never goes more than one level beyond maxDepth
-# (large portals may use one extra level).
 law portal_frame_hard_view_cap_and_depth_slack {
     forall (f: xfInput)
     => let r = xpFrame(f) in r.count <= 24 and maxDepthOf(r) <= f.maxDepth + 1
 }
 
-# Small and far portals are never "large" on screen, so the soft budgets hold exactly: at most maxViews nodes, no deeper than maxDepth.
 law portal_frame_soft_budgets_hold_for_small_portals {
     forall (f: xfInputSmall)
     => let r = xpFrame(f) in r.count <= max(f.maxViews, 2) and maxDepthOf(r) <= f.maxDepth
 }
 
-# Non vacuity: with generous settings and a portal in view the frame does get children, and deeper views exist for looping pairs.
 law portal_frame_scenarios_have_children {
     forall (f: xfInputOther) where f.maxDepth >= 2 and f.maxViews >= 8 and f.minPixels < 3
     => let r = xpFrame(f) in r.count >= 1
 }
 
-# A tree: every non-root node has exactly one parent that comes before it and is one level shallower; the child's cell is the partner
-# end's cell; keys identify the path and are unique.
 law portal_frame_is_a_tree_with_unique_keys {
     forall (f: xfInput)
     => let r = xpFrame(f) in
@@ -40,28 +31,22 @@ law portal_frame_is_a_tree_with_unique_keys {
        and allDistinct(map(r.nodes, fn(n) => n.key))
 }
 
-# Every node's view equals the root camera pushed through the chain of portal transforms that leads to it.
 law portal_frame_node_view_equals_transform_chain {
     forall (f: xfInput)
     => let r = xpFrame(f) in forall i in range(1, r.count): r.nodes[i].portal >= 0 and r.nodes[i].chainErr < 5e-3
 }
 
-# Openings drawn in a node belong to portals of that node's cell.
 law portal_frame_openings_belong_to_the_cell {
     forall (f: xfInput)
     => let r = xpFrame(f) in forall n in r.nodes: n.strayOpenings == 0
 }
 
-# Oblique clip plane: a point on the destination plane projects to depth 1 (reversed Z: the near limit), points on the far side of the
-# plane (where the room is) stay below it, points between the eye and the plane are clipped (above 1).
 law portal_frame_oblique_plane_is_the_destination_plane {
     forall (f: xfInputOther)
     => let r = xpFrame(f) in
        forall n in r.nodes: n.oblique ==> ((n.planeSamples == 0 or n.planeErr < 2e-3) and (n.frontSamples == 0 or n.frontMax < 1.0005) and (n.eyeSamples == 0 or n.eyeMin > 0.9995))
 }
 
-# The same with a camera that stands in front of end A and looks at it: the child eye ends up behind the far end's plane, so the
-# oblique projection and the masked frustum are guaranteed to be exercised (non vacuous by construction).
 gen xfAimed = {s: xpPairAny, dist: float(0.8, 8), u: xpSignedUnit, v: xpSignedUnit, roll: float(-20, 20), depth: int(1, 3), views: int(2, 24)}
 fn aimedFrame(c) =
     let r = xpPair(c.s) in
@@ -85,34 +70,27 @@ law portal_frame_aimed_masked_planes_are_exact {
     => let r = xpFrame(aimedFrame(c)) in r.count >= 2 and r.nodes[1].masked and r.nodes[1].maskErr < 5e-3 and r.nodes[1].maskInside == 1
 }
 
-# Masked frusta: the four side planes pass through the child eye and the edges of the destination aperture, and the aperture centre
-# lies inside all of them.
 law portal_frame_masked_planes_bound_the_aperture {
     forall (f: xfInputOther)
     => let r = xpFrame(f) in forall n in r.nodes: n.masked ==> (n.maskErr < 5e-3 and n.maskInside == 1)
 }
 
-# buildFrame is a pure function of camera and portal system.
 law portal_frame_is_deterministic {
     forall (f: xfInput)
     => xpFrameTwice(f)
 }
 
-# A portal the occluder blocks completely (the test ray from the eye is blocked for every sample) never produces a view when the
-# camera is further from its plane than the near reach (nearer than that a portal cannot be occluded, by design: you are touching it).
 law portal_frame_blocked_portals_spawn_no_views {
     forall (f: xfInputOther) where forall p in f.pairs: abs(planeDist(p, f.pos)) > 0.5
     => let r = xpFrame(with(f, blockAll: true, occlusion: true)) in r.count == 1
 }
 
-# Seen from behind (the camera is behind the plane of every end in its cell) nothing is drawn.
 law portal_frame_ignores_portals_seen_from_behind {
     forall (pairs: listOf(xfPairOther, 1, 3), pos: vec3(float(-3, 3), float(0.5, 3), float(-30, -14)), yaw: float(-180, 180), pitch: float(-20, 20))
     where forall p in pairs: planeDist(p, pos) < -0.5
     => xpFrame({pairs: pairs, cells: 3, pos: pos, yaw: yaw, pitch: pitch}).count == 1
 }
 
-# No portals, or a camera cell that does not exist: the frame is empty.
 law portal_frame_empty_without_portals_or_cell {
     forall (pairs: listOf(xfPair, 0, 2), bad: elements([3, 7, -1]))
     => xpFrame({pairs: [], cells: 3}).count == 0 and xpFrame({pairs: pairs, cells: 3, cell: bad}).count == 0

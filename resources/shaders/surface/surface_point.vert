@@ -83,7 +83,6 @@ void main() {
     uint materialId = entry.y & 0x7FFFu;
     uint maskBit = entry.y & 0x8000u;
     uint meshSlot = uint(gl_InstanceIndex) / LOD_LEVEL_COUNT * LOD_LEVEL_COUNT;
-    // InstanceBatch entries (docs/Instancing.md): sphere and rotation from the instance and its batch entity.
     bool instanced = isInstanceEntry(objectId);
     uint entity = objectId;
     vec4 boundingSphere;

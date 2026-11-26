@@ -2,8 +2,6 @@
 #extension GL_GOOGLE_include_directive : require
 #include "vsm_pass.glsl"
 
-// Clears the atlas tiles of the pages queued for rendering to the far depth (one quad per page).
-
 layout(std430) readonly buffer VsmRenderList {
     uvec2 vsmRenderList[];
 };

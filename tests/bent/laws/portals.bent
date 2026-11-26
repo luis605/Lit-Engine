@@ -1,6 +1,3 @@
-# Portals (docs/Portals.md): crossing keeps the camera's view continuous. Any rigid transform, including tilted and rolled
-# ends: the camera carries a full orientation frame (Camera::transformBy), so position, front and up must all follow the portal
-# transform exactly.
 include "../lib/prelude.bent"
 
 gen euler = vec3(float(-180, 180), float(-89, 89), float(-180, 180))
@@ -21,7 +18,6 @@ law portal_crossing_view_continuous {
        after(walkThrough(pair, f, u, v, yaw, pitch, roll)) { portalCrossings() >= 1 and portalViewError() < 1e-3 }
 }
 
-# Walking straight through an opening crosses exactly once: no ping-pong back through the partner.
 law portal_single_crossing {
     forall (a: portalPos, ae: uprightEuler, b: portalPos, be: uprightEuler, half: halfGen, u: float(-0.6, 0.6), v: float(-0.6, 0.6), yaw: float(-180, 180))
     where distance(a, b) > 10
@@ -30,7 +26,6 @@ law portal_single_crossing {
        after(walkThrough(pair, f, u, v, yaw, 0, 0)) { portalCrossings() == 1 and portalPingPongs() == 0 }
 }
 
-# Missing the opening (passing beside the quad) never teleports.
 law portal_miss_does_not_cross {
     forall (a: portalPos, ae: euler, b: portalPos, be: euler, half: halfGen, side: elements([-1, 1]), out: float(1.3, 3))
     where distance(a, b) > 10
@@ -40,8 +35,6 @@ law portal_miss_does_not_cross {
        after([pair, camera(pos: start), cameraWalk(delta: f.normal * -4, steps: 40)]) { portalCrossings() == 0 }
 }
 
-# The portal transform is the rigid map between the two end frames (flipped about up): a point x right, y up, z along the normal of
-# end A lands at -x right, y up, -z normal of end B. Checked against the camera after walking through.
 fn mapThrough(fa, fb, p) =
     let d = p - fa.center in
     fb.center - fb.right * dot(d, fa.right) + fb.up * dot(d, fa.up) - fb.normal * dot(d, fa.normal)

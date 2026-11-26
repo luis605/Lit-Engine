@@ -83,7 +83,6 @@ void addSceneFindings(const FrameFacts& facts, std::vector<FrameFinding>& out) {
 }
 
 std::vector<FrameFinding> explainFrame(const FrameFacts& input) {
-    // Timer queries can fail (nan / inf): drop such samples, a nan weight would also break the strict weak ordering of the sort below.
     FrameFacts facts = input;
     const auto finite = [](const std::pair<std::string, double>& entry) { return std::isfinite(entry.second); };
     std::erase_if(facts.gpuPasses, [&](const auto& entry) { return !finite(entry); });

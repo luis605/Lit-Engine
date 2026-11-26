@@ -1,4 +1,3 @@
-# Material packing (packMaterial): the GPU material record. Clamps, identity inside the valid range, texture ids, monotonicity.
 include "../lib/render.bent"
 
 gen u01 = float(0, 1)
@@ -12,7 +11,6 @@ gen sane = {baseColor: colorGen, opacity: u01, metallic: u01, roughness: u01, re
 
 fn inRange(x, lo, hi) = x >= lo and x <= hi
 
-# Values inside their valid ranges pass through unchanged.
 law material_pack_identity_in_range {
     forall (m: sane)
     => let p = rxMatPack(m) in
@@ -22,7 +20,6 @@ law material_pack_identity_in_range {
        and p.subsurface[3] ~= m.subsurface within 1e-6 and p.transmission ~= [m.transmission, m.ior, m.thickness, m.uvScale] within 1e-6
 }
 
-# Whatever finite numbers an editor sends, every packed scalar the shader treats as a u01 value is clamped to [0, 1].
 law material_pack_clamps_unit_values {
     forall (m: {opacity: wide, metallic: wide, roughness: wide, reflectance: wide, occlusion: wide, clearcoat: wide, clearcoatRoughness: wide,
                 subsurface: wide, transmission: wide, thickness: wide, anisotropy: wide, uvScale: wide})
@@ -32,14 +29,12 @@ law material_pack_clamps_unit_values {
        and p.transmission[3] >= 1e-4 - 1e-9
 }
 
-# Texture ids and flags are copied verbatim into the right slots.
 law material_pack_textures_verbatim {
     forall (m: sane)
     => let p = rxMatPack(m) in
        p.textures == [m.baseColorTexture, m.normalTexture, m.ormTexture, m.emissiveTexture] and p.flags[0] == (if m.triplanar then 1.0 else 0.0)
 }
 
-# Packing is monotone in roughness (and the other u01 values): a larger input never packs smaller.
 law material_pack_monotone {
     forall (a: wide, b: wide, key: elements(["metallic", "roughness", "reflectance", "occlusion", "clearcoat", "opacity", "transmission"]))
     where a <= b
@@ -50,7 +45,6 @@ law material_pack_monotone {
        at(pa) <= at(pb)
 }
 
-# Emission is colour times intensity, never negative intensity.
 law material_pack_emission_scales {
     forall (c: colorGen, k: float(-5, 100))
     => let p = rxMatPack({emissive: c, emissiveIntensity: k}) in
@@ -58,14 +52,12 @@ law material_pack_emission_scales {
        p.emissive[0] ~= c.x * kk within 1e-4 and p.emissive[1] ~= c.y * kk within 1e-4 and p.emissive[2] ~= c.z * kk within 1e-4
 }
 
-# Finite in, finite out for any finite material the engine could reasonably hold.
 law material_pack_finite {
     forall (m: sane, scaleUp: float(1, 1e3))
     => let p = rxMatPack(with(m, emissiveIntensity: m.emissiveIntensity * scaleUp)) in
        all(p.baseColorOpacity ++ p.emissive ++ p.pbr ++ p.coat ++ p.sheen ++ p.subsurface ++ p.transmission, isFinite)
 }
 
-# NaN in a u01-valued field is clamped away (a NaN roughness would reach the shader as a NaN BRDF).
 law material_pack_nan_does_not_reach_gpu {
     forall (key: elements(["metallic", "roughness", "reflectance", "occlusion", "opacity", "clearcoat", "subsurface", "transmission", "thickness"]))
     => let p = rxMatPack(fromPairs([[key, nan]])) in

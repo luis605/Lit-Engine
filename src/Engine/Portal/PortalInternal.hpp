@@ -39,8 +39,6 @@ inline bool cellContains(const PortalCell& cell, const glm::vec3& point) {
     return point.x >= cell.min.x && point.y >= cell.min.y && point.z >= cell.min.z && point.x <= cell.max.x && point.y <= cell.max.y && point.z <= cell.max.z;
 }
 
-// Lighting grade of a cell: the hue of its tint (normalised to its largest channel), blended in by tintLighting (cell
-// scalar "tintLighting" overrides the setting). A grey tint grades nothing.
 inline glm::vec3 cellLightTint(const PortalCell& cell, const PortalSettings& settings) {
     const auto scalar = cell.params.scalars.find("tintLighting");
     const float strength = std::clamp(scalar != cell.params.scalars.end() ? scalar->second : settings.tintLighting, 0.0f, 1.0f);

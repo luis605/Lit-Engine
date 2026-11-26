@@ -95,7 +95,6 @@ Json captureCamera(const Camera& camera, const glm::dvec3& origin) {
     json.set("origin", number3(origin.x, origin.y, origin.z));
     json.set("yaw", camera.getYaw());
     json.set("pitch", camera.getPitch());
-    // Roll and the reference frame (tilted portal crossings) only when present; saves without them load upright.
     if (camera.getRoll() != 0.0f) json.set("roll", camera.getRoll());
     if (camera.hasFrame()) {
         const glm::quat frame = glm::quat_cast(camera.getFrame());

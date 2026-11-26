@@ -1,6 +1,3 @@
-// Bent builtins for the delta store and the save system (tests/bent/laws/ext_portal_save.bent). Every call builds its own World,
-// StateStore, StoryletEngine, ObservationSystem and SaveSystem; files go to a per-call temporary directory.
-
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -40,8 +37,6 @@ namespace bent::xp {
 
 namespace {
 
-// ---------------------------------------------------------------- delta store
-
 struct NamedPosition {
     std::string name;
     glm::dvec3 position;
@@ -80,7 +75,6 @@ struct DeltaRig {
 };
 
 void registerDelta(Program& p) {
-    // Model run: a world of base entities, edits, capture; then a fresh world (optionally with another origin) loads the JSON and applies it.
     reg(p, "xdRun", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 1, loc, "xdRun");
         const Rec r = rec(a[0], loc);
@@ -117,7 +111,6 @@ void registerDelta(Program& p) {
             first.store->captureCell("c");
             return first.store->toJson().dump();
         }();
-        // Second world: same bases at the same absolute positions, maybe another origin.
         const std::optional<Json> parsed = Json::parse(text);
         DeltaRig second(positions, shift);
         std::string error;
@@ -130,8 +123,6 @@ void registerDelta(Program& p) {
         return recV({{"edited", livesV(edited)}, {"once", livesV(once)}, {"twice", livesV(twice)}, {"loaded", boolV(loaded)}, {"json", strV(text)}, {"deltaCount", intV(static_cast<int64_t>(count))}, {"captureIdempotent", boolV(text == again)}, {"reDumpSame", boolV(reDump == text)}, {"reDump", strV(reDump)}, {"error", strV(error)}});
     });
 }
-
-// ---------------------------------------------------------------- save system
 
 constexpr const char* kSchemaText = R"({
   "vars": {
@@ -248,7 +239,6 @@ struct TempDir {
 };
 
 void registerSave(Program& p) {
-    // Run `total` ticks straight, versus `split` ticks, save (file or capture / apply), fresh session, load, the rest.
     reg(p, "xvContinue", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 1, loc, "xvContinue");
         const Rec r = rec(a[0], loc);
@@ -264,7 +254,7 @@ void registerSave(Program& p) {
         for (int i = 0; i < split; ++i) first.step(i);
         const std::string midPrint = first.fingerprint();
         std::string error;
-        Session second(seed + 1000, entities);  // different seed: the load must restore the random state
+        Session second(seed + 1000, entities);
         bool loaded = false;
         if (viaFile) {
             const std::string path = dir.file("slot.litsave");
@@ -277,13 +267,11 @@ void registerSave(Program& p) {
         for (int i = split; i < total; ++i) second.step(i);
         const std::string fullPrint = full.fingerprint();
         const std::string resumedPrint = second.fingerprint();
-        // The next draws of every stream agree between the original at the split point and the loaded session.
         for (int i = split; i < total; ++i) first.step(i);
         const bool continuedSame = first.fingerprint() == fullPrint;
         return recV({{"loaded", boolV(loaded)}, {"midSame", boolV(loadedPrint == midPrint)}, {"resumedSame", boolV(resumedPrint == fullPrint)}, {"continuedSame", boolV(continuedSame)}, {"error", strV(error)}, {"attends", numV(full.state.get("attends"))}, {"bond", numV(full.state.get("bond"))}, {"played", intV(static_cast<int64_t>(full.story->playCount("hello")))}});
     });
 
-    // Damage a saved file and load it into a session that has advanced: a rejected load leaves the session unchanged.
     reg(p, "xvCorrupt", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 1, loc, "xvCorrupt");
         const Rec r = rec(a[0], loc);
@@ -321,7 +309,6 @@ void registerSave(Program& p) {
         const bool ok = reader.save->load(dir.file("damaged.litsave"), &error);
         const std::string after = reader.fingerprint();
         const bool same = damaged == text;
-        // Whatever was accepted must be the original save.
         const bool matchesWriter = after == [&] {
             Session reference(seed + 1, 4);
             for (int i = 0; i < 17; ++i) reference.step(i);
@@ -332,7 +319,6 @@ void registerSave(Program& p) {
         return recV({{"saved", boolV(saved)}, {"ok", boolV(ok)}, {"unchanged", boolV(before == after)}, {"unmodifiedFile", boolV(same)}, {"acceptedIsOriginal", boolV(matchesWriter)}, {"error", strV(error)}, {"bytes", intV(static_cast<int64_t>(text.size()))}});
     });
 
-    // A body that is rejected half way through apply(): everything must roll back.
     reg(p, "xvBadApply", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 1, loc, "xvBadApply");
         const Rec r = rec(a[0], loc);
@@ -379,7 +365,6 @@ void registerSave(Program& p) {
         return recV({{"ok", boolV(ok)}, {"unchanged", boolV(before == after)}, {"error", strV(error)}});
     });
 
-    // Backups and temporary files: saving twice leaves exactly slot + .bak, no .tmp; the .bak is the previous save.
     reg(p, "xvFiles", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 1, loc, "xvFiles");
         const Rec r = rec(a[0], loc);
@@ -399,7 +384,6 @@ void registerSave(Program& p) {
             ++files;
             tmp += entry.path().extension() == ".tmp" ? 1 : 0;
         }
-        // Async save then wait: same content as a synchronous save of the same state.
         Session other(static_cast<uint64_t>(r.integer("seed", 3)), 3);
         for (int i = 0; i < 25; ++i) other.step(i);
         const std::string asyncPath = dir.file("async.litsave");

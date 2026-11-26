@@ -1,9 +1,5 @@
 #version 460 core
 
-// Converts a GPU-side visible-object count into indirect compute dispatch arguments so the
-// consuming command-gen pass launches only as many workgroups as there are visible objects,
-// instead of a fixed worst-case launch sized by the whole scene. The counts this reads are
-// produced by the cull passes and are never read back to the CPU.
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430) readonly buffer SourceCounterBuffer {

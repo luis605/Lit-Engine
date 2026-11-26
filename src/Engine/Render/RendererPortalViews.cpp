@@ -68,7 +68,6 @@ void CreateSampledTexture(DiligentData& gpu, Diligent::TextureDesc description, 
     gpu.pDevice->CreateTexture(description, nullptr, &texture);
 }
 
-// Per-view history that survives frames (visibility bits, two Hi-Z pyramids), keyed by the view's portal path.
 bool PreparePortalHistory(DiligentData& gpu, PortalHistory& history, Diligent::Uint64 bitsSize, int width, int height, int mips) {
     if (!history.bits || history.bits->GetDesc().Size != bitsSize) {
         std::vector<uint32_t> zeros(static_cast<size_t>(bitsSize / sizeof(uint32_t)), 0u);
@@ -91,7 +90,6 @@ bool PreparePortalResources(DiligentData& gpu, PortalHistory& history, int index
     return gpu.portalColor[index] != nullptr;
 }
 
-// Cell lighting of a view: sun and ambient scale, and the cell's colour grade (sun colour and ambient tint).
 void ApplyCellLighting(SceneUniforms& uniforms, const PortalViewNode& node) {
     uniforms.cellParams.x = static_cast<float>(node.cell);
     uniforms.sunIlluminance = glm::vec4(glm::vec3(uniforms.sunIlluminance) * node.sunScale * node.lightTint, uniforms.sunIlluminance.w);
@@ -116,9 +114,6 @@ SceneUniforms MakePortalSceneUniforms(const SceneUniforms& base, const PortalVie
     return uniforms;
 }
 
-// Coverage of a view by cascades fitted for another view: the view frustum up to `distance` (its own shadow distance),
-// bounded by its cell, must lie inside the last cascade (with a filter margin). Conservative: an axis-aligned box around
-// the frustum, clipped to the cell box.
 bool CascadesCover(const std::array<Cascade, 4>& cascades, int count, const PortalViewNode& node, float distance) {
     if (count <= 0 || distance <= 0.0f) return false;
     const Cascade& last = cascades[static_cast<size_t>(count - 1)];
@@ -137,7 +132,7 @@ bool CascadesCover(const std::array<Cascade, 4>& cascades, int count, const Port
     }
     lo = glm::max(lo, node.cellMin);
     hi = glm::min(hi, node.cellMax);
-    if (lo.x > hi.x || lo.y > hi.y || lo.z > hi.z) return true;  // nothing of the cell within shadow distance
+    if (lo.x > hi.x || lo.y > hi.y || lo.z > hi.z) return true;
     constexpr float kMargin = 0.96f;
     for (int corner = 0; corner < 8; ++corner) {
         const glm::vec3 point((corner & 1) ? hi.x : lo.x, (corner & 2) ? hi.y : lo.y, (corner & 4) ? hi.z : lo.z);
@@ -199,7 +194,6 @@ void Renderer::setPortalFrame(PortalFrame frame) {
 }
 
 void Renderer::beginSharedCascades() {
-    // Right after Lighting::beginFrame: the current cascades are the main camera's fit.
     m_sharedCascades.cascades = m_lighting.cascades();
     m_sharedCascades.valid = m_lighting.cascadeCount() > 0;
     m_sharedCascades.resident = false;
@@ -209,9 +203,6 @@ void Renderer::beginSharedCascades() {
 }
 
 void Renderer::selectViewCascades(int index, const PortalViewNode& node, SceneUniforms& uniforms) {
-    // One set of sun cascades per frame where possible: the sun is the same in every cell (one world frame), so a sunlit
-    // portal view whose visible region the main camera's cascades cover samples those, and renders none of its own once
-    // they are in the shadow map. Other sunlit views keep their own refit set (and evict the shared one).
     m_cascadeShared = false;
     m_cascadeReuse = false;
     uniforms.cellParams.z = 0.0f;
@@ -231,7 +222,6 @@ void Renderer::selectViewCascades(int index, const PortalViewNode& node, SceneUn
 }
 
 void Renderer::selectMainCascades() {
-    // The main view's fit is the shared set: nothing to render when a portal view already put it in the shadow map.
     m_cascadeShared = m_sharedCascades.valid;
     m_cascadeReuse = m_cascadeShared && m_sharedCascades.resident;
     auto& snapshot = m_diligent->portalSnapshot[m_currentFrame][0];
@@ -291,9 +281,6 @@ void Renderer::shadePortalView(int index) {
     Diligent::ITexture* const gbuffer[3] = {m_lighting.gbuffer(0), m_lighting.gbuffer(1), m_lighting.gbuffer(2)};
     CapturePortalGBuffer(gpu, index, gbuffer);
 
-    // Same order as the main view (Renderer::shadeScene): effects see the spliced child depth and
-    // G-buffer, the colour-only composite feeds the reflection pass, the final composite restores
-    // the child-lit colour and writes the plane depth.
     for (int stage = 0; stage < kShadeStageCount - 1; ++stage) m_lighting.shade(gpu.pSceneDepth, gpu.pSceneUBO[m_currentFrame], stage);
     gpu.portalCompositeWritesDepth = false;
     compositePortals(index);
@@ -341,9 +328,6 @@ void Renderer::renderPortalNode(int index, const SceneUniforms& base, uint32_t o
     input.projection = node.projection;
     input.cameraPosition = node.position;
     m_lighting.fitShadows(input, uniforms);
-    // Cost control: a cell without sun (indoor) needs no cascades in its view. Cells with sun refit the
-    // cascades to the view's virtual camera (the shadow texel grid is world-snapped, so it matches the
-    // main view's grid where they overlap). Local light pages are shared by all views (one VSM atlas).
     m_viewSunShadows = node.sunScale > 0.0f;
     if (!m_viewSunShadows) uniforms.shadowParams.x = 0.0f;
     selectViewCascades(index, node, uniforms);
@@ -361,9 +345,6 @@ void Renderer::renderPortalNode(int index, const SceneUniforms& base, uint32_t o
     endTiming();
 }
 
-// Frame graph path (docs/RenderGraph.md): the same steps as renderPortalViews / renderPortalNode / shadePortalView, as
-// passes of the frame graph. Each view's colour, depth and G-buffer copies are view-keyed graph transients: they live
-// from the view's own passes to its parent's composite, so the pool reuses them across sibling subtrees.
 void Renderer::addPortalPasses(rg::RenderGraph& graph, FrameGraphData& frame, uint32_t objectCount) {
     auto& gpu = *m_diligent;
     const PortalViewNode& root = m_portalFrame.nodes[0];
@@ -379,7 +360,7 @@ void Renderer::addPortalPasses(rg::RenderGraph& graph, FrameGraphData& frame, ui
         m_viewSunShadows = root.sunScale > 0.0f;
         if (!m_viewSunShadows) viewUniforms.shadowParams.x = 0.0f;
         state.pImmediateContext->UpdateBuffer(state.pSceneUBO[m_currentFrame], 0, sizeof(SceneUniforms), &viewUniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        if (!children) m_lighting.cullLights(state.pSceneUBO[m_currentFrame]);  // cluster lists filtered by the camera's cell
+        if (!children) m_lighting.cullLights(state.pSceneUBO[m_currentFrame]);
     });
     if (!children) return;
 
@@ -434,7 +415,6 @@ void Renderer::addPortalNodePasses(rg::RenderGraph& graph, FrameGraphData& frame
         if (m_fullProfiling) state.pImmediateContext->EndQuery(state.portalQueries[m_currentFrame][index][1]);
     };
 
-    // History lookup happens while the graph is built; the immediate path does it after makeFrameInput, hence + 1.
     PortalHistory& history = AcquirePortalHistory(gpu, node.key, static_cast<uint64_t>(m_frameCounter) + 1);
     const Diligent::Uint64 bitsSize = gpu.pVisibilityBits->GetDesc().Size;
     std::string label = node.label.empty() ? std::format("portal {}", index) : node.label;

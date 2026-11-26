@@ -176,7 +176,6 @@ ResidencyDemand StreamingSystem::demandOf(int cell, bool resident) const {
     const PortalCell& portalCell = m_portals.cells()[static_cast<size_t>(cell)];
     const bool bounded = std::abs(portalCell.min.x) < kUnbounded && std::abs(portalCell.max.x) < kUnbounded && std::abs(portalCell.min.z) < kUnbounded && std::abs(portalCell.max.z) < kUnbounded;
     if (m_config.spatial.enabled && m_spatialValid && bounded && static_cast<size_t>(cell) < m_spatialDist.size() && std::isfinite(m_spatialDist[static_cast<size_t>(cell)])) {
-        // Metric distance subsumes the hop count unless the portal route is the closer reading (taken as the minimum in rebuildOrder).
         demand.distance = m_spatialDist[static_cast<size_t>(cell)];
         const glm::vec3 center = (portalCell.min + portalCell.max) * 0.5f;
         const glm::vec3 to = center - m_spatialPos;
@@ -329,7 +328,6 @@ bool StreamingSystem::shouldEvict(int cell) const {
     return evict;
 }
 
-// State transitions that need no budget: start and poll worker jobs, cancel, evict decisions. Budgeted steps are offered to the shared queue.
 void StreamingSystem::advanceCell(int cell) {
     Slot& slot = m_slots[static_cast<size_t>(cell)];
     const bool wantsLoad = wanted(cell);
@@ -357,7 +355,6 @@ void StreamingSystem::advanceCell(int cell) {
     }
 }
 
-// Budgeted work of one cell (runs from the commit queue): commit steps and unload steps.
 void StreamingSystem::workCell(int cell, StreamBudget& budget) {
     Slot& slot = m_slots[static_cast<size_t>(cell)];
     const bool evict = shouldEvict(cell);
@@ -476,7 +473,6 @@ void StreamingSystem::updateImpl(int cameraCell, const glm::vec3* position) {
     setCamera(cameraCell, position);
     m_stats.updateWork = 0;
     if (deterministic) {
-        // Timing independent: wait for workers, commit everything, repeat until nothing is pending.
         StreamBudget budget;
         budget.unlimited = true;
         m_residency.dropOwner(this);
@@ -645,7 +641,6 @@ void MeshResidency::finish(const MeshStreamRequest& request, std::shared_ptr<voi
     const float base = m_streaming.residency().score(demand);
     m_entries[request.key] = Entry{request.lod, request.bytes, m_frame, request.evict, base};
     m_resident += request.bytes;
-    // Mirrored into the unified registry: protected while touched this frame, otherwise evictable in metric order with every other kind.
     m_streaming.residency().track(ResidentKind::GpuMesh, std::hash<std::string>{}(request.key), request.bytes, base, true, [this, key = request.key]() -> bool {
         if (!m_entries.contains(key)) return false;
         release(key);
@@ -680,7 +675,6 @@ void MeshResidency::touch(const std::string& key) {
 void MeshResidency::advance() {
     enforceBudget({});
     ++m_frame;
-    // Entries not touched since the last frame become evictable; older = less needed (score grows with age).
     constexpr float kAgeSeconds = 0.05f;
     for (const auto& [key, entry] : m_entries) {
         m_streaming.residency().update(ResidentKind::GpuMesh, std::hash<std::string>{}(key), entry.base + kAgeSeconds * static_cast<float>(m_frame - entry.lastUse), entry.lastUse >= m_frame);

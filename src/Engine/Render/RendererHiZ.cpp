@@ -21,7 +21,6 @@ import Engine.Render.observation;
 
 namespace {
 
-// Reversed Z: the far plane is 0 (docs/LargeWorld.md).
 constexpr float kFarDepth[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 constexpr Diligent::Uint32 kHiZGroupSize = 8;
 

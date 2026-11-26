@@ -227,7 +227,6 @@ void Lighting::cullLights(Diligent::IBuffer* sceneUniforms) {
         if (!state.lightApertures.empty()) LIT_UP(state.context)->UpdateBuffer(state.lights, static_cast<Diligent::Uint64>(kMaxLights) * sizeof(GpuLight), state.lightApertures.size() * sizeof(LightAperture), state.lightApertures.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         state.lightAperturesDirty = false;
     }
-    // Reset the index allocation cursor and the visible-light count, then cull per light and per cluster.
     const uint32_t zeros[2] = {0u, 0u};
     LIT_UP(state.context)->UpdateBuffer(state.clusters, static_cast<Diligent::Uint64>(kClusterCount) * 2 * sizeof(uint32_t), sizeof(zeros), zeros, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     litgpu::dispatch(state.context, state.lightVisiblePso, state.lightVisibleSrb, (std::max(state.lightCount, 1u) + kLightCullGroupSize - 1) / kLightCullGroupSize);
@@ -295,7 +294,6 @@ void Lighting::graphResources(LightingStage stage, std::vector<rg::ExternalAcces
     };
     switch (stage) {
         case LightingStage::Prepare:
-            // LUTs, environment cube and SH are written mip by mip and read in between: dependency only.
             texture("lighting/dfg", state.dfg, Usage::None, true);
             texture("lighting/transmittanceLut", state.transmittanceLut, Usage::None, true);
             texture("lighting/multiScatterLut", state.multiScatterLut, Usage::None, true);

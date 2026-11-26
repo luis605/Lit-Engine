@@ -58,9 +58,8 @@ export class World {
     void destroy(EntityHandle entity);
     void destroyBatch(std::span<const EntityHandle> entities);
     void setPositions(std::span<const std::pair<EntityHandle, glm::vec3>> updates);
-    // Floating origin: local = world - origin. shiftOrigin(delta) moves the origin by delta and subtracts it from every root entity.
     void shiftOrigin(const glm::dvec3& delta);
-    void shiftRoots(const glm::vec3& shift);  // subtract from root entities only, origin untouched (save restore)
+    void shiftRoots(const glm::vec3& shift);
     [[nodiscard]] const glm::dvec3& origin() const { return m_origin; }
     [[nodiscard]] glm::dvec3 toWorld(const glm::vec3& local) const { return m_origin + glm::dvec3(local); }
     [[nodiscard]] glm::vec3 toLocal(const glm::dvec3& world) const { return glm::vec3(world - m_origin); }

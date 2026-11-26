@@ -12,9 +12,6 @@ module;
 
 module Engine.meshlet;
 
-// Cluster hierarchy (BVH) over the LOD DAG. See Meshlet.cppm for the node tests; the GPU traversal
-// is resources/shaders/meshlet_nodes.comp (src/Engine/Render/RendererMeshlets.cpp drives it).
-
 namespace {
 
 constexpr float kGrow = 1.0f + 1e-5f;
@@ -33,8 +30,6 @@ float distance3(const float a[3], const float b[3]) {
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-// Sphere around a set of spheres: centre of their bounding box, radius the farthest reach (grown
-// slightly so float rounding on the GPU, after the instance transform, stays conservative).
 class SphereBound {
 public:
     void add(const float center[3], float radius) {
@@ -76,7 +71,6 @@ struct HierarchyBuilder {
     ClusterHierarchyOptions options;
     ClusterHierarchy result;
 
-    // Bounds and errors of a node over a contiguous cluster range.
     void boundClusters(ClusterNode& node, Range range) const {
         SphereBound cull;
         SphereBound lod;
@@ -94,7 +88,6 @@ struct HierarchyBuilder {
         store(lod.finish(), node.lodCenter, node.lodRadius);
     }
 
-    // Bounds and errors of a node over child nodes [first, first + count).
     void boundChildren(ClusterNode& node, uint32_t first, uint32_t count) const {
         SphereBound cull;
         SphereBound lod;
@@ -111,8 +104,6 @@ struct HierarchyBuilder {
         store(lod.finish(), node.lodCenter, node.lodRadius);
     }
 
-    // Splits a range in two along the longest axis of its cluster centres. The split point is a
-    // multiple of the leaf size so leaves stay full (one leaf = one 64-lane cull workgroup).
     std::pair<Range, Range> split(Range range) {
         float lo[3] = {std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
         float hi[3] = {-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max()};
@@ -129,7 +120,6 @@ struct HierarchyBuilder {
         const uint32_t leaves = (range.size() + options.leafSize - 1) / options.leafSize;
         const uint32_t middle = range.begin + std::min(range.size() - 1, options.leafSize * ((leaves + 1) / 2));
         auto first = mesh.clusters.begin() + range.begin;
-        // Ties on the axis fall back to the other axes, so the order is deterministic for any std::nth_element.
         std::nth_element(first, mesh.clusters.begin() + middle, mesh.clusters.begin() + range.end, [axis](const MeshCluster& a, const MeshCluster& b) {
             for (int offset = 0; offset < 3; ++offset) {
                 const int k = (axis + offset) % 3;
@@ -140,7 +130,6 @@ struct HierarchyBuilder {
         return {Range{range.begin, middle}, Range{middle, range.end}};
     }
 
-    // Fills node `index` with the subtree over `range` (clusters of one level). Returns its depth.
     uint32_t fill(uint32_t index, Range range) {
         if (range.size() <= options.leafSize) {
             ClusterNode node;
@@ -176,10 +165,6 @@ struct HierarchyBuilder {
     }
 
     void build() {
-        // Subtrees per (DAG level, parent error band). Clusters whose group failed to simplify are
-        // carried to later passes and keep their creation level but get a much larger parent error;
-        // mixing them into the leaves of their level would make every leaf of that level pass the
-        // parent test at far distances. Bands are powers of two of the parent error.
         std::vector<Range> levels;
         auto band = [](const MeshCluster& cluster) {
             if (cluster.parentError >= kClusterRootError) return std::numeric_limits<int>::max();
@@ -201,7 +186,6 @@ struct HierarchyBuilder {
             }
         }
         if (levels.empty()) return;
-        // Level roots first (contiguous), so the layers above can address them as child ranges.
         result.nodes.resize(levels.size());
         uint32_t depth = 0;
         for (uint32_t level = 0; level < levels.size(); ++level) depth = std::max(depth, fill(level, levels[level]));
@@ -227,7 +211,6 @@ struct HierarchyBuilder {
 };
 
 bool nodeMayContainCut(const ClusterNode& node, const ClusterLodView& view, float threshold) {
-    // Farthest distance bounds every self error from below, nearest every parent error from above.
     if (view.orthographic) return node.minSelfError * view.errorScale <= threshold && (node.maxParentError >= kClusterRootError || node.maxParentError * view.errorScale > threshold);
     const float distance = distance3(node.lodCenter, view.origin);
     const float farthest = std::max(distance + node.lodRadius, view.nearPlane);
@@ -307,7 +290,6 @@ bool validateClusterHierarchy(const ClusterMesh& mesh, const ClusterHierarchy& h
     if (hierarchy.root >= hierarchy.nodes.size()) return fail("root out of range");
     std::vector<uint32_t> covered(mesh.clusters.size(), 0);
     std::vector<uint32_t> visits(hierarchy.nodes.size(), 0);
-    // (node, depth, ancestors) walk; every cluster is checked against every ancestor's bounds.
     struct Item {
         uint32_t node;
         uint32_t depth;

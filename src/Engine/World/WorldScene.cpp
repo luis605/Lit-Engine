@@ -38,7 +38,6 @@ constexpr size_t kCameraKeywordLength = 7;
 constexpr int kMatrixElementCount = 16;
 constexpr std::streamsize kSceneFloatPrecision = 9;
 
-// Roll and reference frame (quaternion w x y z) follow only when the camera is not upright, so upright scenes keep the old line.
 std::vector<float> cameraOrientationTail(const Camera& camera) {
     if (camera.getRoll() == 0.0f && !camera.hasFrame()) return {};
     const glm::quat frame = glm::quat_cast(camera.getFrame());
@@ -409,8 +408,6 @@ void World::restoreSnapshot(const WorldSnapshot& snapshot) {
     m_time.frame = snapshot.time.frame;
     m_time.elapsed = snapshot.time.elapsed;
     m_time.unscaledElapsed = snapshot.time.unscaledElapsed;
-    // The snapshot's local positions are relative to the origin it was taken at: keep every entity (and the camera) at its absolute
-    // position when the floating origin has moved since (same convention as SaveSystem::apply).
     const glm::vec3 originShift(m_origin - snapshot.origin);
     if (originShift != glm::vec3(0.0f)) {
         shiftRoots(originShift);

@@ -68,8 +68,6 @@ void Program::native(const std::string& name, NativeFn fn, bool liftable) {
     globals.insert_or_assign(name, std::move(value));
 }
 
-// ---------------------------------------------------------------- loading
-
 namespace {
 
 struct Loader {
@@ -97,7 +95,6 @@ struct Loader {
         program.files.push_back(name);
         const std::vector<Decl> decls = parse(lex(source, name));
         const std::filesystem::path dir = std::filesystem::path(name).parent_path();
-        // Functions are hoisted so lets and other functions can refer to them in any order within a file.
         for (const Decl& decl : decls) {
             if (decl.kind != DeclKind::Fn) continue;
             auto f = std::make_shared<FuncV>();
@@ -150,8 +147,6 @@ std::unique_ptr<Program> loadProgramSource(const std::string& source, const std:
     loader.loadSource(source, name);
     return program;
 }
-
-// ---------------------------------------------------------------- evaluation
 
 namespace {
 
@@ -320,7 +315,7 @@ std::vector<const ActionV*> programActions(const Value& program, const SrcLoc& l
         stack.pop_back();
         if (item->kind == Kind::Action) {
             actions.push_back(item->act.get());
-        } else if (item->kind == Kind::List) {  // nested programs are flattened
+        } else if (item->kind == Kind::List) {
             for (auto it = item->items().rbegin(); it != item->items().rend(); ++it) stack.push_back(&*it);
         } else {
             throw BentError(loc, std::string("scene program element is a ") + kindName(item->kind) + ", not an action: " + brief(*item));
@@ -385,7 +380,7 @@ Value Interp::runTemporal(TemporalKind kind, const Value& program, int64_t extra
     }
     for (int64_t tick = 0; tick < extraTicks; ++tick) {
         sim->tick();
-        notes.resize(mark);  // only the last check explains the failure
+        notes.resize(mark);
         if (check()) {
             notes.resize(mark);
             return Value::boolean(true);

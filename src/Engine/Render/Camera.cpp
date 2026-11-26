@@ -15,8 +15,8 @@ constexpr float kRollSnapDegrees = 1.0e-3f;
 constexpr float kCanonicalRollSnapDegrees = 1.0e-2f;
 constexpr float kUprightSine = 1.0e-4f;
 constexpr float kAlignedSine = 5.0e-4f;
-constexpr float kRelaxRate = 9.0f;  // critically damped: (1 + 9) exp(-9) = 0.1 % left after `seconds`
-constexpr float kRelaxDoneRate = 1.0f;  // degrees per second
+constexpr float kRelaxRate = 9.0f;
+constexpr float kRelaxDoneRate = 1.0f;
 constexpr float kRelaxDoneDegrees = 0.02f;
 constexpr float kMaxPitchDegrees = 89.0f;
 const glm::vec3 kWorldUp(0.0f, 1.0f, 0.0f);
@@ -158,7 +158,6 @@ bool relaxOrientation(ViewOrientation& orientation, const glm::vec3& targetUp, f
         excess = 0.0f;
         orientation.rollRate = orientation.pitchRate = 0.0f;
     } else {
-        // Exact step of x'' = -k^2 x - 2k x' (critically damped, ~0.2 % left after `seconds`).
         const float k = kRelaxRate / seconds;
         const float dt = std::max(deltaSeconds, 0.0f);
         const float decay = std::exp(-k * dt);
@@ -206,8 +205,6 @@ glm::mat4 Camera::getProjectionMatrix() const {
         const float halfWidth = halfHeight * m_aspectRatio;
         return glm::orthoRH_ZO(-halfWidth, halfWidth, -halfHeight, halfHeight, m_farPlane, m_nearPlane);
     }
-    // Reversed Z (near -> 1, far -> 0, depth test GREATER_EQUAL, clear 0): with a float depth buffer the precision follows 1/z, which
-    // keeps views of 50-100 km usable. Swapping the plane arguments gives exactly that matrix (docs/LargeWorld.md).
     return glm::perspectiveRH_ZO(glm::radians(m_fov), m_aspectRatio, m_farPlane, m_nearPlane);
 }
 
@@ -227,7 +224,6 @@ void Camera::processMouseMovement(float horizontalOffset, float verticalOffset, 
     const float previous = m_orientation.pitch;
     m_orientation.yaw += horizontalOffset * m_mouseSensitivity;
     m_orientation.pitch += verticalOffset * m_mouseSensitivity;
-    // A pitch beyond the limit (left by a tilted portal crossing while it relaxes) may only move back toward it.
     if (constrainPitch) m_orientation.pitch = glm::clamp(m_orientation.pitch, std::min(-kMaxPitchDegrees, previous), std::max(kMaxPitchDegrees, previous));
     updateCameraVectors();
 }

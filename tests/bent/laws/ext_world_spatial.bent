@@ -1,6 +1,3 @@
-# World core: the spatial grid (overlap, frustum, ray casts) against brute force, across every operation that rebuilds or shifts the
-# index (compact, save / load, snapshots, rebase, clear, worker count), and physics ray casts against analytic ray / solid tests for
-# every collider shape.
 include "../lib/ext_world.bent"
 
 gen farPos = vec3(float(-80, 80), float(-20, 20), float(-80, 80))
@@ -15,7 +12,6 @@ gen spatialEdit = frequency([
     [1, reparent(target: target, parent: int(-1, 31))],
     [1, setVisible(target: target, visible: bool())],
     [1, step(n: 1)],
-    # operations that rebuild or shift the index
     [1, compact()],
     [1, saveLoad()],
     [1, snapshot(slot: 0)],
@@ -30,8 +26,6 @@ gen spatialProg = map([spawn(shape: "none", dynamic: false, pos: farPos, mesh: i
 fn queryable(e) = visible(e) and bounds(e).radius > 0
 fn gap(e, c, r) = let b = bounds(e) in distance(b.center, c) - r - b.radius
 
-# overlap(c, r) returns every visible entity whose bounding sphere intersects the query sphere (clear cases), nothing that is clearly
-# outside, no duplicates, in index order, whatever happened to the index before (rebuilds, shifts, restores, different worker counts).
 law overlap_matches_brute_force_after_index_rebuilds {
     forall (p: spatialProg, c: farPos, r: float(0, 60))
     => after(p) {
@@ -43,7 +37,6 @@ law overlap_matches_brute_force_after_index_rebuilds {
     }
 }
 
-# Larger query spheres find supersets.
 law overlap_is_monotone_in_radius {
     forall (p: spatialProg, c: farPos, r1: float(0, 30), r2: float(0, 30))
     => after(p) {
@@ -53,7 +46,6 @@ law overlap_is_monotone_in_radius {
     }
 }
 
-# A query sphere centred at the entity's own centre always finds it (when it is in the index at all).
 law overlap_finds_entity_at_its_own_centre {
     forall (p: spatialProg, k: target)
     => after(p) {
@@ -62,7 +54,6 @@ law overlap_finds_entity_at_its_own_centre {
     }
 }
 
-# Querying is observation only: it never changes the world (the lazy index refresh is not simulation state).
 law spatial_queries_do_not_mutate {
     forall (p: spatialProg, c: farPos, r: float(0, 60))
     => after(p) { worldHash() } == after(p) { let a = overlap(c, r) in let b = raycast(c, c + vec3(1, 1, 1)) in let f = frustumQuery() in worldHash() }
@@ -92,7 +83,6 @@ fn rayAmbiguous(from, to) =
         abs(disc) < 1e-2 * (1 + b.radius * b.radius)
         or abs(raySphere(from, d, b.center, b.radius) - distance(from, to)) < 1e-2))
 
-# The grid ray cast finds the nearest bounding sphere along the segment, as brute force does, in the same situations.
 law raycast_matches_brute_force_after_index_rebuilds {
     forall (p: spatialProg, from: farPos, to: farPos)
     where distance(from, to) > 0.01
@@ -105,7 +95,6 @@ law raycast_matches_brute_force_after_index_rebuilds {
     }
 }
 
-# World bounds enclose every queryable entity.
 law scene_bounds_enclose_entities {
     forall (p: spatialProg)
     => after(p) {
@@ -115,12 +104,8 @@ law scene_bounds_enclose_entities {
     }
 }
 
-# ---------------------------------------------------------------- frustum
-
 gen lookAround = [farPos, float(-180, 180), float(-80, 80), float(-30, 30)]
 
-# queryFrustum never culls a sphere that is inside the view frustum, whatever the camera orientation, and never returns one that is
-# clearly outside.
 law frustum_query_has_no_false_culls {
     forall (p: spatialProg, view: lookAround)
     => after(p ++ [camera(pos: view[0], yaw: view[1], pitch: view[2], roll: view[3])]) {
@@ -132,7 +117,6 @@ law frustum_query_has_no_false_culls {
     }
 }
 
-# An entity placed on the view axis is inside the frustum whatever the roll (tilted frusta use the same plane maths).
 law frustum_axis_entities_visible_at_any_roll {
     forall (p: spatialProg, pos: farPos, yaw: float(-180, 180), pitch: float(-60, 60), roll: float(-180, 180), distance: float(2, 40))
     => after(p ++ [camera(pos: pos, yaw: yaw, pitch: pitch, roll: roll), spawn(shape: "none", dynamic: false, mesh: 1)]) {
@@ -142,7 +126,6 @@ law frustum_axis_entities_visible_at_any_roll {
     }
 }
 
-# The ray through the centre of the screen is the camera's view ray (its origin lies on the view axis, on the near plane).
 law screen_centre_ray_is_view_ray {
     forall (view: lookAround, w: float(64, 4000), h: float(64, 3000))
     => after([camera(pos: view[0], yaw: view[1], pitch: view[2], roll: view[3])]) {
@@ -152,7 +135,6 @@ law screen_centre_ray_is_view_ray {
     }
 }
 
-# Rays through the left and right edges of the screen are mirror images about the view axis (symmetric projection).
 law screen_edge_rays_are_symmetric {
     forall (view: lookAround, w: float(64, 4000), h: float(64, 3000), y: float(0, 1))
     => after([camera(pos: view[0], yaw: view[1], pitch: view[2], roll: view[3])]) {
@@ -163,10 +145,7 @@ law screen_edge_rays_are_symmetric {
     }
 }
 
-# ---------------------------------------------------------------- physics ray casts against analytic solids
-
 gen rayPos = vec3(float(-5, 5), float(-5, 5), float(-5, 5))
-# Rays start 14 m away (outside every solid, which all lie within 9.4 m of the origin) and aim at a point inside the shape cloud.
 gen rayStart = map(unitVec3(), fn(u) => u * 14)
 gen rayAim = vec3(float(-4, 4), float(-4, 4), float(-4, 4))
 fn rayEndOf(from, aim) = from + (aim - from) * 1.7
@@ -177,7 +156,6 @@ gen rayShape = frequency([
 ])
 
 fn invRot(q) = quat(q.w, 0 - q.x, 0 - q.y, 0 - q.z)
-# [tmin, tmax] of the ray o + t d (|d| = 1) inside a solid, or [] when it misses.
 fn sphereSpan(o, d, c, r) =
     let oc = o - c in
     let b = dot(oc, d) in
@@ -215,8 +193,6 @@ fn spanOf(a, o, d) =
 fn tooClose(spans) = let entries = sort(map(filter(spans, fn(s) => s != []), fn(s) => s[0])) in
     any(zip(entries, tail(entries)), fn(pair) => pair[1] - pair[0] < 0.02)
 
-# physicsRaycast reports the nearest solid of every collider shape (sphere, box, capsule, convex hull) the way an analytic ray /
-# solid test does, with the same distance. Grazing rays and near ties between two solids are skipped (ambiguous).
 law physics_raycast_matches_analytic_solids {
     forall (shapes: listOf(rayShape, 4, 9), from: rayStart, aim: rayAim)
     => let to = rayEndOf(from, aim) in
@@ -235,7 +211,6 @@ law physics_raycast_matches_analytic_solids {
        })
 }
 
-# The surface normal of a ray cast hit has unit length and faces the ray (never points away from the viewer).
 law physics_raycast_normal_faces_the_ray {
     forall (shapes: listOf(rayShape, 4, 9), from: rayStart, aim: rayAim)
     => let to = rayEndOf(from, aim) in

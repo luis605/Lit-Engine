@@ -1,7 +1,5 @@
 #pragma once
 
-// GPU state of dynamic meshes (skinning, morph targets, procedural deform). Included only by RendererSkinning.cpp.
-
 struct DynamicSourceGpu {
     uint32_t vertexCount = 0;
     uint32_t indexCount = 0;
@@ -25,7 +23,7 @@ struct DynamicInstanceGpu {
     uint32_t source = 0;
     uint32_t meshId = 0;
     uint32_t baseVertex = 0;
-    uint32_t version = 0;  // bumped whenever the vertices are rewritten (virtual shadow cache invalidation)
+    uint32_t version = 0;
     Entity entity = INVALID_ENTITY;
     bool dirty = true;
     bool boundsDirty = true;

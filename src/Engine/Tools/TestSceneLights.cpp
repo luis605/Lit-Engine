@@ -19,9 +19,6 @@ import Engine.Render.component;
 import Engine.Render.material;
 import Engine.Render.settings;
 
-// light_stress: an open field of pillars and bobbing spheres lit at night by thousands of moving point and spot lights (every one
-// shadowed when virtual shadow maps are on). The animation is driven by world time, so a fixed step (LitShot) is repeatable.
-
 uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material);
 
 namespace {

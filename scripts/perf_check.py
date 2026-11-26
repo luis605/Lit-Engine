@@ -6,13 +6,11 @@ import sys
 
 STATS = ("min", "mean", "median", "p95", "p99", "max")
 
-
 def percentile(values, q):
     ordered = sorted(values)
     if not ordered:
         return math.nan
     return ordered[min(len(ordered) - 1, int(len(ordered) * q / 100.0))]
-
 
 def stat(values, name):
     if not values:
@@ -27,7 +25,6 @@ def stat(values, name):
         return percentile(values, 50)
     return percentile(values, float(name[1:]))
 
-
 def load(path, skip):
     with open(path, newline="") as handle:
         rows = list(csv.DictReader(handle))[skip:]
@@ -39,7 +36,6 @@ def load(path, skip):
             except (TypeError, ValueError):
                 pass
     return columns
-
 
 def parse_limits(path):
     limits = []
@@ -53,7 +49,6 @@ def parse_limits(path):
                 sys.exit(f"{path}:{number}: expected '<column> <{'|'.join(STATS)}> <limit>'")
             limits.append((parts[0], parts[1], float(parts[2])))
     return limits
-
 
 def main():
     parser = argparse.ArgumentParser(description="Fail when performance CSV statistics exceed thresholds.")
@@ -101,7 +96,6 @@ def main():
 
     print(f"{checked} checks, {failures} failures")
     return 1 if failures else 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -1,5 +1,3 @@
-# Camera view / projection math (Engine.camera): the reversed-Z perspective projection (near -> 1, far -> 0), pinhole geometry,
-# frustum containment against an analytic test, orthographic mode, and invariances. rxCamProject runs the real Camera matrices.
 include "../lib/render.bent"
 
 gen camSpec = {pos: vec3(float(-20, 20), float(-20, 20), float(-20, 20)), yaw: float(-180, 180), pitch: float(-80, 80), roll: float(-25, 25),
@@ -8,14 +6,12 @@ gen camSpec = {pos: vec3(float(-20, 20), float(-20, 20), float(-20, 20)), yaw: f
 fn tanHalf(s) = sin(radians(s.fov / 2)) / cos(radians(s.fov / 2))
 fn aspect(s) = s.w / s.h
 fn basisOf(s) = rxCamProject(with(s, point: s.pos))
-# World point at view depth d, lateral offsets in units of the half-extent of the view at that depth.
 fn pointAt(s, d, fx, fy) =
     let b = basisOf(s) in
     s.pos + b.front * d + b.right * (fx * d * tanHalf(s) * aspect(s)) + b.up * (fy * d * tanHalf(s))
 fn project(s, d, fx, fy) = rxCamProject(with(s, point: pointAt(s, d, fx, fy)))
 fn idealDepth(s, d) = s.near * (s.far - d) / ((s.far - s.near) * d)
 
-# The view basis is a rotation: orthonormal, right-handed (right x up = -front, the camera looks down -Z), determinant 1.
 law projection_view_is_rigid {
     forall (s: camSpec)
     => let b = basisOf(s) in
@@ -24,13 +20,11 @@ law projection_view_is_rigid {
        and abs(b.viewDet - 1) < 1e-4 and distance(cross(b.right, b.up), b.front * -1) < 1e-4
 }
 
-# Reversed Z: a point at the near plane maps to depth 1, a point at the far plane to depth 0.
 law projection_reversed_z_endpoints {
     forall (s: camSpec, fx: float(-0.5, 0.5), fy: float(-0.5, 0.5))
     => project(s, s.near, fx, fy).ndc.z ~= 1.0 within 0.01 and project(s, s.far, fx, fy).ndc.z ~= 0.0 within 0.01
 }
 
-# Depth follows near * (far - d) / ((far - near) * d) of the view depth d, and the view depth is the distance along the front axis.
 law projection_depth_formula {
     forall (s: camSpec, d: float(0.1, 1.0), fx: float(-0.9, 0.9), fy: float(-0.9, 0.9), t: float(0, 1))
     => let depth = s.near + (s.far - s.near) * (if d < 0.5 then d * d * 0.02 else d * d) * t in
@@ -38,7 +32,6 @@ law projection_depth_formula {
        p.viewDepth ~= depth within 1e-3 and p.ndc.z ~= idealDepth(s, depth) within 0.005
 }
 
-# Depth is strictly decreasing with distance along a ray (so a GREATER_EQUAL depth test keeps the nearest surface).
 law projection_depth_monotone {
     forall (s: camSpec, d1: float(0, 1), grow: float(1.3, 4), fx: float(-0.9, 0.9), fy: float(-0.9, 0.9))
     => let a = s.near * (1 + d1 * 20) in
@@ -46,7 +39,6 @@ law projection_depth_monotone {
        b > a * 1.2 ==> project(s, a, fx, fy).ndc.z > project(s, b, fx, fy).ndc.z
 }
 
-# Reversed Z keeps far depth resolvable: two points 2% apart at 10-80% of a far plane 1e4+ times the near plane still order correctly.
 law projection_reversed_z_resolves_far_depth {
     forall (s: camSpec, near: float(0.05, 0.5), ratio: float(1e4, 2e5), at: float(0.1, 0.8), fx: float(-0.5, 0.5), fy: float(-0.5, 0.5))
     => let s2 = with(s, near: near, far: near * ratio) in
@@ -54,7 +46,6 @@ law projection_reversed_z_resolves_far_depth {
        project(s2, d, fx, fy).ndc.z > project(s2, d * 1.02, fx, fy).ndc.z
 }
 
-# Pinhole geometry: NDC x and y are the lateral offsets divided by the half-extent of the frustum at that depth.
 law projection_pinhole_xy {
     forall (s: camSpec, d: float(0.2, 1), fx: float(-1.4, 1.4), fy: float(-1.4, 1.4))
     => let depth = s.near + (s.far - s.near) * d * d * 0.1 in
@@ -62,7 +53,6 @@ law projection_pinhole_xy {
        p.ndc.x ~= fx within 2e-3 and p.ndc.y ~= fy within 2e-3
 }
 
-# Frustum containment: the clip-volume test (w > 0, |x|, |y| <= 1, 0 <= z <= 1) agrees with an analytic frustum test, away from the planes.
 law projection_frustum_containment {
     forall (s: camSpec, d: float(0.01, 1.2), fx: float(-1.6, 1.6), fy: float(-1.6, 1.6))
     => let depth = s.far * d in
@@ -74,14 +64,12 @@ law projection_frustum_containment {
        cover("inside the frustum", inClip) and cover("outside the frustum", not inClip) and (nearBoundary or inClip == analytic)
 }
 
-# Points behind the camera have a negative clip w, so no frustum test can accept them.
 law projection_behind_camera_rejected {
     forall (s: camSpec, d: float(0.05, 100), fx: float(-1, 1), fy: float(-1, 1))
     => let p = project(s, 0 - d, fx, fy) in
        p.clip.w < 0 and p.viewDepth < 0 and not (p.clip.w > 0)
 }
 
-# The horizontal scale is the aspect ratio: widening the window changes NDC x by the ratio and leaves NDC y alone.
 law projection_aspect_only_scales_x {
     forall (s: camSpec, w2: float(1, 32), d: float(0.1, 1), fx: float(-0.8, 0.8), fy: float(-0.8, 0.8))
     => let depth = s.near + (s.far - s.near) * d * d * 0.2 in
@@ -91,7 +79,6 @@ law projection_aspect_only_scales_x {
        b.ndc.y ~= a.ndc.y within 1e-3 and b.ndc.x * w2 ~= a.ndc.x * s.w within 2e-3
 }
 
-# A narrower field of view magnifies: |ndc y| grows for a fixed point.
 law projection_narrow_fov_magnifies {
     forall (s: camSpec, f2: float(0.3, 0.9), d: float(0.1, 1), fy: float(0.2, 0.7))
     => let depth = s.near + (s.far - s.near) * d * d * 0.2 in
@@ -100,7 +87,6 @@ law projection_narrow_fov_magnifies {
        abs(rxCamProject(with(narrow, point: pt)).ndc.y) > abs(rxCamProject(with(s, point: pt)).ndc.y)
 }
 
-# Moving the camera and the point together changes nothing (within float precision at these magnitudes).
 law projection_translation_invariant {
     forall (s: camSpec, shift: vec3(float(-30, 30), float(-30, 30), float(-30, 30)), d: float(0.1, 1), fx: float(-1, 1), fy: float(-1, 1))
     => let depth = s.near + (s.far - s.near) * d * d * 0.1 in
@@ -110,7 +96,6 @@ law projection_translation_invariant {
        b.ndc ~= a.ndc within 5e-3
 }
 
-# Orthographic mode: depth is linear between near (1) and far (0), NDC is the offset over the half height, w stays 1.
 law projection_orthographic {
     forall (s: camSpec, hh: float(1, 50), d: float(0, 1), ox: float(-20, 20), oy: float(-20, 20))
     => let so = with(with(s, ortho: true), orthoHeight: hh) in
@@ -122,7 +107,6 @@ law projection_orthographic {
        and p.ndc.y ~= oy / (hh / 2) within 1e-2 and p.ndc.x ~= ox / (hh / 2 * aspect(so)) within 1e-2
 }
 
-# Everything the projection returns is finite for every sane camera.
 law projection_always_finite {
     forall (s: camSpec, pt: vec3(float(-1e4, 1e4), float(-1e4, 1e4), float(-1e4, 1e4)))
     => let p = rxCamProject(with(s, point: pt)) in

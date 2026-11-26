@@ -91,8 +91,6 @@ export class AudioPropagation {
     [[nodiscard]] uint32_t raysRemaining() const { return m_used >= m_config.raysPerFrame ? 0 : m_config.raysPerFrame - m_used; }
     [[nodiscard]] uint32_t staleCount() const { return m_stale; }
     [[nodiscard]] const Bvh& bvh() const { return m_bvh; }
-    // Floating origin: scene BVH, listener and fan hits are translated by -shift; the hop hook keeps working (it is queried in its original frame through an offset).
-    // Cached results hold only directions and lengths, so they stay valid.
     void shiftOrigin(const glm::vec3& shift);
 
   private:

@@ -1,5 +1,3 @@
-# Rigid body dynamics for every collider kind: determinism, finiteness, conservation and bounds, friction, stacking, layers,
-# resting on planes / meshes / height fields, and collider serialization. Worlds are standalone (pxRun), 1/60 s ticks.
 include "../lib/ext_phys.bent"
 
 fn world(bodies, steps) = {bodies: bodies, steps: steps}
@@ -12,15 +10,12 @@ law px_run_is_deterministic {
        pxRun(scene).hash == pxRun(scene).hash
 }
 
-# Whatever is thrown around (all shapes, up to 6 m/s per axis, restitution up to 1), nothing goes non-finite or disappears.
 law px_run_stays_finite {
     forall (bodies: listOf(dBody, 1, 9), steps: int(1, 200))
     => let r = pxRun(world([floorPlane()] ++ placed(bodies), steps)) in
        not r.hasNaN and forall b in r.bodies: b.alive and finite3(b.pos)
 }
 
-# Without gravity, collisions between two spheres (restitution 1, no friction) conserve linear momentum, never create energy, and
-# really happen (the collision list is not empty).
 law px_sphere_collision_conserves_momentum {
     forall (r1: float(0.2, 0.8), r2: float(0.2, 0.8), m1: float(0.5, 5), m2: float(0.5, 5), v1: float(1, 6), v2: float(0, 6), dy: float(-0.4, 0.4), dz: float(-0.4, 0.4))
     => let a = {shape: "sphere", pos: vec3(-1.5, 0, 0), size: r1, mass: m1, vel: vec3(v1, 0, 0), restitution: 1.0, friction: 0.0} in
@@ -31,7 +26,6 @@ law px_sphere_collision_conserves_momentum {
        and sumBy(r.bodies, kineticOf) <= 0.5 * m1 * v1 * v1 + 0.5 * m2 * v2 * v2 + 1e-3
 }
 
-# Perfectly elastic head-on collision: kinetic energy is (nearly) preserved, not just bounded.
 law px_elastic_collision_preserves_energy {
     forall (r1: float(0.2, 0.8), m1: float(0.5, 5), m2: float(0.5, 5), v1: float(1, 6), v2: float(0, 6))
     => let a = {shape: "sphere", pos: vec3(-3, 0, 0), size: r1, mass: m1, vel: vec3(v1, 0, 0), restitution: 1.0, friction: 0.0} in
@@ -41,7 +35,6 @@ law px_elastic_collision_preserves_energy {
        abs(sumBy(r.bodies, kineticOf) - before) <= 0.02 * before + 1e-3
 }
 
-# A sphere dropped on a plane never rebounds higher than it fell, and a restitution-0 sphere does not bounce.
 law px_bounce_height_bounded_by_restitution {
     forall (h: float(1, 6), e: float(0, 1), r: float(0.2, 0.8))
     => let ball = {shape: "sphere", pos: vec3(0, r + h, 0), size: r, restitution: e, friction: 0.3} in
@@ -53,7 +46,6 @@ law px_bounce_height_bounded_by_restitution {
        and maxOf(later) <= r + e * e * h + 0.1
 }
 
-# Without impulses, forces or initial overlap, energy of mixed shapes (hulls and compounds included) over a plane never grows.
 law px_energy_non_increasing_all_shapes {
     forall (bodies: listOf(dBody, 1, 9), steps: int(1, 240))
     => let start = placed(bodies) in
@@ -62,8 +54,6 @@ law px_energy_non_increasing_all_shapes {
        energyOf(r1.bodies, 9.81) <= energyOf(r0.bodies, 9.81) + 0.02 * abs(energyOf(r0.bodies, 9.81)) + 0.5
 }
 
-# Coulomb friction: a sliding box on a plane loses at most mu_d g dt of speed per tick (mu_d = sqrt(body friction * 0.5)), except on the tick
-# where static friction brings it to rest (the static coefficient is capped at 4 times the dynamic one).
 law px_friction_decel_bounded {
     forall (f: float(0.02, 1), v: float(0.5, 8), hx: float(0.2, 0.8))
     => let box = {shape: "box", pos: vec3(0, hx, 0), size: vec3(hx, hx, hx), vel: vec3(v, 0, 0), friction: f} in
@@ -75,8 +65,6 @@ law px_friction_decel_bounded {
            and (speeds[i] >= speeds[i - 1] - 1.1 * mud * 9.81 / 60.0 - 2e-3 or (speeds[i] < 1e-3 and speeds[i - 1] <= 1.1 * mus * 9.81 / 60.0 + 2e-3))
 }
 
-# A (nearly) frictionless body slides: friction 0.01 should lose about mu g t = 0.7 m/s per second (dynamic), but the static coefficient
-# 0.6 * sqrt(0.5 / friction) = 4.2 sticks it as soon as its speed is below 0.7 m/s, so the box halts instantly instead of coasting.
 law px_low_friction_box_coasts {
     forall (f: float(0.005, 0.05), v: float(0.3, 0.6))
     => let box = {shape: "box", pos: vec3(0, 0.5, 0), size: vec3(0.5, 0.5, 0.5), vel: vec3(v, 0, 0), friction: f} in
@@ -85,7 +73,6 @@ law px_low_friction_box_coasts {
        speeds[10] >= v - 1.1 * sqrt(f * 0.5) * 9.81 * (10.0 / 60.0) - 0.02
 }
 
-# N identical boxes stacked exactly: after 4 s the tower stands where it was built.
 law px_box_stack_stays_standing {
     forall (n: int(1, 5), h: float(0.3, 0.6), m: float(0.5, 4))
     => let boxes = map(range(n), fn(i) => {shape: "box", pos: vec3(0, h * (2 * i + 1) + 0.001 * i, 0), size: vec3(h, h, h), mass: m, friction: 0.6}) in
@@ -93,7 +80,6 @@ law px_box_stack_stays_standing {
        forall i in range(n): (let b = r.bodies[i + 1] in abs(b.pos.x) < 0.05 and abs(b.pos.z) < 0.05 and abs(b.pos.y - h * (2 * i + 1)) < 0.08)
 }
 
-# Layers: bodies on layers whose collision pair is switched off pass through each other; the same scene with the default matrix collides.
 law px_layer_matrix_is_respected {
     forall (h: float(1, 4), r: float(0.2, 0.6), hx: float(0.6, 1.5))
     => let box = {shape: "box", pos: vec3(0, 0, 0), size: vec3(hx, 0.5, hx), dynamic: false, layer: 1} in
@@ -103,8 +89,6 @@ law px_layer_matrix_is_respected {
        through.bodies[1].pos.y < -2 and abs(stops.bodies[1].pos.y - (0.5 + r)) < 0.05
 }
 
-# Fast bodies of every shape dropped on a plane (up to 25 m/s, 0.4 m per tick) end on the right side of it. Documented limit: speeds beyond
-# about a body's size per tick can lose a thin body; this law keeps clear of it.
 fn lowestOf(b, y) =
     if b.shape == "sphere" then y - b.size
     else if b.shape == "box" then y - b.size
@@ -118,7 +102,6 @@ law px_plane_holds_every_shape {
        lowestOf(body, r.bodies[1].pos.y) > -0.1
 }
 
-# Bodies other than lone spheres keep their orientation; spheres only spin (rotation stays a unit quaternion).
 law px_orientation_policy {
     forall (bodies: listOf(dBody, 1, 8))
     => let r = pxRun(world([floorPlane()] ++ placed(bodies), 120)) in
@@ -127,7 +110,6 @@ law px_orientation_policy {
           else s.rot ~= quat(1, 0, 0, 0))
 }
 
-# Static colliders (planes, boxes) never move, whatever hits them.
 law px_static_bodies_never_move {
     forall (bodies: listOf(dBody, 1, 8))
     => let statics = [floorPlane(), {shape: "box", pos: vec3(0, -1, 0), size: vec3(8, 1, 8), dynamic: false}] in
@@ -135,7 +117,6 @@ law px_static_bodies_never_move {
        r.bodies[0].pos == vec3(0, 0, 0) and r.bodies[1].pos == vec3(0, -1, 0)
 }
 
-# Every contact event is well formed: unit normal, finite non-negative depth and closing speed, references to real bodies.
 law px_contact_events_are_sane {
     forall (bodies: listOf(dBody, 2, 9), steps: int(30, 200))
     => let r = pxRun(world([floorPlane()] ++ placed(bodies), steps)) in
@@ -143,7 +124,6 @@ law px_contact_events_are_sane {
            and c.a >= 0 and c.b >= 0 and c.a != c.b
 }
 
-# Sphere / sphere contact normals point from a to b (towards the other centre) when the spheres are well apart in the plane of contact.
 law px_sphere_contact_normal_points_between_centres {
     forall (r1: float(0.3, 0.8), r2: float(0.3, 0.8), v: float(1, 5), dy: float(-0.6, 0.6))
     => let a = {shape: "sphere", pos: vec3(-3, 0, 0), size: r1, vel: vec3(v, 0, 0)} in
@@ -156,18 +136,12 @@ law px_sphere_contact_normal_points_between_centres {
            dot(c.normal, normalize(pb - pa)) > 0.9)
 }
 
-# ---------------------------------------------------------------- resting on meshes and height fields, serialization, sleeping, tunnelling
-
 gen floorTilt = map([float(-20, 20), float(-180, 180), float(-20, 20)], fn(a) => axisAngle(vec3(0, 1, 0), a[1]) * axisAngle(vec3(1, 0, 0), a[0]) * axisAngle(vec3(0, 0, 1), a[2]))
-# A big two-triangle quad (a mesh floor of half size 20 in the local XZ plane), tilted.
 fn quadFloor(rot, pos) = {shape: "mesh", pos: pos, rot: rot, scale: vec3(1, 1, 1), dynamic: false, friction: 0.9,
                           verts: [vec3(-20, 0, -20), vec3(20, 0, -20), vec3(20, 0, 20), vec3(-20, 0, 20)], idx: [0, 2, 1, 0, 3, 2]}
-# A flat terrain (two cells of 10 m) as a height field, tilted. Its (min x, min z) corner is the entity position, so shift to centre it.
 fn terrainFloor(rot, pos) = {shape: "heightfield", pos: pos + rotate(rot, vec3(-10, 0, -10)), rot: rot, scale: vec3(1, 1, 1), dynamic: false, nx: 3, nz: 3, cell: 10.0,
                              heights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
 
-# A ball (with rolling resistance, otherwise it rolls off a slope forever) dropped onto a (tilted) mesh or terrain comes to rest on the surface: its centre is one radius above the plane (within 6 cm),
-# never below it, never hovering.
 law px_ball_rests_on_surface {
     forall (rot: floorTilt, r: float(0.2, 0.8), h: float(0.5, 4), kind: elements(["mesh", "heightfield"]), x: float(-3, 3), z: float(-3, 3))
     => let pos = vec3(0, 0, 0) in
@@ -180,7 +154,6 @@ law px_ball_rests_on_surface {
        height >= r - 0.06 and height <= r + 0.06 and not run.hasNaN
 }
 
-# Bodies of every shape settle on a (tilted) mesh floor without falling through it, with gravity along the surface normal.
 law px_every_shape_rests_on_mesh_floor {
     forall (rot: floorTilt, b: dBody, h: float(0.3, 2))
     => let up = rotate(rot, vec3(0, 1, 0)) in
@@ -193,8 +166,6 @@ gen anyCollider = frequency([[2, cSphere], [2, cBox], [2, cCapsule], [1, cCompou
 gen hullBody = {shape: "hull", pos: cPos, size: vec3(float(0.3, 1.5), float(0.3, 1.5), float(0.3, 1.5)), dynamic: false}
 gen meshBodyGen = map(listOf(triGen, 1, 4), fn(tris) => meshBody(vec3(1, 2, 3), quat(1, 0, 0, 0), vec3(1, 1, 1), tris))
 
-# Every collider kind survives a save / load of the world: ray, sweep and overlap queries give the same answers before and after, and
-# simulating the loaded world gives the same state as simulating the original.
 law px_every_collider_survives_save_load {
     forall (b: oneof(cSphere, cBox, cCapsule, cCompound, cPlane, hullBody, meshBodyGen, cHeightfield), from: rayFrom, jit: jitter)
     => let body = if b.shape == "heightfield" then with(b, pos: vec3(-2, -1, -2)) else b in
@@ -218,7 +189,6 @@ law px_dynamic_bodies_survive_save_load {
        forall e in enumerate(a.bodies): (let o = c.bodies[e[0]] in o.pos ~= e[1].pos within 1e-3 and o.vel ~= e[1].vel within 1e-3)
 }
 
-# A body that went to sleep on the floor stays asleep and exactly where it is while nothing touches it; waking requires a kick.
 law px_sleeping_bodies_stay_asleep_until_kicked {
     forall (b: dBody, x: float(-3, 3), z: float(-3, 3))
     => let body = with(b, pos: vec3(x, b.size + 0.1, z), vel: vec3(0, 0, 0), friction: max(b.friction, 0.2)) in
@@ -228,8 +198,6 @@ law px_sleeping_bodies_stay_asleep_until_kicked {
        not early.bodies[1].sleeping or (late.bodies[1].sleeping and late.bodies[1].pos == early.bodies[1].pos and not kicked.bodies[1].sleeping and kicked.bodies[1].pos.x > early.bodies[1].pos.x + 0.1)
 }
 
-# No tunnelling below the documented speed bound (the engine has no CCD): every dynamic shape fired at a 0.4 m thick static wall at less
-# than a quarter of the thickness per tick ends on the near side.
 law px_no_tunnelling_below_speed_bound {
     forall (shape: elements(["sphere", "box", "capsule", "hull"]), size: float(0.15, 0.5), speed: float(2, 5.9), y: float(-0.3, 0.3))
     => let wall = {shape: "box", pos: vec3(6, 0, 0), size: vec3(0.2, 3, 3), dynamic: false} in

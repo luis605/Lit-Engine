@@ -27,11 +27,8 @@ export import Engine.Render.reflection;
 export constexpr int kMaxLocalShadowViews = 24;
 export constexpr int kMaxLocalShadowLights = 8;
 
-// World-space procedural patterns (noise, checker, wind, triplanar) sample local + origin reduced modulo this period, so they
-// stay continuous across floating-origin rebases for any pattern period that divides it (snap sizes of 1024 and below do).
 export inline constexpr double kOriginPatternPeriod = 4096.0;
 
-// Slots of the bindless texture table (the shader array size; one descriptor each in every surface binding).
 export inline constexpr uint32_t kBindlessTextureCapacity = 1024;
 
 export struct SceneUniforms {
@@ -83,20 +80,16 @@ export struct SceneUniforms {
     glm::vec4 qualityParams2;
     glm::vec4 vsmParams;
     glm::vec4 vsmParams2;
-    glm::vec4 originParams; // xyz world origin reduced modulo kOriginPatternPeriod (float, pattern phase), w world origin y (altitude)
-    glm::vec4 cellParams;   // x portal cell of this view (-1: no cell filtering of local lights), y first portal light + 1 (0: none),
-                            // z > 0: shared sun cascades (containment selection up to this view depth), w unused
-    glm::vec4 cellTint;     // rgb lighting grade of the view's cell (sun and ambient), w unused
+    glm::vec4 originParams;
+    glm::vec4 cellParams;
+    glm::vec4 cellTint;
 };
 
-// Lights that reach a cell through a portal (docs/Portals.md, "Light through portals") are ordinary lights placed at the
-// portal image of the source light. Their aperture limits them to rays through the portal quad: shading tests the segment
-// from the receiver to the light against the quad, and virtual shadow faces clip casters behind the portal plane.
 export struct LightAperture {
-    glm::vec4 center;  // xyz quad centre, w edge softness (metres)
-    glm::vec4 axisU;   // xyz half-extent vector along the quad's right axis
-    glm::vec4 axisV;   // xyz half-extent vector along the quad's up axis
-    glm::vec4 plane;   // xyz unit normal toward the receiving cell, w = -dot(normal, centre)
+    glm::vec4 center;
+    glm::vec4 axisU;
+    glm::vec4 axisV;
+    glm::vec4 plane;
 };
 
 export constexpr uint32_t kMaxPortalLights = 1024;
@@ -159,14 +152,13 @@ export struct LocalShadowCaster {
     uint32_t pad = 0;
 };
 
-// Renderer-owned inputs of the virtual shadow map passes (one call per rendered view, after its depth pass).
 export struct VirtualShadowInputs {
     Diligent::IBuffer* sceneUniforms = nullptr;
     Diligent::IBuffer* worldMatrices = nullptr;
     Diligent::IBuffer* cullSpheres = nullptr;
     Diligent::IBuffer* renderables = nullptr;
-    Diligent::IBuffer* meshInfos = nullptr;      // unpatched by cluster LOD: cluster meshes cast shadows from their triangle LODs
-    Diligent::IBuffer* dynamicStamps = nullptr;  // per entity version of deformed vertices (optional)
+    Diligent::IBuffer* meshInfos = nullptr;
+    Diligent::IBuffer* dynamicStamps = nullptr;
     Diligent::IBuffer* vertices = nullptr;
     Diligent::IBuffer* indices = nullptr;
     Diligent::ITexture* depth = nullptr;
@@ -175,7 +167,6 @@ export struct VirtualShadowInputs {
     float lodBias = 1.0f;
 };
 
-// Counters of the last finished frame (read back a few frames late; diagnostics only).
 export struct VirtualShadowStats {
     uint32_t faces = 0;
     uint32_t requests = 0;
@@ -185,7 +176,7 @@ export struct VirtualShadowStats {
     uint32_t overflow = 0;
     uint32_t casterInstances = 0;
     uint32_t movedObjects = 0;
-    float resolutionScale = 1.0f;  // effective vsmResolutionScale (automatic from the light count when vsmAutoScale)
+    float resolutionScale = 1.0f;
 };
 
 export struct FrameInput {
@@ -201,10 +192,9 @@ export struct FrameInput {
     uint32_t frame = 0;
     int width = 1;
     int height = 1;
-    glm::dvec3 worldOrigin{0.0}; // Engine::worldOrigin(): world = local + worldOrigin (docs/LargeWorld.md)
+    glm::dvec3 worldOrigin{0.0};
 };
 
-// Stages of the frame as the render graph sees them (Renderer::renderFrameGraph, docs/RenderGraph.md).
 export enum class LightingStage : uint8_t { Prepare, AmbientOcclusion, Lighting, Reflections, Post };
 
 export class Lighting {
@@ -223,31 +213,22 @@ export class Lighting {
     [[nodiscard]] const RenderSettings& settings() const;
     void setMaterial(uint32_t id, const Material& material);
     void setLights(const std::vector<GpuLight>& lights);
-    // Portal cell of every light (same order as setLights, -1 = outside every cell). Empty disables cell filtering.
     void setLightCells(const std::vector<int32_t>& cells);
-    // Portal lights: lights first .. first + apertures.size() - 1 of setLights are portal images limited to these apertures.
     void setLightApertures(uint32_t first, const std::vector<LightAperture>& apertures);
     void setDirectionalLight(bool present, const glm::vec3& direction, const glm::vec3& illuminance);
-    // Legacy mode: a layer of the 16-layer 1024x1024 color / data array. Bindless mode: a slot of the texture table (native size).
     int loadTexture(const std::string& path, bool srgb);
-    // Frees a table slot (bindless mode only; the texture is destroyed once the GPU is done with it).
     void releaseTexture(int slot);
     [[nodiscard]] bool bindlessTextures() const;
     [[nodiscard]] uint32_t textureTableHighWater() const;
     [[nodiscard]] uint32_t textureTableUsed() const;
-    // Bumped whenever a slot is filled or freed; textureSlotEpoch is the value at the slot's last change.
     [[nodiscard]] uint64_t textureTableEpoch() const;
     [[nodiscard]] uint64_t textureSlotEpoch(uint32_t slot) const;
-    // Shader resource view of a slot (the placeholder for an empty one).
     [[nodiscard]] Diligent::ITextureView* textureTableView(uint32_t slot) const;
     [[nodiscard]] uint64_t bindingVersion() const;
 
-    // Floating origin rebase: every position the renderer holds is in the old frame; `delta` is what Engine subtracted from local space.
     void shiftOrigin(const glm::vec3& delta);
     void beginFrame(const FrameInput& input, SceneUniforms& uniforms);
     void fitShadows(const FrameInput& input, SceneUniforms& uniforms);
-    // Sun cascades fitted for another view of the same frame (portal views share one set, docs/Portals.md): makes them the
-    // current cascades and writes their matrices into `uniforms`.
     void useCascades(const std::array<Cascade, 4>& cascades, SceneUniforms& uniforms);
     [[nodiscard]] const std::array<Cascade, 4>& cascades() const;
     [[nodiscard]] int cascadeCount() const;
@@ -269,10 +250,7 @@ export class Lighting {
     void cullLights(Diligent::IBuffer* sceneUniforms);
     void shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms, int stage = -1);
     void captureSceneColor();
-    // Internal textures and buffers a stage touches, with the state of their first use (rg::Usage::None when a stage
-    // uses a resource in several states). The renderer declares scene depth, G-buffer and HDR targets itself.
     void graphResources(LightingStage stage, std::vector<rg::ExternalAccess>& out) const;
-    // Current object behind a graphResources name (resources can be recreated while the frame runs).
     [[nodiscard]] void* graphResource(std::string_view name) const;
     void finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* backBuffer, float deltaTime, const std::function<void(Diligent::ITexture*)>& afterTonemap = {});
 

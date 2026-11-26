@@ -1,12 +1,9 @@
-# World core: transforms (local / world matrices, the world matrix cache, scale, rotation, look-at).
 include "../lib/ext_world.bent"
 
 gen nonUnitQuat = filter(quat(float(-3, 3), float(-3, 3), float(-3, 3), float(-3, 3)), fn(q) => q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z > 0.04)
 fn qnorm2(q) = q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z
 fn qnormalised(q) = let n = sqrt(qnorm2(q)) in quat(q.w / n, q.x / n, q.y / n, q.z / n)
 
-# The cached world matrix equals the one recomputed from the local matrices up the parent chain, at every step (reads populate the
-# cache, the next action must invalidate exactly what it changed: moves, rotations, scales, reparenting, destruction, physics).
 law world_matrix_cache_matches_recomputation {
     forall (p: listOf(frequency([[6, hierEdit], [1, step(n: int(1, 4))], [1, spawnBody], [1, compact()]]), 1, 20))
     => always after(p) {
@@ -14,7 +11,6 @@ law world_matrix_cache_matches_recomputation {
     }
 }
 
-# Same under non-uniform scales, rotations and reparenting (no shear identity needed: only the cache is compared).
 law world_matrix_cache_matches_with_any_scale {
     forall (p: listOf(frequency([[4, spawnAny], [4, editAction], [2, structuralAction], [1, step(n: int(1, 3))]]), 1, 20))
     => always after(p) {
@@ -22,7 +18,6 @@ law world_matrix_cache_matches_with_any_scale {
     }
 }
 
-# A child of a root lands at parent position + parent rotation applied to (parent scale * local position).
 law child_world_position_composes_parent_transform {
     forall (parentPos: smallVec, parentRot: unitQuat(), parentScale: scaleGen, childPos: smallVec, childScale: scaleGen)
     => after([spawn(shape: "none", dynamic: false, pos: parentPos, rot: parentRot, scale: parentScale),
@@ -39,14 +34,12 @@ law child_world_rotation_composes {
     }
 }
 
-# Local edits compose: two moves are one move of the sum (children and roots alike).
 law translate_is_additive {
     forall (p: hierProg, k: target, a: offset, b: offset)
     => after(p ++ [move(target: k, delta: a), move(target: k, delta: b)]) { map(entities(), position) } ~=
        after(p ++ [move(target: k, delta: a + b)]) { map(entities(), position) } within 1e-4
 }
 
-# setScale / setRotation read back (the decomposition of the local matrix is faithful), in either order.
 law scale_and_rotation_read_back {
     forall (q: unitQuat(), s: scaleGen, order: bool(), pos: smallVec)
     => after([spawn(shape: "none", dynamic: false, pos: pos)] ++ (if order then [setScale(target: 0, scale: s), setRotation(target: 0, rot: q)] else [setRotation(target: 0, rot: q), setScale(target: 0, scale: s)])) {
@@ -54,7 +47,6 @@ law scale_and_rotation_read_back {
     }
 }
 
-# Rotations that are not unit length are normalised: the stored rotation is the direction of the input.
 law set_rotation_normalises {
     forall (q: nonUnitQuat)
     => after([spawn(shape: "none", dynamic: false), setRotation(target: 0, rot: q)]) {
@@ -62,7 +54,6 @@ law set_rotation_normalises {
     }
 }
 
-# The world matrix of a rotated entity stays orthonormal (times its scale): no drift from repeated rotation edits.
 law repeated_rotation_keeps_basis_orthonormal {
     forall (qs: listOf(nonUnitQuat, 1, 12))
     => after([spawn(shape: "none", dynamic: false)] ++ map(qs, fn(q) => setRotation(target: 0, rot: q)) ++ map(qs, fn(q) => rotateBy(target: 0, axis: vec3(0.3, 0.9, 0.1), degrees: 17))) {
@@ -71,7 +62,6 @@ law repeated_rotation_keeps_basis_orthonormal {
     }
 }
 
-# A degenerate rotation (zero quaternion, NaN-free) must not poison the transform.
 law zero_quaternion_does_not_poison {
     forall (pos: smallVec)
     => after([spawn(shape: "none", dynamic: false, pos: pos), setRotation(target: 0, rot: quat(0, 0, 0, 0)), spawn(shape: "none", dynamic: false, parent: 0)]) {
@@ -79,7 +69,6 @@ law zero_quaternion_does_not_poison {
     }
 }
 
-# Mirrored (negative) scale really mirrors the world axes: the local x axis of the world matrix is s.x * rotated x.
 law negative_scale_mirrors_world_axes {
     forall (s: vec3(float(-3, -0.25), float(0.25, 3), float(0.25, 3)))
     => after([spawn(shape: "none", dynamic: false), setScale(target: 0, scale: s)]) {
@@ -88,7 +77,6 @@ law negative_scale_mirrors_world_axes {
     }
 }
 
-# Zero scale collapses the subtree onto the parent: finite matrices, children at the parent position.
 law zero_scale_collapses_children {
     forall (pos: smallVec, childPos: smallVec, axis: int(0, 2))
     => after([spawn(shape: "none", dynamic: false, pos: pos), spawn(shape: "none", dynamic: false, pos: childPos, parent: 0),
@@ -104,7 +92,6 @@ law all_axes_zero_scale_collapses_to_parent_position {
     }
 }
 
-# Huge and tiny (but finite) scales stay finite and queryable.
 law extreme_scales_stay_finite_and_queryable {
     forall (s: oneof(float(1e3, 1e6), float(1e-6, 1e-3)), pos: smallVec, q: unitQuat(), c: smallVec)
     => after([spawn(shape: "none", dynamic: false, pos: pos, rot: q, scale: vec3(s, s, s), mesh: 1), spawn(shape: "none", dynamic: false, pos: pos, parent: 0, mesh: 1)]) {
@@ -112,7 +99,6 @@ law extreme_scales_stay_finite_and_queryable {
     }
 }
 
-# setWorldPosition places the entity at the requested absolute position, whatever the parent chain looks like.
 law set_world_position_reads_back {
     forall (p: hierProg, k: target, v: smallVec)
     => after(p ++ [setWorldPosition(target: k, pos: v)]) {
@@ -120,7 +106,6 @@ law set_world_position_reads_back {
     }
 }
 
-# setWorldRotation sets the world orientation (non-degenerate hierarchy), and does not move the entity.
 law set_world_rotation_reads_back {
     forall (p: hierProg, k: target, q: unitQuat())
     => after(p) {
@@ -129,7 +114,6 @@ law set_world_rotation_reads_back {
     }
 }
 
-# lookAt makes -Z point at the target.
 law look_at_points_forward_at_target {
     forall (p: hierProg, k: target, at: smallVec)
     => after(p) {
@@ -140,7 +124,6 @@ law look_at_points_forward_at_target {
     }
 }
 
-# rotate about an axis twice equals rotating by the summed angle; position and scale are untouched.
 law rotate_by_composes {
     forall (axis: unitVec3(), a: float(-180, 180), b: float(-180, 180), q: unitQuat(), pos: smallVec, s: scaleGen)
     => after([spawn(shape: "none", dynamic: false, pos: pos, rot: q, scale: s), rotateBy(target: 0, axis: axis, degrees: a), rotateBy(target: 0, axis: axis, degrees: b)]) {
@@ -151,7 +134,6 @@ law rotate_by_composes {
     }
 }
 
-# Bulk position updates (the dirty-all path above 4096 entities) agree with single updates, spatial index included.
 gen batchSize = frequency([[9, int(1, 40)], [1, int(4100, 4200)]])
 law bulk_set_positions_equals_single_updates {
     forall (n: batchSize, d: offset, c: smallVec, r: float(1, 30))

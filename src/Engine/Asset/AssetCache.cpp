@@ -103,7 +103,6 @@ bool readLevel(const char*& cursor, const char* end, Mesh& out) {
     return true;
 }
 
-// Cluster LOD section (format 2): header, clusters, cluster vertices, packed triangles, levels.
 struct ClusterSectionHeader {
     uint64_t clusterCount;
     uint64_t vertexCount;

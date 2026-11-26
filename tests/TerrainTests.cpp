@@ -85,7 +85,6 @@ static void testNoise() {
     CHECK(maximum - minimum > 20.0f);
     CHECK(maximum < 400.0f && minimum > -400.0f);
 
-    // Tiles share edges exactly.
     const auto left = buildTileHeightfield(a, TileKey{0, 0, 0});
     const auto right = buildTileHeightfield(a, TileKey{1, 0, 0});
     bool seamless = true;
@@ -172,7 +171,6 @@ static void testLod() {
     CHECK(!overlap);
     CHECK(nearestLevel == 0);
     CHECK(farLevel >= 3);
-    // No two selected tiles overlap in the plane: pairwise check on a subset grid.
     bool disjoint = true;
     for (size_t i = 0; i < tiles.size() && disjoint; ++i) {
         for (size_t j = i + 1; j < tiles.size(); ++j) {
@@ -185,7 +183,6 @@ static void testLod() {
         }
     }
     CHECK(disjoint);
-    // Every point near the camera is covered by a tile.
     bool covered = true;
     for (int i = -10; i <= 10; ++i) {
         for (int j = -10; j <= 10; ++j) {
@@ -199,7 +196,6 @@ static void testLod() {
     CHECK(covered);
     CHECK(coveredArea(tiles) > 0.0f);
 
-    // Moving the camera far away changes the selection; levels are monotone with distance along a ray.
     const auto moved = selectTerrainTiles(config, camera + glm::vec3(5000.0f, 0.0f, 0.0f), lod);
     CHECK(!moved.empty());
     int previousLevel = -1;
@@ -214,7 +210,6 @@ static void testLod() {
         }
     }
     CHECK(monotone);
-    // A leaf's morph reaches 1 near the range where its parent would take over.
     LodParams fine = lod;
     fine.maxLevel = 0;
     for (const SelectedTile& t : selectTerrainTiles(config, camera, fine)) CHECK(t.key.level == 0 && t.morph == 0.0f);
@@ -266,16 +261,12 @@ static void testMesh() {
     }
     CHECK(unitNormals);
     CHECK(weightsOk);
-    // Skirt is below the surface and bounds include it.
     CHECK(tile.boundsMin.y < position(0).y);
-    // Morph is zero on the coarse lattice.
     CHECK(tile.morph[0] == 0.0f && tile.morph[2] == 0.0f);
 
-    // Vertex heights match the heightfield and the terrain function.
     const glm::vec3 origin = tileOrigin(config, key);
     CHECK(std::abs(position(5).y - terrainHeight(config, origin.x + position(5).x, origin.z + position(5).z)) < 1e-4f);
 
-    // Coarser tiles keep the same vertex count; stride reduces it; flipped winding inverts facing.
     TileMeshOptions coarse;
     coarse.stride = 2;
     coarse.skirts = false;
@@ -295,7 +286,6 @@ static void testMesh() {
         CHECK(glm::cross(pb - pa, pc - pa).y < 0.0f);
     }
 
-    // Splat rules.
     SplatRules rules;
     CHECK(dominantLayer(splatWeights(30.0f, 0.99f, rules)) == TerrainLayer::Grass);
     CHECK(dominantLayer(splatWeights(30.0f, 0.1f, rules)) == TerrainLayer::Rock);
@@ -310,7 +300,6 @@ static void testHeightfieldQueries() {
     CHECK(std::abs(heightfieldHeightAt(*ramp, 10.0f, 7.0f) - 5.0f) < 1e-4f);
     CHECK(std::abs(heightfieldNormalAt(*ramp, 10.0f, 7.0f).y - 1.0f / std::sqrt(1.25f)) < 1e-4f);
 
-    // Raycast agrees with the height function on a noisy field.
     const TerrainConfig config = makeConfig();
     const auto field = buildTileHeightfield(config, TileKey{0, 0, 0});
     Pcg32 rng(5);
@@ -325,7 +314,6 @@ static void testHeightfieldQueries() {
         if (hit && std::abs(top - hit->distance - heightfieldHeightAt(*field, x, z)) < 1e-2f) ++agree;
     }
     CHECK(agree == total);
-    // Oblique rays: the hit point lies on the surface.
     int surfaceHits = 0;
     int obliqueTotal = 0;
     for (int i = 0; i < 200; ++i) {
@@ -342,7 +330,6 @@ static void testHeightfieldQueries() {
     CHECK(!heightfieldRaycast(*field, glm::vec3(10.0f, field->maxHeight + 5.0f, 10.0f), glm::vec3(0.0f, 1.0f, 0.0f), 100.0f).has_value());
     CHECK(!heightfieldRaycast(*field, glm::vec3(10.0f, field->maxHeight + 5.0f, 10.0f), glm::vec3(0.0f, -1.0f, 0.0f), 1.0f).has_value());
 
-    // Sphere contact and sweep on the ramp.
     const auto contact = heightfieldSphereContact(*ramp, glm::vec3(10.0f, 5.2f, 7.0f), 0.5f);
     CHECK(contact.has_value());
     CHECK(contact && contact->depth > 0.0f && contact->normal.y > 0.8f);
@@ -382,7 +369,6 @@ static void testWorldPhysics() {
     const auto overlap = physicsOverlapCapsule(w, glm::vec3(10.0f, 8.0f, 0.0f), glm::vec3(10.0f, 9.5f, 0.0f), 0.35f);
     CHECK(!overlap.empty());
 
-    // Spheres and boxes fall and rest on it.
     EntityDesc d;
     d.position = glm::vec3(10.0f, 20.0f, 0.0f);
     const EntityHandle ball = w.create(d);
@@ -468,7 +454,6 @@ static void testScatter() {
     for (size_t i = 0; i < first.size() && identical; ++i) identical = first[i].position == second[i].position && first[i].scale == second[i].scale && first[i].yaw == second[i].yaw;
     CHECK(identical);
 
-    // Union of the four level-0 children equals the level-1 tile.
     size_t childTotal = 0;
     std::set<std::string> childKeys;
     for (int z = 0; z < 2; ++z) {
@@ -504,7 +489,6 @@ static void testScatter() {
     CHECK(keys.size() == entities.size());
     CHECK(entities[0].desc.mesh == scatter.species[first[0].species].mesh);
 
-    // Biome gating: a species restricted to an empty biome band yields nothing.
     ScatterConfig none = scatter;
     none.species[0].minBiome = 2.0f;
     none.species[0].maxBiome = 3.0f;
@@ -575,7 +559,6 @@ static void testLoader() {
     CHECK(w.aliveCount() == before);
     CHECK(!physicsRaycast(w, glm::vec3(10.0f, 500.0f, 10.0f), glm::vec3(0.0f, -1.0f, 0.0f)).has_value());
 
-    // A worker-thread prepare works too.
     std::shared_ptr<void> async;
     jobs.submit(0, [&] { async = loader.prepare(1); });
     jobs.waitIdle();
@@ -605,7 +588,6 @@ static void testBalanceAndFrustum() {
     const std::vector<SelectedTile> balanced = selectTerrainTiles(config, camera, lod);
     CHECK(balanced.size() >= raw.size());
 
-    // 2:1: sample points just across every edge midpoint, the neighbouring leaf is at most one level apart.
     int violations = 0;
     const auto levelAt = [&](float x, float z) {
         for (const SelectedTile& tile : balanced) {
@@ -627,11 +609,8 @@ static void testBalanceAndFrustum() {
         }
     }
     CHECK(violations == 0);
-    // Without balance the plain distance rule produces a larger jump somewhere in a big enough field.
-    // Full coverage: every point near the camera is covered exactly once.
     CHECK(areaCovered(balanced, config, camera.x, camera.z));
 
-    // Frustum culling keeps tiles in front, drops tiles far behind, keeps tiles near the camera.
     const glm::mat4 view = glm::lookAt(camera, camera + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     const glm::mat4 projection = glm::perspective(glm::radians(60.0f), 16.0f / 9.0f, 0.5f, 3000.0f);
     lod.frustumCull = true;
@@ -680,7 +659,6 @@ static void testStreamer() {
     tree.spacing = 10.0f;
     tree.density = 0.8f;
     tree.minNormalY = 0.7f;
-    // Tiny tetra as the CPU geometry: merged into one mesh per tile and species.
     tree.geometry = std::make_shared<const Mesh>(Mesh(std::vector<float>{0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1}, std::vector<unsigned int>{0, 1, 2, 0, 2, 3, 0, 3, 1}));
     loader.scatter.species.push_back(tree);
     loader.scatterMaxLevel = 1;
@@ -699,11 +677,9 @@ static void testStreamer() {
     streamer.prime(glm::vec3(100.0f, 30.0f, 100.0f), forward, nullptr);
     CHECK(streamer.settled());
     CHECK(streamer.stats().resident > 4);
-    CHECK(*uploads > static_cast<int>(streamer.stats().resident));  // tile meshes plus merged scatter batches
-    // One entity per tile and species at most, not one per instance.
+    CHECK(*uploads > static_cast<int>(streamer.stats().resident));
     CHECK(streamer.stats().entities <= streamer.stats().resident * 2);
     CHECK(streamer.visibleTiles().size() == streamer.wantedTiles().size());
-    // Visible tiles never overlap.
     bool overlap = false;
     const std::vector<TileKey> visible = streamer.visibleTiles();
     for (const TileKey& a : visible) {
@@ -712,7 +688,6 @@ static void testStreamer() {
         }
     }
     CHECK(!overlap);
-    // Move far away: old tiles are evicted after the delay and their GPU meshes released.
     for (int i = 0; i < 400 && released->empty(); ++i) {
         streamer.update(glm::vec3(2500.0f + static_cast<float>(i), 30.0f, 100.0f), forward, nullptr);
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -732,7 +707,7 @@ struct ScatterRig {
     World world;
     DeltaStore deltas{world};
     std::unique_ptr<TerrainTileLoader> loader;
-    std::vector<size_t> batchVertices;  // vertices of every uploaded scatter batch, in upload order
+    std::vector<size_t> batchVertices;
     std::vector<uint32_t> released;
     uint32_t nextMesh = 100;
 
@@ -812,28 +787,25 @@ static void testScatterDeltas() {
     const size_t fullVertices = rig.batchVertices.empty() ? 0 : rig.batchVertices[0];
     const size_t aliveAfterLoad = rig.world.aliveCount();
 
-    // No player change: nothing is stored (also with the streamer hiding/showing the tile).
     rig.loader->setVisible(0, false);
     rig.deltas.captureAll();
     CHECK(rig.deltas.deltaCount() == 0);
     rig.loader->setVisible(0, true);
 
-    // Remove a per-instance tree and a merged one, move another, add an object.
     CHECK(rig.loader->removeScatter(0, 1, static_cast<int32_t>(singles[0].cellX), static_cast<int32_t>(singles[0].cellZ)));
     CHECK(rig.aliveSingles(1) == singles.size() - 1);
     CHECK(rig.loader->removeScatter(0, 0, static_cast<int32_t>(batched[0].cellX), static_cast<int32_t>(batched[0].cellZ)));
     CHECK(rig.batchVertices.size() == 2);
     CHECK(rig.batchVertices.size() == 2 && rig.batchVertices[1] < fullVertices);
-    CHECK(rig.released.size() == 1);  // the old batch mesh was freed
+    CHECK(rig.released.size() == 1);
     const EntityHandle moved = rig.entityOf(singles[1]);
     CHECK(moved != NULL_ENTITY);
     const glm::vec3 movedTo = rig.world.getPosition(moved) + glm::vec3(0.0f, 3.0f, 0.0f);
     rig.world.setPosition(moved, movedTo);
     const EntityHandle placed = rig.world.create("player_post", 3, glm::vec3(10.0f, 20.0f, 30.0f));
     CHECK(rig.loader->trackAdded(0, placed));
-    CHECK(!rig.loader->removeScatter(5, 1, 0, 0));  // not resident
+    CHECK(!rig.loader->removeScatter(5, 1, 0, 0));
 
-    // Unload and reload: the changes persist, nothing else differs.
     rig.unload();
     CHECK(rig.world.aliveCount() == 0);
     CHECK(rig.deltas.deltaCount() == 4);
@@ -851,9 +823,8 @@ static void testScatterDeltas() {
         }
     }
     CHECK(posts == 1);
-    CHECK(rig.world.aliveCount() == aliveAfterLoad);  // one tree and one batch tree fewer, one added object, same entity count (batch is one entity)
+    CHECK(rig.world.aliveCount() == aliveAfterLoad);
 
-    // Unload/reload without further changes is stable (determinism).
     std::set<std::string> first;
     for (const ScatterInstance& i : singles) first.insert(rig.entityOf(i) != NULL_ENTITY ? scatterInstanceKey(rig.scatter(), i) : "");
     rig.unload();
@@ -863,13 +834,12 @@ static void testScatterDeltas() {
     CHECK(first == second);
     CHECK(rig.deltas.deltaCount() == 4);
 
-    // Save, then a fresh process with a different floating origin.
     const Json saved = rig.deltas.toJson();
     ScatterRig other;
     other.world.shiftOrigin(glm::dvec3(4096.0, 0.0, -2048.0));
     std::string error;
     CHECK(other.deltas.fromJson(saved, &error));
-    other.load();  // loaded after the deltas: the worker builds against the stored removals
+    other.load();
     CHECK(other.aliveSingles(1) == singles.size() - 1);
     CHECK(other.entityOf(singles[0]) == NULL_ENTITY);
     CHECK(other.batchVertices.size() == 1 && other.batchVertices[0] == rig.batchVertices[1]);
@@ -883,11 +853,9 @@ static void testScatterDeltas() {
     for (const EntityHandle h : other.deltas.liveEntities(other.cellName())) {
         if (other.world.getName(h) == "player_post") CHECK(glm::length(other.world.toWorld(other.world.getPosition(h)) - glm::dvec3(10.0, 20.0, 30.0)) < 1e-3);
     }
-    // Saving from the shifted session keeps the same set of changes (positions differ only by float rounding at the larger origin).
     other.deltas.captureAll();
     CHECK(other.deltas.deltaCount() == rig.deltas.deltaCount());
 
-    // Deltas loaded while the tile is already resident rebuild the batch in place.
     ScatterRig late;
     late.load();
     CHECK(late.aliveSingles(1) == singles.size());
@@ -901,8 +869,6 @@ static void testScatterDeltas() {
 }
 
 
-// Instanced scatter (docs/Instancing.md): one InstanceBatch entity per tile and species, no merged meshes; removal marks the
-// instance dead (no rebuild), a move updates the instance in place; both survive unload/reload and save/load.
 namespace {
 struct InstancedRig {
     World world;
@@ -967,8 +933,8 @@ static void testInstancedScatter() {
     const auto rocks = rig.instances(1);
     CHECK(trees.size() > 6 && rocks.size() > 6);
     rig.load();
-    CHECK(rig.scatterUploads == 0);  // no merged meshes
-    CHECK(rig.loader->entityCount(0) == 3);  // tile + one batch per species
+    CHECK(rig.scatterUploads == 0);
+    CHECK(rig.loader->entityCount(0) == 3);
     InstanceBatch* treeBatch = rig.batch(0);
     InstanceBatch* rockBatch = rig.batch(1);
     CHECK(treeBatch && rockBatch);
@@ -976,7 +942,6 @@ static void testInstancedScatter() {
     CHECK(treeBatch->mesh == 70 && rockBatch->mesh == 3);
     CHECK(treeBatch->instances.size() == trees.size() && treeBatch->keys.size() == trees.size());
     CHECK(treeBatch->settings.drawDistance == 400.0f);
-    // Instances are relative to the tile origin with the same transform the merged path baked in.
     const glm::vec3 origin = tileOrigin(rig.loader->config().terrain, TileKey{0, 0, 0});
     const auto first = treeBatch->indexOfKey(scatterInstanceId(0, static_cast<int32_t>(trees[0].cellX), static_cast<int32_t>(trees[0].cellZ)));
     CHECK(first.has_value());
@@ -986,13 +951,11 @@ static void testInstancedScatter() {
     rig.deltas.captureAll();
     CHECK(rig.deltas.deltaCount() == 0);
 
-    // Remove: dead flag, nothing rebuilt or uploaded.
     const uint64_t layout = treeBatch->layoutVersion;
     CHECK(rig.loader->removeScatter(0, 0, static_cast<int32_t>(trees[1].cellX), static_cast<int32_t>(trees[1].cellZ)));
     CHECK(treeBatch->aliveCount() == trees.size() - 1);
     CHECK(treeBatch->layoutVersion == layout && treeBatch->dirty());
     CHECK(rig.scatterUploads == 0);
-    // Move a rock: the instance changes in place.
     const glm::vec3 to = rocks[2].position + glm::vec3(0.0f, 4.0f, 0.0f);
     CHECK(rig.loader->moveScatter(0, 1, static_cast<int32_t>(rocks[2].cellX), static_cast<int32_t>(rocks[2].cellZ), to, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), 2.0f));
     CHECK(!rig.loader->moveScatter(0, 1, 9999, 9999, to, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), 1.0f));
@@ -1011,7 +974,6 @@ static void testInstancedScatter() {
     const auto rockAgain = rockBatch->indexOfKey(scatterInstanceId(1, static_cast<int32_t>(rocks[2].cellX), static_cast<int32_t>(rocks[2].cellZ)));
     CHECK(rockAgain && glm::length(rockBatch->instances[*rockAgain].position - (to - origin)) < 1.0e-3f && rockBatch->instances[*rockAgain].scale == 2.0f);
 
-    // Saved deltas loaded while another session's tile is resident: syncDeltas marks the instance dead in place.
     const Json saved = rig.deltas.toJson();
     InstancedRig late;
     late.load();
@@ -1042,7 +1004,7 @@ static void testSharedBudget() {
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
     CHECK(streamer.stats().sharedBudget);
-    CHECK(budget.spent > 0);  // tile commits were charged to the shared budget
+    CHECK(budget.spent > 0);
 
     PortalSystem portals;
     StreamingSystem streaming(portals);

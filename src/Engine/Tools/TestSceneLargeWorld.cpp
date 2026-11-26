@@ -18,11 +18,6 @@ import Engine.Render.material;
 import Engine.Render.settings;
 import Engine.Render.reflection;
 
-// Large-world renderer test scene (docs/LargeWorld.md): content 500 km (configurable) from the world origin, a 4 km flight corridor,
-// distant landmarks at 20 / 50 / 100 km and two overlapping walls 60 m apart at 50 km (depth precision probe). Shared by the registry
-// (`largeworld`: LitShot --testscene largeworld, Editor scene.test.largeworld) and tests/LargeWorldRenderTests.cpp.
-// The optional flight and the scheduled rebase run in the testscene.largeworld system (world delta time), not from the frame loop.
-
 TestSceneShared& testSceneShared(Engine& engine);
 uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material);
 
@@ -31,7 +26,7 @@ namespace {
 struct LargeWorldState {
     LargeWorldConfig config;
     glm::dvec3 start{0.0};
-    glm::dvec3 camera{0.0};  // driven in world coordinates
+    glm::dvec3 camera{0.0};
     bool flying = false;
     int ticks = 0;
 };
@@ -57,7 +52,6 @@ void buildLargeWorld(Engine& engine, const TestSceneKit& kit, const LargeWorldCo
     World& world = engine.world();
     const double originX = config.originKm * 1000.0;
     const double originZ = -0.5 * originX;
-    // Put the origin at the scene before anything exists: floats stay small, world coordinates stay huge.
     engine.rebaseOrigin(glm::dvec3(originX, 0.0, originZ) - engine.worldOrigin());
     if (config.autoRebase) {
         FloatingOriginConfig origin;
@@ -86,7 +80,6 @@ void buildLargeWorld(Engine& engine, const TestSceneKit& kit, const LargeWorldCo
     const uint32_t green = makeMaterial(engine, kit, glm::vec3(0.15f, 0.7f, 0.2f), 0.6f);
     const uint32_t metal = makeMaterial(engine, kit, glm::vec3(0.9f, 0.75f, 0.5f), 0.25f, 1.0f);
 
-    // Checkered ground along the flight corridor (procedural world-space pattern).
     place("ground", cube, ground, base + glm::dvec3(-120.0, -1.0, -150.0), glm::vec3(static_cast<float>(kCorridorLength), 1.0f, 300.0f), kCheckerShader);
     for (double x = -40.0; x < kCorridorLength - 120.0; x += 40.0) {
         const float height = 4.0f + 6.0f * std::fabs(std::sin(static_cast<float>(x) * 0.013f));
@@ -118,8 +111,6 @@ void buildLargeWorld(Engine& engine, const TestSceneKit& kit, const LargeWorldCo
     probeData.halfExtents = glm::vec3(30.0f, 12.0f, 20.0f);
     world.add<ReflectionProbeComponent>(probe, probeData);
 
-    // Landmark at 20 km plus two depth precision probes: at 50 km a red wall 40 m in front of a wide blue wall, at 100 km the same pair 200 m
-    // apart. With standard Z (near 0.1) a 32 bit depth buffer cannot separate either pair; reversed Z can (docs/LargeWorld.md).
     place("landmark 20km", cube, green, base + glm::dvec3(-9000.0, 0.0, -20000.0), glm::vec3(8000.0f, 1800.0f, 600.0f));
     place("wall back 50km", cube, blue, base + glm::dvec3(-30000.0, 0.0, -50080.0), glm::vec3(60000.0f, 8000.0f, 40.0f));
     place("wall front 50km", cube, red, base + glm::dvec3(-10000.0, 0.0, -50000.0), glm::vec3(20000.0f, 12000.0f, 40.0f));
@@ -128,7 +119,7 @@ void buildLargeWorld(Engine& engine, const TestSceneKit& kit, const LargeWorldCo
 
     RenderSettings& settings = engine.renderSettings();
     settings.timeOfDay = 14.5f;
-    settings.cloudSpeed = 0.0f;  // frozen weather, so screenshots before / after a rebase can be compared
+    settings.cloudSpeed = 0.0f;
     settings.clouds = true;
     settings.fog = true;
     settings.reflectionMode = ReflectionMode::WorldSpace;

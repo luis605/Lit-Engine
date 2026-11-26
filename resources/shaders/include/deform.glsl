@@ -1,9 +1,7 @@
-// Procedural deformation shared by skin.comp. Mirrors deformPoint() in Animation/Skin.cpp.
 const uint DEFORM_NONE = 0u;
 const uint DEFORM_WAVE = 1u;
 const uint DEFORM_CLOTH = 2u;
 
-// a = (amplitude, frequency, speed, time), b = (direction.xyz, pinY), c = (pinRange, 0, 0, 0)
 vec3 deformPosition(uint mode, vec4 a, vec4 b, vec4 c, vec3 position, vec3 normal) {
     if (mode != DEFORM_WAVE && mode != DEFORM_CLOTH) return position;
     float directionLength = length(b.xyz);

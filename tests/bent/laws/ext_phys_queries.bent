@@ -1,12 +1,8 @@
-# Physics queries (raycast, sweeps, overlaps) against analytic references and against each other, for every collider kind.
-# References are signed distance fields written in Bent (tests/bent/lib/ext_phys.bent): the first ray hit is where sphere tracing stops,
-# a sphere sweep of radius r is the same trace against shapes inflated by r.
 include "../lib/ext_phys.bent"
 
 fn sceneOf(bodies) = {bodies: bodies}
 fn rayQ(from, d, dist) = {kind: "ray", from: from, dir: d, dist: dist}
 
-# The first hit of a ray is where it enters the union of the colliders: distance equals sphere tracing, a miss means the ray stays clear.
 law px_ray_matches_sdf_reference {
     forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter)
     where sdScene(from, bodies) > 0.05
@@ -18,7 +14,6 @@ law px_ray_matches_sdf_reference {
            and (ref.t == -1.0 and ref.minS > 5e-3 ==> not got.hit))
 }
 
-# A hit normal is a unit vector facing the ray, and the hit point lies on the surface.
 law px_ray_hit_is_on_surface {
     forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter)
     where sdScene(from, bodies) > 0.05
@@ -28,7 +23,6 @@ law px_ray_hit_is_on_surface {
                        and got.distance >= 0 and got.distance <= 60.0 + 1e-3)
 }
 
-# Skipping a collider equals deleting it from the scene (distance and entity), whatever the shape.
 law px_ray_skip_equals_removal {
     forall (bodies: listOf(cAny, 2, 4), from: rayFrom, k: int(0, 3), jit: jitter, s: int(0, 3))
     where sdScene(from, bodies) > 0.05
@@ -40,7 +34,6 @@ law px_ray_skip_equals_removal {
        a.hit == b.hit and (not a.hit or (abs(a.distance - b.distance) < 1e-4 and a.entity != i))
 }
 
-# Moving the whole scene and the ray by the same offset changes nothing (distances within float noise).
 law px_ray_translation_invariant {
     forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter, t: vec3(float(-50, 50), float(-50, 50), float(-50, 50)))
     where sdScene(from, bodies) > 0.05
@@ -52,7 +45,6 @@ law px_ray_translation_invariant {
        ref.minS < 5e-3 or a.hit == b.hit and (not a.hit or abs(a.distance - b.distance) < 5e-3)
 }
 
-# The order the colliders were created in does not change the nearest hit.
 law px_ray_independent_of_body_order {
     forall (bodies: listOf(cAny, 2, 4), from: rayFrom, k: int(0, 3), jit: jitter)
     where sdScene(from, bodies) > 0.05
@@ -62,7 +54,6 @@ law px_ray_independent_of_body_order {
        a.hit == b.hit and (not a.hit or abs(a.distance - b.distance) < 1e-4)
 }
 
-# A sphere sweep of radius r is a ray against the shapes grown by r. Exact for spheres, capsules, planes and compounds of those.
 gen cRound = frequency([[3, cSphere], [3, cCapsule], [1, cPlane]])
 law px_sweep_sphere_matches_inflated_sdf {
     forall (bodies: listOf(cRound, 1, 4), from: rayFrom, k: int(0, 3), jit: jitter, r: float(0.05, 1))
@@ -75,9 +66,6 @@ law px_sweep_sphere_matches_inflated_sdf {
            and (ref.t == -1.0 and ref.minS > 5e-3 ==> not got.hit))
 }
 
-# Boxes are swept as boxes grown by r with square corners (a conservative approximation of the rounded shape): the sweep may stop
-# earlier than the exact answer (the stop position is at most (sqrt 3 - 1) r too far from the box), never later, never inside the
-# rounded shape, and a clear miss stays a miss.
 law px_sweep_sphere_box_is_conservative {
     forall (bodies: listOf(cBox, 1, 3), from: rayFrom, k: int(0, 3), jit: jitter, r: float(0.05, 1))
     where sdScene(from, bodies) > r + 0.05
@@ -91,7 +79,6 @@ law px_sweep_sphere_box_is_conservative {
            and (ref.t == -1.0 and ref.minS > 0.74 * r + 5e-3 ==> not got.hit))
 }
 
-# A fatter sphere never travels further than a thinner one, and none travels further than the ray through its centre.
 law px_sweep_hits_no_later_than_ray {
     forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter, r1: float(0.05, 0.5), r2: float(0.05, 0.5))
     where sdScene(from, bodies) > 1.0
@@ -103,7 +90,6 @@ law px_sweep_hits_no_later_than_ray {
        and (thin.hit ==> (fat.hit and fat.distance <= thin.distance + 2e-3))
 }
 
-# A capsule whose two ends coincide is a sphere.
 law px_sweep_capsule_degenerate_is_sphere {
     forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter, r: float(0.05, 0.8))
     where sdScene(from, bodies) > r + 0.05
@@ -113,7 +99,6 @@ law px_sweep_capsule_degenerate_is_sphere {
        s.hit == c.hit and (not s.hit or abs(s.distance - c.distance) < 2e-3)
 }
 
-# A sweep never skips an overlap: the first sampled position along the path that overlaps a collider is at or after the reported hit.
 law px_sweep_agrees_with_overlap {
     forall (bodies: cBodies, from: rayFrom, k: int(0, 3), jit: jitter, r: float(0.1, 0.8))
     where sdScene(from, bodies) > r + 0.05
@@ -125,7 +110,6 @@ law px_sweep_agrees_with_overlap {
            len(o.contacts) > 0 ==> (hit.hit and hit.distance <= toFloat(i) + 0.02))
 }
 
-# Overlap contacts: a collider is reported exactly when the query shape clearly intersects it, with a unit normal and positive depth.
 law px_overlap_box_matches_reference {
     forall (bodies: listOf(oneof(cSphere, cBox), 1, 4), c: cPos, h: vec3(float(0.2, 2), float(0.2, 2), float(0.2, 2)))
     => let got = pxCast(sceneOf(bodies), {kind: "overlapBox", from: c, half: h}) in
@@ -150,8 +134,6 @@ law px_overlap_capsule_matches_reference {
        and (forall x in got.contacts: unit3(x.normal) and x.depth > 0 - 1e-4)
 }
 
-# ---------------------------------------------------------------- meshes, height fields and hulls: rays against brute force, rotated and scaled
-
 gen bodyXf = {pos: vec3(float(-3, 3), float(-3, 3), float(-3, 3)), rot: unitQuat(), scale: vec3(float(0.5, 2), float(0.5, 2), float(0.5, 2))}
 
 law px_ray_mesh_matches_brute_force {
@@ -164,8 +146,6 @@ law px_ray_mesh_matches_brute_force {
        nearEdge(from, d, all) or grazing(d, all) or (got.hit == (ref >= 0) and (ref < 0 or (abs(got.distance - ref) < 2e-3 and unit3(got.normal) and dot(got.normal, d) < 1e-3)))
 }
 
-# Height fields are one sided terrain: a hit reports the up-facing surface normal (the field's rotated +Y side) whichever side the ray
-# comes from. Rays running along the surface (y = 0 with a flat field) are skipped as degenerate.
 law px_ray_heightfield_matches_brute_force {
     forall (hf: cHeightfield, xf: bodyXf, from: rayFrom, jit: jitter)
     where length(from - xf.pos) > 6 and abs(from.y) > 0.7
@@ -178,8 +158,6 @@ law px_ray_heightfield_matches_brute_force {
        or (got.hit == (ref >= 0) and (ref < 0 or (abs(got.distance - ref) < 2e-3 and unit3(got.normal) and dot(got.normal, rotate(xf.rot, vec3(0, 1, 0))) > 0)))
 }
 
-
-# A convex hull follows the entity's rotation and scale: a hull of a cube is the oriented box with scaled half extents.
 fn orientedBoxRay(o, d, c, rot, half) =
     let q = quat(rot.w, 0 - rot.x, 0 - rot.y, 0 - rot.z) in
     let lo = rotate(q, o - c) in
@@ -203,7 +181,6 @@ law px_ray_hull_is_oriented_box {
        got.hit == (ref > 0) and (ref <= 0 or abs(got.distance - ref) < 5e-3)
 }
 
-# Sweeps against meshes and height fields: never later than the ray through the centre (uniform scale).
 law px_sweep_mesh_hits_no_later_than_ray {
     forall (tris: listOf(triGen, 1, 5), pos: vec3(float(-3, 3), float(-3, 3), float(-3, 3)), rot: unitQuat(), s: float(0.5, 2), from: rayFrom, jit: jitter, r: float(0.05, 0.5))
     where length(from - pos) > 8

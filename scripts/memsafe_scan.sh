@@ -1,13 +1,4 @@
 #!/bin/bash
-# Static memory-safety scan with a ratchet (docs/Bent.md, "Memory safety"). Pattern finder, not a proof.
-#   scripts/memsafe_scan.sh                  fail (exit 1) only on findings that are not in scripts/memsafe_baseline.txt
-#   scripts/memsafe_scan.sh --update-baseline  rewrite the baseline from the current findings
-#   scripts/memsafe_scan.sh --list           print the current findings (file:check, one per occurrence) and a per-check summary
-# Tools: clang++ --analyze (core, cplusplus, security incl. ArrayBound, unix, deadcode), clang++ -W warnings (array-bounds, sign-compare,
-# conversion, ...), and clang-tidy (bugprone, cert, cppcoreguidelines-pro-bounds-*) when installed. Exit 77 when no clang++ exists.
-# Scope: src/Engine/**/*.cpp translation units that do not `import` a project module (clang cannot read GCC's module BMIs, so module
-# consumers are listed as skipped in <out>/skipped.txt). Headers outside src/Engine (vendors, system) are never reported.
-# Env: MEMSAFE_BUILD_DIR (flags source, default build-san, else build-release), MEMSAFE_JOBS (default 2), MEMSAFE_OUT (work dir).
 set -u
 root="$(cd "$(dirname "$0")/.." && pwd)"
 baseline="$root/scripts/memsafe_baseline.txt"
@@ -23,7 +14,6 @@ jobs="${MEMSAFE_JOBS:-2}"
 out="${MEMSAFE_OUT:-${TMPDIR:-/tmp}/memsafe-scan-$USER}"
 rm -rf "$out"; mkdir -p "$out/raw"
 
-# Include/define flags from the build (ninja -t compdb works without CMAKE_EXPORT_COMPILE_COMMANDS); GCC-only flags are dropped.
 ninja -C "$bdir" -t compdb 2>/dev/null | python3 -I -c '
 import json, shlex, sys
 root = sys.argv[1]
@@ -51,7 +41,7 @@ while IFS=$'\t' read -r f flags; do
   else printf '%s\t%s\n' "$f" "$flags" >> "$out/files.txt"; fi
 done < "$out/units.tsv"
 
-scan_one() {  # $1 = line number in files.txt
+scan_one() {
   IFS=$'\t' read -r f flags < <(sed -n "${1}p" "$out/files.txt"); id="$(echo "${f#$root/}" | tr '/' '_')"
   w="-Wall -Wextra -Warray-bounds -Wstringop-overflow -Wsign-compare -Wshift-count-overflow -Wreturn-stack-address -Wdangling -Wuninitialized -Wconversion -Wno-sign-conversion -Wno-shorten-64-to-32 -Wno-implicit-int-float-conversion -Wno-float-conversion -Wno-unused-parameter"
   eval "$clang -std=c++2c -fsyntax-only -fno-color-diagnostics $w $flags \"$f\"" > "$out/raw/$id.warn" 2>&1
@@ -65,7 +55,6 @@ n=$(wc -l < "$out/files.txt")
 echo "memsafe_scan: scanning $n translation units ($(wc -l < "$out/skipped.txt") module consumers skipped), -j$jobs, tidy=${tidy:-none}"
 seq 1 "$n" | xargs -P "$jobs" -I{} bash -c 'scan_one {}'
 
-# Normalise: file:check per occurrence, no line numbers, only src/Engine files, sorted (multiset, so a second occurrence is a new finding).
 cat "$out"/raw/* 2>/dev/null | python3 -I -c '
 import re, sys
 root = sys.argv[1] + "/"

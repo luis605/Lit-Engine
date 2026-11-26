@@ -20,16 +20,6 @@ import Engine.Render.observation;
 
 #include "RendererInternal.hpp"
 
-// GPU instancing (docs/Instancing.md). An InstanceBatch (one mesh, material and surface shader, N compact instances
-// relative to its entity) owns a range of 64-instance cells of one persistent pool. Per visibility phase two compute
-// passes cull it: instance_cells.comp (one thread per pool cell: batch state, frustum / cascade planes / local shadow
-// faces, draw distance, Hi-Z) and instance_cull.comp (one workgroup per accepted cell, one thread per instance: free
-// mask, frustum, fade, Hi-Z, LOD). Survivors are appended to the phase's visible entries and draw-bucket counts like
-// objects, with kInstanceEntryBit in the id, so the existing prefix sum, scatter, command_gen (one instanced indirect draw
-// per shader, mesh and LOD, instance counts on the GPU) and the cluster LOD expansion draw them; the surface vertex
-// shaders compose the batch entity's world matrix with the instance transform. Two-phase occlusion uses one bit per pool
-// slot after the objects' bits in the per-view visibility buffer, so portal views keep their own instance history too.
-
 namespace {
 
 using BufferPtr = Diligent::RefCntAutoPtr<Diligent::IBuffer>;
@@ -43,13 +33,13 @@ enum InstanceMode : int { kModeEarly = 0, kModeRetest = 1, kModeCascade = 2, kMo
 constexpr const char* kModeMacros[kModeCount] = {"INSTANCE_EARLY", "INSTANCE_RETEST", "INSTANCE_CASCADE", "INSTANCE_LOCAL"};
 constexpr uint32_t kCellGroup = 256;
 constexpr uint32_t kStatsGroupWords = 16;
-constexpr uint32_t kStatsGroups = 4;  // early, retest, shadow, other (portal) views
+constexpr uint32_t kStatsGroups = 4;
 constexpr uint32_t kStatsWords = kStatsGroupWords * kStatsGroups;
 constexpr uint32_t kFlagOcclusion = 1;
 constexpr uint32_t kFlagCells = 2;
 constexpr uint32_t kFlagStats = 4;
 constexpr uint32_t kForcedNone = 0xFFFFFFFFu;
-constexpr uint32_t kInitialPoolCells = 1024;  // 64k instances
+constexpr uint32_t kInitialPoolCells = 1024;
 constexpr uint64_t kUploadChunkBytes = 4u << 20;
 constexpr int kStagingFrames = 3;
 
@@ -101,8 +91,8 @@ struct InstancingState {
         uint32_t cellCount = 0;
         uint32_t instanceCount = 0;
         uint32_t alive = 0;
-        std::vector<uint32_t> order;   // pool slot (within the batch) -> instance index
-        std::vector<uint32_t> slotOf;  // instance index -> pool slot (within the batch)
+        std::vector<uint32_t> order;
+        std::vector<uint32_t> slotOf;
         uint64_t layoutVersion = 0;
         uint64_t version = 0;
         glm::vec4 meshSphere{0.0f};
@@ -117,7 +107,6 @@ struct InstancingState {
     uint32_t cellDirtyFirst = 0xFFFFFFFFu;
     uint32_t cellDirtyEnd = 0;
     bool batchesDirty = true;
-    // Pending instance uploads: (first pool slot, records), contiguous.
     std::vector<std::pair<uint32_t, std::vector<InstanceGpu>>> pending;
     uint32_t liveBatches = 0;
     uint32_t liveInstances = 0;
@@ -165,7 +154,6 @@ void MarkCells(InstancingState& state, uint32_t first, uint32_t count) {
     state.cellDirtyEnd = std::max(state.cellDirtyEnd, first + count);
 }
 
-// Packs cells [firstLocal, firstLocal + count) of a batch (pool records and cell bounds) into the pending uploads.
 void PackCells(InstancingState& state, uint32_t batchIndex, const InstanceBatch& data, uint32_t firstLocal, uint32_t count) {
     InstancingState::Batch& batch = state.batches[batchIndex];
     if (count == 0) return;
@@ -173,7 +161,6 @@ void PackCells(InstancingState& state, uint32_t batchIndex, const InstanceBatch&
     const uint32_t endSlot = std::min(batch.instanceCount, (firstLocal + count) * kInstanceCellSize);
     std::vector<InstanceGpu> records(static_cast<size_t>(count) * kInstanceCellSize);
     for (uint32_t slot = firstSlot; slot < endSlot; ++slot) records[slot - firstSlot] = packInstance(data.instances[batch.order[slot]]);
-    // Unused tail slots of the last cell stay dead.
     for (uint32_t slot = std::max(endSlot, firstSlot); slot < (firstLocal + count) * kInstanceCellSize; ++slot) records[slot - firstSlot].packed[3] = InstanceFlags::Dead << 24u;
     state.pending.emplace_back((batch.firstCell + firstLocal) * kInstanceCellSize, std::move(records));
     for (uint32_t cell = firstLocal; cell < firstLocal + count; ++cell) {
@@ -272,7 +259,6 @@ void Renderer::syncInstanceBatch(uint32_t batchIndex, const InstanceBatch& data,
         state.batchesDirty = true;
     } else if (batch.version != data.version) {
         if (data.dirty() && batch.cellCount > 0) {
-            // Cells touched by the dirty range are repacked whole (bounds and records).
             std::vector<uint32_t> touched;
             const uint32_t end = std::min<uint32_t>(data.dirtyEnd, batch.instanceCount);
             for (uint32_t index = data.dirtyFirst; index < end; ++index) touched.push_back(batch.slotOf[index] / kInstanceCellSize);
@@ -371,7 +357,6 @@ void Renderer::uploadInstances() {
     }
     if (state.failed) return;
 
-    // Stats ring: counters of the frame 3 frames back are read without waiting, then the last frame's are copied out.
     if (state.statsFrame != m_frameCounter) {
         const int slot = static_cast<int>(m_frameCounter % kStagingFrames);
         if (state.stagingValid[slot] && state.staging[slot]) {
@@ -397,7 +382,6 @@ void Renderer::uploadInstances() {
 
     state.uploadedBytes = 0;
     bool rebind = false;
-    // Pool: grows by doubling (GPU copy of the old contents), never shrinks.
     const uint32_t neededCells = std::max(state.allocator.highWater(), 1u);
     if (neededCells > state.poolCapacityCells || !state.instanceBuffer) {
         uint32_t capacity = std::max(state.poolCapacityCells, kInitialPoolCells);
@@ -461,7 +445,6 @@ void Renderer::uploadInstances() {
         state.batchesDirty = false;
     }
     if (rebind) {
-        // Surface, shadow and cluster bindings name the pool buffers.
         gpu.pInstanceBuffer = state.instanceBuffer;
         gpu.pInstanceCellBuffer = state.cellBuffer;
         gpu.pInstanceBatchBuffer = state.batchBuffer;

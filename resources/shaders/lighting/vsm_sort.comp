@@ -3,11 +3,6 @@
 #include "vsm_pass.glsl"
 #include "mesh.glsl"
 
-// PREFIX:  single 1024-thread group. Exclusive scan of the per-mesh-LOD instance counts, one
-//          instanced indexed draw command per non-empty bucket (compacted, count in VsmArgs) and the
-//          scatter dispatch size.
-// default: scatter. One thread per instance, placed into its bucket's range.
-
 #ifdef PREFIX
 layout(local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 #else
@@ -15,7 +10,7 @@ layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 #endif
 
 layout(std430) buffer VsmBuckets {
-    uint vsmBuckets[]; // [0, B) counts, [B, 2B) offsets, [2B, 3B) scatter cursors
+    uint vsmBuckets[];
 };
 
 layout(std430) buffer VsmCounters {

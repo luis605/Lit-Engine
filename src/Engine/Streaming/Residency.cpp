@@ -131,7 +131,6 @@ bool ResidencyManager::arrive(const void* owner, StreamBudget& budget) {
     m_arrivals[owner] = m_budgetFrame;
     if (!budget.unlimited) {
         for (const auto& [other, frame] : m_arrivals) {
-            // Active producers (seen this or the previous frame) that have not arrived yet hold the flush back.
             const bool active = frame == m_budgetFrame - 1 && m_budgetFrame != ~0ull;
             if (other != owner && active) return false;
         }
@@ -184,7 +183,6 @@ size_t ResidencyManager::enforceByteBudget() {
         if (!entry.evict || entry.protectedItem || entry.evicting) continue;
         victims.push_back({key, entry.score});
     }
-    // Least important first: highest score; ties by registry order (kind, id) so the result is deterministic.
     std::stable_sort(victims.begin(), victims.end(), [](const Victim& left, const Victim& right) { return left.score > right.score; });
     size_t requested = 0;
     for (const Victim& victim : victims) {
@@ -194,7 +192,6 @@ size_t ResidencyManager::enforceByteBudget() {
         const size_t bytes = found->second.bytes;
         const std::function<bool()> evict = found->second.evict;
         if (!evict()) continue;
-        // The callback may have untracked the entry (immediate release) or only requested the unload.
         found = m_entries.find(victim.key);
         if (found != m_entries.end()) found->second.evicting = true;
         live -= std::min(live, bytes);

@@ -1,14 +1,7 @@
-# World core: the determinism hash (hashWorldState) and the state dump. The hash must change when state changes (so replays catch
-# divergence) and must not change when nothing changes; the dump must expose everything the hash looks at.
 include "../lib/ext_world.bent"
 
-# A scene with one real moving thing so hashes cover physics state too.
 gen hashProg = map([hierSpawn, listOf(frequency([[4, hierEdit], [2, spawnBody], [2, step(n: int(1, 3))]]), 0, 12)], fn(pair) => [pair[0]] ++ pair[1])
 
-# ---------------------------------------------------------------- insensitive to no-ops
-
-# Writing a value that is already there changes neither the hash nor the dump (rotation / scale writes are excluded: they go through
-# a matrix round trip that may move the last float bit, which the dump shows and the quantised hash may or may not absorb).
 law hash_ignores_noop_writes {
     forall (p: hashProg, k: target)
     => after(p) {
@@ -22,13 +15,10 @@ law hash_ignores_noop_writes {
     }
 }
 
-# The dump is a pure function of the state.
 law state_dump_is_deterministic {
     forall (p: hashProg)
     => after(p) { stateDump() } == after(p) { stateDump() }
 }
-
-# ---------------------------------------------------------------- sensitive to every kind of change
 
 fn changes(p, e, edit) = after(p ++ [edit]) { worldHash() } != worldHash()
 fn dumpFollowsHash(p, edit) = let h = after(p) { worldHash() } in let d = after(p) { stateDump() } in
@@ -54,7 +44,6 @@ law hash_changes_when_visibility_flips {
     => after(p) { let e = ref(k) in not alive(e) or (cover("tested", true) and changes(p, e, setVisible(target: k, visible: not visible(e)))) }
 }
 
-# A move of 1 cm or more is always visible in the hash (quantum is 0.1 mm).
 law hash_changes_when_an_entity_moves {
     forall (p: hashProg, k: target, axis: int(0, 2), dist: float(0.01, 5), sign: elements([-1, 1]))
     => after(p) {
@@ -105,8 +94,6 @@ law hash_changes_when_time_passes {
     => after(p) { worldHash() } != after(p ++ [step(n: n)]) { worldHash() }
 }
 
-# Whatever the hash sees, the dump shows: if an edit changes the hash then it changes the dump (the dump is the debugging view of
-# the hashed state, so a hash mismatch can always be explained by diffing dumps).
 law dump_exposes_every_hashed_change {
     forall (p: hashProg, k: target, edit: oneof(setName(target: k, name: "zz"), setTag(target: k, tag: "zz"), setLayer(target: k, layer: 77), setVisible(target: k, visible: false),
                                               move(target: k, delta: vec3(0.5, 0.25, 0.125)), setScale(target: k, scale: vec3(2.5, 0.5, 1.5)), destroy(target: k),

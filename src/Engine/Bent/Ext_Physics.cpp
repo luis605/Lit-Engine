@@ -1,6 +1,3 @@
-// Bent builtins for physics, character controller and portal-aware movement (tests/bent/laws/ext_phys_*.bent, docs/Bent.md).
-// Everything here is a pure function of its arguments: each call builds its own standalone World, so cases stay independent.
-
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -237,7 +234,6 @@ Value allStates(PxWorld& px) {
     return listV(std::move(out));
 }
 
-// pxRun(scene): build a world from `scene.bodies`, run `steps` physics ticks, report.
 Value pxRun(const Value& scene, const SrcLoc& loc) {
     PxWorld px;
     buildScene(px, scene, loc);
@@ -291,7 +287,6 @@ Value hitValue(const std::optional<PhysicsHit>& hit, const std::map<std::pair<ui
     return recV({{"hit", boolV(true)}, {"entity", intV(it == indexOf.end() ? -1 : it->second)}, {"distance", numV(hit->distance)}, {"normal", vecV(hit->normal)}});
 }
 
-// pxCast(scene, query): queries against a freshly built (never stepped) scene.
 Value pxCast(const Value& scene, const Value& query, const SrcLoc& loc) {
     PxWorld px;
     buildScene(px, scene, loc);
@@ -332,7 +327,6 @@ Value pxCast(const Value& scene, const Value& query, const SrcLoc& loc) {
     throw BentError(loc, "pxCast: unknown query kind '" + kind + "'");
 }
 
-// pxChar(scene, spec): drive a CharacterController through a script; one sample per tick.
 Value pxChar(const Value& scene, const Value& specValue, const SrcLoc& loc) {
     PxWorld px;
     buildScene(px, scene, loc);
@@ -341,7 +335,7 @@ Value pxChar(const Value& scene, const Value& specValue, const SrcLoc& loc) {
     PortalSystem& portals = px.portals;
     addPortals(portals, spec.list("portals"), loc);
     CharacterSettings cs;
-    const Value settingsValue = spec.has("settings") ? *spec.get("settings") : Value::unit();  // Rec keeps a reference
+    const Value settingsValue = spec.has("settings") ? *spec.get("settings") : Value::unit();
     const Rec set = rec(settingsValue, loc);
     cs.radius = set.f("radius", cs.radius);
     cs.height = set.f("height", cs.height);
@@ -371,7 +365,6 @@ Value pxChar(const Value& scene, const Value& specValue, const SrcLoc& loc) {
             }
             if (stepWorld) stepPortalPhysics(portals, w, kStep, px.settings);
             ctrl.update(kStep);
-            // Penetration: depth of the deepest overlap of the (slightly shrunk) character box with static colliders.
             const glm::vec3 p = ctrl.position();
             const glm::vec3 half(cs.radius - 0.02f, cs.height * 0.5f - 0.02f, cs.radius - 0.02f);
             const EntityHandle self = ctrl.entity();

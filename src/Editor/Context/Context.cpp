@@ -102,7 +102,6 @@ void updateFlight(EditorContext& ctx, float dt) {
     Camera& camera = ctx.world.camera();
     camera.setPos(flight.from + (flight.to - flight.from) * eased);
     const float yawDelta = std::fmod(flight.toYaw - flight.fromYaw + HALF_TURN_DEGREES + FULL_TURN_DEGREES, FULL_TURN_DEGREES) - HALF_TURN_DEGREES;
-    // Flights are upright (yaw / pitch in the camera's frame): any roll left by a portal crossing goes away.
     camera.setOrientation(flight.fromYaw + yawDelta * eased, flight.fromPitch + (flight.toPitch - flight.fromPitch) * eased);
     if (flight.toOrtho > 0.0f && flight.fromOrtho > 0.0f) camera.setOrthoHeight(flight.fromOrtho + (flight.toOrtho - flight.fromOrtho) * eased);
     if (flight.t < 1.0f) return;

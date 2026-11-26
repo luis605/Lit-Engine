@@ -15,7 +15,7 @@ enum class CaseStatus : uint8_t { Pass, Fail, Discard, Error };
 struct CaseOutcome {
     CaseStatus status = CaseStatus::Pass;
     std::string message;
-    std::vector<uint64_t> tape;  // choices actually consumed
+    std::vector<uint64_t> tape;
     std::vector<TapeSpan> spans;
     NamedArgs bindings;
     std::vector<std::string> notes;
@@ -23,36 +23,33 @@ struct CaseOutcome {
     double millis = 0.0;
 };
 
-// Deterministic per-case seed and size: case k of law L under seed S is always the same tape.
 [[nodiscard]] uint64_t caseSeed(uint64_t seed, const std::string& law, int64_t caseIndex);
 [[nodiscard]] double caseSize(int64_t caseIndex);
 
-// Runs one case of a law from a tape (random or replayed).
 [[nodiscard]] CaseOutcome runCase(const Program& program, const LawDecl& law, Tape& tape, bool explain, double timeLimitSeconds);
-// Runs a law on explicit bindings (examples / regressions).
 [[nodiscard]] CaseOutcome runExample(const Program& program, const ExampleDecl& example, bool explain, double timeLimitSeconds);
 
 struct CheckOptions {
     int64_t cases = 100;
     uint64_t seed = 1;
-    double timeBudget = 0.0;  // seconds for all selected laws together, 0: unlimited
-    int jobs = 0;             // 0: hardware threads
+    double timeBudget = 0.0;
+    int jobs = 0;
     std::vector<std::string> lawFilter;
     bool shrink = true;
-    int64_t shrinkLimit = 4000;    // attempts
-    double shrinkSeconds = 180.0;  // per failing law
-    bool isolate = false;          // fork a process per case (crash and hang safe)
-    bool coverage = false;         // print the cover(label, cond) statistics of every law
-    double caseTimeout = 120.0;    // seconds per case
-    std::string regressionDir;     // write <law>-<hash>.bent here when non-empty
-    std::string commandLine;       // recorded in regression headers
+    int64_t shrinkLimit = 4000;
+    double shrinkSeconds = 180.0;
+    bool isolate = false;
+    bool coverage = false;
+    double caseTimeout = 120.0;
+    std::string regressionDir;
+    std::string commandLine;
     std::function<void(const std::string&)> progress;
 };
 
 struct LawReport {
     std::string law;
     std::string file;
-    std::string status;  // pass, fail, error, gave-up
+    std::string status;
     int64_t cases = 0;
     int64_t passed = 0;
     int64_t discards = 0;
@@ -62,10 +59,10 @@ struct LawReport {
     CaseOutcome shrunk;
     int64_t shrinkAttempts = 0;
     int64_t shrinkAccepted = 0;
-    std::string counterexample;  // runnable .bent text
+    std::string counterexample;
     std::string regressionPath;
     double seconds = 0.0;
-    std::vector<std::pair<std::string, std::pair<int64_t, int64_t>>> cover;  // label -> (cases that hit it, cases that evaluated it)
+    std::vector<std::pair<std::string, std::pair<int64_t, int64_t>>> cover;
     bool showCover = false;
 };
 
@@ -76,7 +73,6 @@ struct ExampleReport {
     bool known = false;
     std::string reason;
     CaseOutcome outcome;
-    // pass: holds; known-fail: known and still failing (expected); fixed: known but passes now; fail: unexpected failure.
     std::string verdict;
 };
 
@@ -91,9 +87,7 @@ struct ExampleReport {
 [[nodiscard]] std::string reportsJson(const std::vector<LawReport>& laws, const std::vector<ExampleReport>& examples, const CheckOptions& options);
 [[nodiscard]] std::string jsonEscape(const std::string& text);
 
-// Installs SIGSEGV/SIGABRT/SIGFPE handlers that name the law and case being run on the crashing thread.
 void installCrashReporter();
-// Isolated cases that die: append the sanitizer log written to <prefix>.<child pid> to the failure message (memsafe mode).
 void setSanitizerLogPrefix(const std::string& prefix);
 
 }

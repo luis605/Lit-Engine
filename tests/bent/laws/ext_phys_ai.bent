@@ -1,12 +1,7 @@
-# AI (docs/AI.md): behaviour trees, utility selection with decision traces, finite state machines and blackboards, against reference
-# models written in Bent. aiRun(graphJsonText, {ticks, dt, seed, bb, fsm}) builds a BehaviorRunner with deterministic test actions:
-# ok (success), bad (failure), inc (count += 1), flip (flag toggles), rand (r = uniform(); success when r < 0.5).
 include "../lib/ext_phys.bent"
 
 fn graph(root) = jsonDump({name: "g", root: root})
 fn run(root, spec) = aiRun(graph(root), spec)
-
-# ---------------------------------------------------------------- stateless trees against a reference interpreter
 
 gen aCmpOp = elements(["<", "<=", ">", ">=", "==", "!="])
 gen aLeaf = frequency([
@@ -44,7 +39,6 @@ fn ev(n, c) =
 fn model(tree, c, ticks) = if ticks == 0 then {statuses: [], c: c} else (
     let r = ev(tree, c) in let rest = model(tree, r.c, ticks - 1) in {statuses: [r.s] ++ rest.statuses, c: rest.c})
 
-# Trees without running nodes: statuses tick by tick and the final blackboard counter equal the reference interpreter's.
 law ai_tree_matches_reference_interpreter {
     forall (tree: aTree, c0: int(0, 4), ticks: int(1, 6))
     => let r = run(tree, {ticks: ticks, bb: {count: c0}}) in
@@ -52,7 +46,6 @@ law ai_tree_matches_reference_interpreter {
        r.ok and r.statuses == m.statuses and r.count == m.c and r.tickCount == ticks
 }
 
-# The same graph, seed and blackboard always produce the same statuses, trace, blackboard and state hash (random actions included).
 gen rLeaf = frequency([[3, {type: "action", action: "rand"}], [2, {type: "action", action: "inc"}], [1, {type: "action", action: "flip"}], [1, {type: "action", action: "bad"}]])
 gen rTree = frequency([[2, rLeaf], [3, composite(frequency([[2, rLeaf], [2, composite(rLeaf)]]))]])
 law ai_run_is_deterministic {
@@ -61,7 +54,6 @@ law ai_run_is_deterministic {
        run(tree, spec) == run(tree, spec)
 }
 
-# Random actions really consume the seeded stream: different seeds give different outcomes on some run (the law fails if rand were constant).
 law ai_seed_drives_random_actions {
     forall (seed: int(0, 100000))
     => let tree = {type: "selector", children: map(range(8), fn(i) => {type: "sequence", children: [{type: "action", action: "rand"}, {type: "action", action: "inc"}]})} in
@@ -70,15 +62,12 @@ law ai_seed_drives_random_actions {
        a.r >= 0 and a.r < 1 and (a.stateHash != b.stateHash or a.blackboard != b.blackboard or a.statuses != b.statuses or a.count != b.count or a.r != b.r)
 }
 
-# ---------------------------------------------------------------- blackboards
-
 gen bbWrite = {key: elements(["a", "b", "c"]), kind: elements(["set", "add", "copy"]), v: float(-5, 5), from: elements(["a", "b", "c"])}
 fn writeNode(w) =
     if w.kind == "set" then {type: "set", key: w.key, value: w.v}
     else if w.kind == "add" then {type: "set", key: w.key, add: w.v}
     else {type: "set", key: w.key, value: {key: w.from}}
 
-# Blackboard writes (set, add, copy-from-key) behave like a record update, and survive a JSON round trip of the whole blackboard.
 law ai_blackboard_writes_match_model {
     forall (writes: listOf(bbWrite, 0, 8), a0: float(-3, 3))
     => let r = run({type: "sequence", children: map(writes, writeNode) ++ [{type: "action", action: "ok"}]}, {ticks: 1, bb: {a: a0}}) in
@@ -90,8 +79,6 @@ fn modelWrite(bb, w) =
     let cur = get(bb, w.key, 0.0) in
     let upd = if w.kind == "set" then w.v else if w.kind == "add" then cur + w.v else (if has(bb, w.from) then bb[w.from] else cur) in
     if w.kind == "copy" and not has(bb, w.from) then bb else fromPairs(map(dedup(keys(bb) ++ [w.key]), fn(kk) => [kk, if kk == w.key then upd else bb[kk]]))
-
-# ---------------------------------------------------------------- utility selection and its decision trace
 
 gen uCons = {input: elements(["x", "y"]), min: float(-1, 1), max: float(2, 6)}
 gen uOption = {weight: float(0.2, 2), considerations: listOf(uCons, 0, 3), gate: elements([0, 1])}
@@ -106,8 +93,6 @@ fn combined(mode, cs, bb) =
         else (let p = fold(vs, 1.0, fn(a, v) => a * v) in if n > 1 then p + (1.0 - p) * (1.0 - 1.0 / n) * p else p))
 fn optionScore(mode, o, bb) = if o.gate == 0 and bb.g <= 0.5 then -1.0 else combined(mode, o.considerations, bb) * o.weight
 
-# The traced option scores equal an independent evaluation of the considerations (linear curves, every combine mode), and the winner is
-# an available option with the highest score.
 law ai_utility_trace_matches_reference_scores {
     forall (mode: elements(["product", "min", "max", "average", "sum"]), options: listOf(uOption, 1, 4), x: float(-2, 7), y: float(-2, 7), g: float(0, 1))
     => let tree = {type: "utility", name: "u", select: "best", combine: mode, options: map(enumerate(options), fn(e) => (
@@ -125,7 +110,6 @@ law ai_utility_trace_matches_reference_scores {
             else (let w = filter(ev0.options, fn(o) => o.name == ev0.winner) in len(w) == 1 and w[0].available and w[0].score >= maxOf(map(filter(ev0.options, fn(o) => o.available), fn(o) => o.score)) - 1e-9))
 }
 
-# minScore: when every option scores below it the utility node fails and no option wins.
 law ai_utility_min_score_fails_when_nothing_qualifies {
     forall (x: float(-1, 0.4), floor: float(0.6, 1))
     => let tree = {type: "utility", name: "u", select: "best", minScore: floor, options: [
@@ -134,8 +118,6 @@ law ai_utility_min_score_fails_when_nothing_qualifies {
        let r = run(tree, {ticks: 2, bb: {x: x}}) in
        r.statuses == ["failure", "failure"] and forall e in r.events: e.kind != "utility" or e.winner == ""
 }
-
-# ---------------------------------------------------------------- finite state machines
 
 gen fsmTransition = {to: int(0, 3), at: int(0, 8), op: elements([">=", ">"])}
 gen fsmStates = listOf(listOf(fsmTransition, 0, 2), 2, 4)
@@ -149,14 +131,12 @@ fn fsmModel(states, cur, c, ticks) = if ticks == 0 then [] else (
     let next = if f < 0 then cur else f in
     [fsmName(next)] ++ fsmModel(states, next, c + 1, ticks - 1))
 
-# The FSM node follows its transition table: first matching transition of the current state, evaluated before the state runs.
 law ai_fsm_follows_transition_table {
     forall (states: fsmStates, initial: int(0, 3), ticks: int(1, 14))
     => let r = run(fsmNode(states, initial), {ticks: ticks, fsm: "m", bb: {count: 0}}) in
        r.ok and r.states == fsmModel(states, initial % len(states), 0, ticks) and r.statuses == repeat("running", ticks)
 }
 
-# Every FSM transition in the decision trace names a real state and happened on the tick the model says it did.
 law ai_fsm_trace_matches_states {
     forall (states: fsmStates, initial: int(0, 3), ticks: int(1, 14))
     => let r = run(fsmNode(states, initial), {ticks: ticks, fsm: "m", bb: {count: 0}}) in

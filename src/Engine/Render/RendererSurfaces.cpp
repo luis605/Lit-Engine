@@ -75,7 +75,6 @@ void ConfigureTargets(Diligent::GraphicsPipelineDesc& pipeline, SurfaceKind kind
     }
 }
 
-// Immutable samplers of the bindless variant: the table replaces u_colorTextures / u_dataTextures.
 std::vector<litgpu::NamedSampler> BindlessSurfaceSamplers() {
     return {{litgpu::kBindlessTableName, litgpu::anisotropicWrap()}, {"u_prefilteredEnv", litgpu::linearClamp()}, {"u_dfgLut", litgpu::linearClamp()}, {"u_shadowMap", litgpu::shadowCompare()}, {"u_shadowDepth", litgpu::pointClamp()}, {"u_localShadowMap", litgpu::shadowCompare()}, {"u_sceneColor", litgpu::linearClamp()}};
 }
@@ -121,7 +120,6 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
     pipeline.RasterizerDesc.FrontCounterClockwise = true;
     pipeline.DepthStencilDesc.DepthEnable = true;
     pipeline.DepthStencilDesc.DepthWriteEnable = kind != SurfaceKind::Forward;
-    // Scene depth is reversed Z (clear 0, nearer = larger); cascade and local shadow maps keep standard Z (clear 1).
     pipeline.DepthStencilDesc.DepthFunc = kind == SurfaceKind::Shadow ? Diligent::COMPARISON_FUNC_LESS_EQUAL : Diligent::COMPARISON_FUNC_GREATER_EQUAL;
     ConfigureTargets(pipeline, kind);
     createInfo.pVS = vertexShader;
@@ -137,7 +135,6 @@ Diligent::RefCntAutoPtr<Diligent::IPipelineState> BuildSurfacePso(DiligentData& 
     Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature> signature;
     Diligent::IPipelineResourceSignature* signatures[1] = {};
     if (bindless && kind != SurfaceKind::Shadow) {
-        // The texture table is a runtime-sized array: Diligent only accepts it in an explicit signature (docs/RenderGraph.md, Bindless).
         signature = litgpu::makeBindlessSignature(gpu.pDevice, pipelineName + " resources", {vertexShader, pixelShader}, BindlessSurfaceSamplers(), kBindlessTextureCapacity);
         if (!signature) return {};
         signatures[0] = signature;

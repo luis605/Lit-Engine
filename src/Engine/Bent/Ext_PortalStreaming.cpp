@@ -1,6 +1,3 @@
-// Bent builtins for the unified residency manager, the worker pool and the spatial streaming system
-// (tests/bent/laws/ext_portal_stream.bent). Standalone objects per call; no Engine.
-
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -60,7 +57,6 @@ ResidencyDemand demandOf(const Value& value, const SrcLoc& loc) {
 }
 
 void registerResidency(Program& p) {
-    // Priority metric: xrScore(config, demand, velocity) with the velocity of space 0 and 1 set to `velocity`.
     reg(p, "xrScore", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 3, loc, "xrScore");
         ResidencyManager manager(1, configOf(a[0], loc));
@@ -73,7 +69,6 @@ void registerResidency(Program& p) {
         return intV(ResidencyManager::poolPriority(static_cast<float>(argNumber(a[0], loc, "score"))));
     });
 
-    // Byte budget: track items {kind, id, bytes, score, protected, evictable, immediate}, enforce, report who was evicted in order.
     reg(p, "xrEvict", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 2, loc, "xrEvict");
         ResidencyManager manager(1, configOf(a[0], loc));
@@ -112,8 +107,6 @@ void registerResidency(Program& p) {
         return recV({{"evicted", listV(std::move(evictedList))}, {"calls", listV(std::move(callList))}, {"before", intV(static_cast<int64_t>(before))}, {"after", intV(static_cast<int64_t>(after))}, {"requested", intV(static_cast<int64_t>(requested))}, {"again", intV(static_cast<int64_t>(again))}, {"memoryEvictions", intV(static_cast<int64_t>(manager.stats().memoryEvictions))}});
     });
 
-    // Commit queue: tasks {kind, score, cost} are offered, then flushed under a byte budget. Reports the order, the bytes spent before
-    // each task started, and how many were deferred.
     reg(p, "xrFlush", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 2, loc, "xrFlush");
         ResidencyManager manager(1, ResidencyConfig{});
@@ -144,7 +137,6 @@ void registerResidency(Program& p) {
         return recV({{"ran", intV(static_cast<int64_t>(ran))}, {"order", listV(std::move(orderList))}, {"spentBefore", listV(std::move(spentList))}, {"spent", intV(static_cast<int64_t>(budget.spent))}, {"deferred", intV(static_cast<int64_t>(manager.stats().commitsDeferred))}});
     });
 
-    // One worker, a blocker job holds it while jobs {priority, cancel} queue up; then everything runs.
     reg(p, "xrJobs", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 1, loc, "xrJobs");
         const ValueList& jobs = argList(a[0], loc, "jobs");
@@ -182,11 +174,9 @@ void registerResidency(Program& p) {
     });
 }
 
-// ---------------------------------------------------------------- spatial streaming system
-
 struct StreamEvents {
     std::mutex mutex;
-    std::vector<std::pair<std::string, int>> events;  // main thread events in order: commit / unload / evicting
+    std::vector<std::pair<std::string, int>> events;
     std::map<int, int> prepares;
     uint64_t bytesThisUpdate = 0;
 };
@@ -299,7 +289,6 @@ void registerStreaming(Program& p) {
             std::lock_guard lock(events->mutex);
             eventMarks.push_back(intV(static_cast<int64_t>(events->events.size())));
         }
-        // Settle at the final position (non-deterministic mode needs extra frames).
         if (!path.empty()) {
             const glm::vec3 last = vec3Of(path.back(), loc, "path");
             for (int i = 0; i < 4000 && !streaming.settled(); ++i) {
@@ -352,7 +341,6 @@ void registerStreaming(Program& p) {
                      {"pendingCells", intV(stats.pendingCells)}});
     });
 
-    // Graph distances (portal hops) of a random portal graph: cells 0..n-1, pairs {cellA, cellB}.
     reg(p, "xsGraph", [](const ValueList& a, const SrcLoc& loc) {
         checkArity(a, 3, loc, "xsGraph");
         const int cells = static_cast<int>(argInt(a[0], loc, "cells"));

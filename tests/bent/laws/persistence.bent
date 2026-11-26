@@ -1,50 +1,37 @@
-# Save / load, snapshots, the save system and delta capture: round trips are identities.
 include "../lib/prelude.bent"
 
-# Note: the world hash itself is NOT preserved by save / load, by design: World::clear bumps the generation base so handles
-# from before the load can never alias new entities (bent found this as `generation 0 <> 1`); hence content hashes below.
-
-# Content (names, transforms, components; independent of slots) survives a save / load round trip.
 law save_load_preserves_content {
     forall (p: program)
     => after(p) { contentHash() } == after(p ++ [saveLoad()]) { contentHash() }
 }
 
-# A loaded scene simulates exactly like the original: save / load must not lose precision or state.
 law save_load_then_simulate {
     forall (p: program, n: int(1, 60))
     => after(p ++ [step(n: n)]) { contentHash() } == after(p ++ [saveLoad(), step(n: n)]) { contentHash() }
 }
 
-# q only edits the world: engine settings such as gravity are not world state and are rightly not part of a snapshot (bent's
-# first counterexample for snapshot_then_simulate_content was q = [gravity(g: vec3(0, 0, 0))]).
 gen worldEdits = listOf(frequency([[6, spawnAny], [6, editAction], [3, structuralAction], [5, stepAction]]), 0, 25)
 
-# Restoring a snapshot undoes everything done after it.
 law snapshot_restore_identity {
     forall (p: program, q: worldEdits)
     => after(p) { worldHash() } == after(p ++ [snapshot(slot: 0)] ++ q ++ [restore(slot: 0)]) { worldHash() }
 }
 
-# Text snapshots restore the content (slots may be renumbered).
 law snapshot_text_identity {
     forall (p: program, q: worldEdits)
     => after(p) { contentHash() } == after(p ++ [snapshotText(slot: 0)] ++ q ++ [restoreText(slot: 0)]) { contentHash() }
 }
 
-# A restored snapshot keeps simulating like the original.
 law snapshot_then_simulate {
     forall (p: program, q: worldEdits, n: int(1, 60))
     => after(p ++ [step(n: n)]) { worldHash() } == after(p ++ [snapshot(slot: 0)] ++ q ++ [restore(slot: 0), step(n: n)]) { worldHash() }
 }
 
-# Entity content after restoring a snapshot simulates like the original (world time is not part of a snapshot, see above).
 law snapshot_then_simulate_content {
     forall (p: program, q: worldEdits, n: int(1, 60))
     => after(p ++ [step(n: n)]) { contentHash() } == after(p ++ [snapshot(slot: 0)] ++ q ++ [restore(slot: 0), step(n: n)]) { contentHash() }
 }
 
-# SaveSystem capture() followed by apply() is an identity on content.
 law save_system_roundtrip {
     forall (p: program)
     => after(p) { contentHash() } == after(p ++ [saveRoundtrip()]) { contentHash() }
@@ -52,21 +39,18 @@ law save_system_roundtrip {
 
 gen deltaEdit = frequency([[4, editAction], [2, destroy(target: target)], [1, stepAction]])
 
-# Capturing the changes of a cell, writing them to JSON, reading them back and re-applying them reproduces the edited world.
 law delta_roundtrip {
     forall (base: spawns, edits: listOf(deltaEdit, 0, 12))
     => let edited = base ++ [deltaTrack(cell: "c")] ++ edits ++ [deltaCapture(cell: "c")] in
        after(edited) { contentHash() } == after(edited ++ [deltaReload(), deltaApply(cell: "c")]) { contentHash() }
 }
 
-# toJson is a fixpoint of fromJson.
 law delta_json_fixpoint {
     forall (base: spawns, edits: listOf(deltaEdit, 0, 12))
     => let edited = base ++ [deltaTrack(cell: "c")] ++ edits ++ [deltaCapture(cell: "c")] in
        after(edited) { deltaJson() } == after(edited ++ [deltaReload()]) { deltaJson() }
 }
 
-# Capturing an untouched cell records no deltas.
 law delta_untouched_is_empty {
     forall (base: spawns, n: int(0, 3))
     => after(base ++ [deltaTrack(cell: "c"), deltaCapture(cell: "c")]) { deltaCount() == 0 }

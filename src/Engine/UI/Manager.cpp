@@ -182,4 +182,3 @@ void UIManager::render() {
         uiData->context->Draw(drawAttribs);
     }
 }
-

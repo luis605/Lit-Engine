@@ -77,7 +77,6 @@ int defaultJobs(int jobs) {
 std::string errorClass(const CaseOutcome& outcome) {
     if (outcome.status != CaseStatus::Error) return {};
     std::string out;
-    // Skip the location prefix and digits so that "same failure" survives shrinking.
     std::string message = outcome.message;
     const size_t colon = message.find(": ");
     if (colon != std::string::npos && colon < 120 && message.rfind(".bent", colon) != std::string::npos) message = message.substr(colon + 2);
@@ -98,8 +97,6 @@ bool shortlexLess(const std::vector<uint64_t>& a, const std::vector<uint64_t>& b
     if (a.size() != b.size()) return a.size() < b.size();
     return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
 }
-
-// ---------------------------------------------------------------- process isolation
 
 void writeAll(int fd, const void* data, size_t size) {
     const char* bytes = static_cast<const char*>(data);
@@ -172,7 +169,7 @@ struct Reader {
 
 std::string gSanitizerLogPrefix;
 
-// Sanitizer reports of a dead child land in <prefix>.<pid> (ASAN_OPTIONS/UBSAN_OPTIONS log_path); the first lines name the bug.
+// sanitizer reports of a dead child land in <prefix>.<pid> (ASAN_OPTIONS/UBSAN_OPTIONS log_path).
 std::string sanitizerReport(pid_t pid) {
     if (gSanitizerLogPrefix.empty()) return {};
     const std::string path = gSanitizerLogPrefix + "." + std::to_string(pid);
@@ -222,7 +219,6 @@ CaseOutcome decodeChild(const std::string& data, int waitStatus, bool timedOut, 
     return outcome;
 }
 
-// Runs fn(index) for each job in a forked child, at most `parallel` at a time. The parent is single threaded while forking.
 void runForked(size_t count, int parallel, double timeout, const std::function<CaseOutcome(size_t, const std::function<void(const Tape&)>&)>& fn,
                const std::function<bool(size_t, CaseOutcome&&)>& done) {
     struct Child {
@@ -296,8 +292,6 @@ void runForked(size_t count, int parallel, double timeout, const std::function<C
         }
     }
 }
-
-// ---------------------------------------------------------------- case evaluation
 
 CaseOutcome evaluateLaw(const Program& program, const LawDecl& law, Interp& in, const std::function<EnvPtr(Interp&, NamedArgs&)>& bindVars,
                         const std::function<void()>& generated, Clock::time_point start) {
@@ -388,7 +382,7 @@ CaseOutcome runExample(const Program& program, const ExampleDecl& example, bool 
     in.explain = explain;
     if (timeLimit > 0.0) in.deadline = start + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(timeLimit));
     Tape tape = Tape::replay({});
-    in.tape = &tape;  // generators used inside the property read the all-zero tape (simplest values)
+    in.tape = &tape;
     return evaluateLaw(
         program, *law, in,
         [&](Interp& interp, NamedArgs& bindings) {
@@ -421,8 +415,6 @@ std::vector<const LawDecl*> selectLaws(const Program& program, const std::vector
     return out;
 }
 
-// ---------------------------------------------------------------- shrinking
-
 namespace {
 
 class Shrinker {
@@ -432,7 +424,7 @@ class Shrinker {
     Shrinker(CaseOutcome initial, Test test, int64_t limit, double seconds) : m_best(std::move(initial)), m_test(std::move(test)), m_limit(limit), m_seconds(seconds), m_start(Clock::now()) {}
 
     void run() {
-        tryCandidates({std::vector<uint64_t>{}});  // the all-simplest case first
+        tryCandidates({std::vector<uint64_t>{}});
         bool progress = true;
         while (progress && !exhausted()) {
             progress = false;
@@ -458,7 +450,6 @@ class Shrinker {
 
     bool exhausted() const { return m_attempts >= m_limit || secondsSince(m_start) > m_seconds; }
 
-    // Evaluates candidates in order (in parallel batches); accepts the first one that still fails the same way and is smaller.
     bool tryCandidates(std::vector<std::vector<uint64_t>> candidates) {
         std::erase_if(candidates, [&](const auto& c) { return !shortlexLess(c, m_best.tape); });
         if (candidates.empty() || exhausted()) return false;
@@ -476,7 +467,6 @@ class Shrinker {
         return false;
     }
 
-    // Batches candidate generation so a pass restarts from the improved tape after every success.
     template <typename Make>
     bool pass(Make&& make, size_t batch) {
         bool any = false;
@@ -493,7 +483,7 @@ class Shrinker {
             if (candidates.empty()) break;
             if (tryCandidates(candidates)) {
                 any = true;
-                continue;  // same cursor: indices refer to the new tape
+                continue;
             }
             cursor = scanned;
         }
@@ -507,7 +497,6 @@ class Shrinker {
                 for (const TapeSpan& span : m_best.spans) {
                     if (span.listElement) spans.push_back(span);
                 }
-                // Larger elements and later elements first.
                 std::stable_sort(spans.begin(), spans.end(), [](const TapeSpan& a, const TapeSpan& b) { return a.begin > b.begin; });
                 if (index >= spans.size()) return std::nullopt;
                 std::vector<uint64_t> tape = m_best.tape;
@@ -531,7 +520,7 @@ class Shrinker {
                         std::fill(tape.begin() + static_cast<long>(span.begin), tape.begin() + static_cast<long>(span.end), 0);
                         return tape;
                     }
-                    return m_best.tape;  // nothing to zero: filtered as not smaller
+                    return m_best.tape;
                 }
                 return std::nullopt;
             },
@@ -576,7 +565,6 @@ class Shrinker {
             }
             if (tryCandidates(std::move(candidates))) {
                 any = true;
-                // Binary search between the accepted value and the next larger rejected one.
                 if (at < m_best.tape.size()) {
                     uint64_t lo = 0;
                     uint64_t hi = m_best.tape[at];
@@ -651,12 +639,10 @@ void finishFailure(const Program& program, const LawDecl& law, const CheckOption
     } else {
         report.shrunk = report.original;
     }
-    // Final explained replay of the minimal tape (in a child process when isolating, the parent must survive a crash).
     if (options.isolate) {
         CaseOutcome crashed = report.shrunk;
         const std::vector<CaseOutcome> again = evaluateTapes(program, law, {report.shrunk.tape}, size, options);
         if (again.front().status == CaseStatus::Error && (again.front().message.find("crashed") != std::string::npos || again.front().message.find("memory-safety report") != std::string::npos || again.front().message.find("child exited") != std::string::npos)) {
-            // Recover the bindings without running the property: generate only.
             Interp in(program);
             Tape tape = Tape::replay(report.shrunk.tape, size);
             in.tape = &tape;
@@ -790,7 +776,6 @@ LawReport checkLaw(const Program& program, const LawDecl& law, const CheckOption
     }
     for (const auto& [label, counts] : coverage) report.cover.emplace_back(label, counts);
     report.showCover = options.coverage;
-    // Non-vacuity: a cover() label that no case hit means the law never exercised what it claims to check.
     if (report.status == "pass" && report.cases >= 20) {
         for (const auto& [label, counts] : report.cover) {
             if (counts.first == 0) report.status = "vacuous";
@@ -881,8 +866,6 @@ std::vector<ExampleReport> runExamples(const Program& program, const CheckOption
     for (std::thread& t : threads) t.join();
     return out;
 }
-
-// ---------------------------------------------------------------- output
 
 std::string prettyValue(const Value& value, int indent) {
     const std::string flat = print(value);
@@ -1004,8 +987,6 @@ std::string reportsJson(const std::vector<LawReport>& laws, const std::vector<Ex
     out += examples.empty() ? "]\n}\n" : "\n  ]\n}\n";
     return out;
 }
-
-// ---------------------------------------------------------------- crash reporter
 
 namespace {
 void crashHandler(int sig) {

@@ -12,9 +12,6 @@ export module Engine.Skin;
 import Engine.glm;
 import Engine.mesh;
 
-// CPU side of GPU-deformed meshes: skin weights, morph targets, bone palette, conservative bounds and a
-// bit-compatible CPU reference of the skin/morph/deform compute pass (see docs/Skinning.md).
-
 export inline constexpr uint32_t kMaxSkinInfluences = 4;
 export inline constexpr uint32_t kMaxSkinJoints = 256;
 export inline constexpr uint32_t kMaxMorphTargets = 64;
@@ -69,9 +66,6 @@ export struct DynamicMesh {
 
 export enum class DeformMode : uint32_t { None = 0, Wave = 1, Cloth = 2, User = 3 };
 
-// Procedural deformation applied after morph and skin. Wave: travelling sine displacement along the normal
-// and a lateral sway. Cloth: same ripple whose amplitude grows with distance below `pinY` (a hanging cloth
-// pinned at pinY), with a gravity sag. User: runs `userShader` (a compute shader, see docs/Skinning.md).
 export struct DeformSettings {
     DeformMode mode = DeformMode::None;
     float time = 0.0f;
@@ -106,11 +100,9 @@ export [[nodiscard]] size_t normalizeSkinWeights(std::vector<SkinVertex>& skin, 
 export [[nodiscard]] bool validateDynamicMesh(const DynamicMesh& mesh, std::string* error = nullptr);
 export void buildBonePalette(std::span<const glm::mat4> jointModel, std::span<const SkinJoint> joints, std::vector<glm::mat4>& palette);
 export [[nodiscard]] SkinBounds buildSkinBounds(const DynamicMesh& mesh);
-// Conservative bounding sphere (xyz centre, w radius) in mesh-local space for the posed, morphed and deformed mesh.
 export [[nodiscard]] glm::vec4 computeDynamicBounds(const SkinBounds& bounds, std::span<const glm::mat4> palette, std::span<const float> morphWeights, const DeformSettings& deform);
 export [[nodiscard]] float deformReach(const DeformSettings& deform);
 
-// CPU reference of resources/shaders/skin.comp + deform.comp (+ normals.comp when recomputeNormals).
 export void deformMeshCpu(const DynamicMesh& mesh, std::span<const glm::mat4> palette, std::span<const float> morphWeights, const DeformSettings& deform, std::vector<float>& outVertices);
 export void recomputeNormals(std::vector<float>& vertices, const std::vector<unsigned int>& indices);
 export [[nodiscard]] glm::vec3 deformPoint(const DeformSettings& deform, const glm::vec3& position, const glm::vec3& normal);
@@ -121,7 +113,5 @@ export struct CharacterOptions {
     int ringsPerBone = 4;
     bool headMorphs = true;
 };
-// Procedural skinned humanoid: 16 joints, smooth linear-blend weights, ARKit-named head morph targets.
 export [[nodiscard]] DynamicMesh makeProceduralCharacter(const CharacterOptions& options = {});
-// Hanging cloth strip (a flag) as a plain (unskinned) deformable mesh in the XY plane, pinned at its top edge y = 0.
 export [[nodiscard]] DynamicMesh makeClothSheet(float width, float height, int columns, int rows);

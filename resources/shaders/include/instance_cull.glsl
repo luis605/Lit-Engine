@@ -1,12 +1,6 @@
 #ifndef LIT_INSTANCE_CULL_GLSL
 #define LIT_INSTANCE_CULL_GLSL
 
-// Shared by instance_cells.comp (one thread per pool cell) and instance_cull.comp (one workgroup per accepted cell, one
-// thread per instance). Modes (one per pipeline): INSTANCE_EARLY (camera, previous Hi-Z, instances visible last frame),
-// INSTANCE_RETEST (camera, current Hi-Z, the others), INSTANCE_CASCADE (one sun cascade), INSTANCE_LOCAL (a batch of
-// local shadow map views). Camera modes read the view from SceneData, so portal views cull with their own camera,
-// clipped frustum and Hi-Z history.
-
 #include "renderable.glsl"
 #include "scene.glsl"
 #include "mesh.glsl"
@@ -23,7 +17,6 @@ const uint ICULL_STATS = 4u;
 const uint ICULL_FORCED_NONE = 0xFFFFFFFFu;
 const float SHADOW_LOD_SCALE = 0.5;
 
-// Stats words per group (base u_stats.x): cells tested, cells accepted, instances tested, visible, occluded, overflow, per-LOD visible (7).
 const uint ISTAT_CELLS = 0u;
 const uint ISTAT_CELLS_ACCEPTED = 1u;
 const uint ISTAT_TESTED = 2u;
@@ -33,16 +26,16 @@ const uint ISTAT_OVERFLOW = 5u;
 const uint ISTAT_LOD = 6u;
 
 layout(std140) uniform InstanceCullConstants {
-    uvec4 u_counts;  // x pool cells, y visible entry capacity, z opaque shader count, w bucket slots
-    uvec4 u_config;  // x first visibility word of the pool, y forced LOD (ICULL_FORCED_NONE: none), z view buckets, w ICULL_* flags
-    vec4 u_params;   // x LOD bias, y cascade texels per unit, z distance scale, w cell list capacity
+    uvec4 u_counts;
+    uvec4 u_config;
+    vec4 u_params;
     vec4 u_planes[6];
     vec4 u_localSpheres[8];
     vec4 u_localCones[8];
     uvec4 u_localSlots[8];
-    uvec4 u_localInfo;  // x local casters, y first view, z view count
+    uvec4 u_localInfo;
     vec4 u_localOrigins[24];
-    uvec4 u_stats;      // x stats word base
+    uvec4 u_stats;
 };
 
 layout(std430) buffer InstanceStatsBuffer {
@@ -77,7 +70,6 @@ bool insidePlanes(vec3 center, float radius) {
     return true;
 }
 
-// Local shadow faces touched by a sphere (as localMaskFor in cull.comp).
 uint localMaskFor(vec3 center, float radius) {
     uint mask = 0u;
     for (uint i = 0u; i < u_localInfo.x; ++i) {

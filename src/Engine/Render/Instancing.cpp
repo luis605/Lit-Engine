@@ -21,7 +21,7 @@ module Engine.Instancing;
 namespace {
 
 constexpr uint32_t kSeedMask = 0x00FFFFFFu;
-constexpr float kLodDiameterPx[kInstanceLodLevels - 1] = {60.0f, 40.0f, 25.0f, 10.0f, 4.0f, 4.0f};  // mesh.glsl LOD_DIAMETER_PX
+constexpr float kLodDiameterPx[kInstanceLodLevels - 1] = {60.0f, 40.0f, 25.0f, 10.0f, 4.0f, 4.0f};
 
 uint32_t packSnorm16x2(float a, float b) {
     auto one = [](float v) { return static_cast<uint32_t>(static_cast<uint16_t>(static_cast<int16_t>(std::lround(std::clamp(v, -1.0f, 1.0f) * 32767.0f)))); };
@@ -187,7 +187,6 @@ std::vector<uint32_t> instanceSpatialOrder(std::span<const InstanceData> instanc
         high = glm::max(high, instance.position);
     }
     const glm::vec3 extent = glm::max(high - low, glm::vec3(1.0e-6f));
-    // Uniform quantisation over the largest axis keeps cells roughly cubic on flat (xz) distributions.
     const float span = std::max({extent.x, extent.y, extent.z});
     std::vector<uint32_t> codes(instances.size());
     for (size_t i = 0; i < instances.size(); ++i) {
@@ -253,7 +252,6 @@ void InstanceAllocator::free(uint32_t first, uint32_t cells) {
     m_used -= std::min(m_used, cells);
     auto [it, inserted] = m_free.emplace(first, cells);
     if (!inserted) return;
-    // Merge with the following and the preceding range.
     auto next = std::next(it);
     if (next != m_free.end() && it->first + it->second == next->first) {
         it->second += next->second;
@@ -287,7 +285,6 @@ uint32_t instanceLodForDiameter(float diameterPx) {
 }
 
 std::array<glm::vec4, 6> instanceFrustumPlanes(const glm::mat4& m) {
-    // Rows of the (column-major) view-projection; depth range [0, 1] (Vulkan), reversed or not.
     const glm::vec4 r0(m[0][0], m[1][0], m[2][0], m[3][0]);
     const glm::vec4 r1(m[0][1], m[1][1], m[2][1], m[3][1]);
     const glm::vec4 r2(m[0][2], m[1][2], m[2][2], m[3][2]);

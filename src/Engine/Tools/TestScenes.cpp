@@ -127,7 +127,6 @@ constexpr float kTortureViewportHeight = 1080.0f;
 
 }
 
-// Portal scene kit backed by the test scene pools: metallic frame materials and procedural frame meshes (uploaded once per key).
 PortalSceneKit testScenePortalKit(Engine& engine, const TestSceneKit& kit) {
     PortalSceneKit portalKit;
     portalKit.cube = kit.cube;
@@ -150,7 +149,6 @@ PortalSceneKit testScenePortalKit(Engine& engine, const TestSceneKit& kit) {
 
 namespace {
 
-// Static view of the three-room loop (portal_loop): the camera stands in room A looking through the AB portal.
 bool buildLoop(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
     buildPortalScene(engine.portals(), engine.world(), testScenePortalKit(engine, kit), PortalTestScene::Loop);
     info.start = portalSceneStart(PortalTestScene::Loop, info.yaw, info.pitch);
@@ -177,7 +175,6 @@ bool buildTorture(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) 
     Engine* enginePointer = &engine;
     engine.addSystem(Phase::Update, "testscene.torture", [enginePointer, state](World& world, float deltaTime) {
         Camera& camera = world.camera();
-        // Walk along the view's heading in the camera's own up frame (stays level after any crossing).
         const glm::vec3 up = camera.getFrameUp();
         glm::vec3 forward = camera.getFront() - up * glm::dot(camera.getFront(), up);
         forward = glm::length(forward) > 1.0e-4f ? glm::normalize(forward) : camera.getFront();
@@ -487,9 +484,6 @@ bool hasSystem(Engine& engine, Phase phase, const char* name) {
     return false;
 }
 
-// portal_tilt (docs/Portals.md): hub with a wall-to-floor, a ceiling, a 45 degree rolled and a 180 degree flipped portal. The camera
-// stands still unless LIT_TILT_WALK names a portal (floor, ceiling, rolled, flip): then it starts 2.5 m before that portal's hub end
-// looking at its centre and moves along its view direction at 1.5 m/s (Engine::updatePortals crosses and turns the camera upright).
 struct TiltWalk {
     int cell = -1;
     uint32_t crossings = 0;
@@ -503,7 +497,6 @@ bool buildTilt(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
     info.nearPlane = 0.05f;
     info.farPlane = 300.0f;
     info.suggestedTicks = 240;
-    // LIT_PORTAL_SPILL=<scale>: scale the portals' light spill (0 = off), to compare frames with and without it.
     if (const char* spill = std::getenv("LIT_PORTAL_SPILL")) portals.settings().spill = std::strtof(spill, nullptr);
     auto walk = std::make_shared<TiltWalk>();
     if (const char* name = std::getenv("LIT_TILT_WALK")) {
@@ -528,7 +521,6 @@ bool buildTilt(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
         if (walk->cell >= 0 && cell != walk->cell) ++walk->crossings;
         walk->cell = cell;
         if (!walk->active) return;
-        // Along the view: a crossing turns the view with the portal transform, the upright relax only rolls it.
         Camera& camera = world.camera();
         camera.setPos(camera.getPosition() + camera.getFront() * kTiltWalkSpeed * deltaTime);
     });
@@ -545,7 +537,6 @@ bool buildTilt(Engine& engine, const TestSceneKit& kit, TestSceneInfo& info) {
 
 }
 
-// An Engine at a recycled address must not inherit the bookkeeping of a dead one: the marker system lives and dies with the Engine.
 TestSceneShared& testSceneShared(Engine& engine) {
     auto& entry = sharedRegistry()[&engine];
     if (!entry || !hasSystem(engine, Phase::PreUpdate, kStateMarker)) {
@@ -607,14 +598,11 @@ void leaveTestScene(Engine& engine) {
     clearTestSceneSystems(engine);
     engine.removeSystem(kIkDebugSystem);
     engine.portals().clear();
-    // Terrain streamer (terrain scene): stop it and hand every resident tile's GPU meshes back (the renderer has 4096 mesh slots).
     if (TerrainStreamer* terrain = engine.terrain()) {
         engine.removeSystem("terrain");
         TerrainTileLoader& loader = terrain->loader();
         StreamBudget budget;
         budget.unlimited = true;
-        // The streamer numbers its tile cells 1, 2, 3, ... and the loader only releases a tile through its cell id (no key -> cell lookup without
-        // a DeltaStore), so walk the ids until no GPU mesh is left.
         constexpr int kMaxCells = 1 << 16;
         const size_t before = loader.meshCount();
         for (int cell = 1; cell < kMaxCells && loader.meshCount() > 0; ++cell) loader.unload(cell, budget);

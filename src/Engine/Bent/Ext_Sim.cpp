@@ -1,6 +1,3 @@
-// Bent builtins for navigation, AI, animation, skinning, IK, face and audio (tests/bent/laws/ext_phys_*.bent, docs/Bent.md).
-// Every builtin is a pure function of its arguments: it builds the subsystem objects it needs, runs them and returns plain data.
-
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -35,8 +32,6 @@ import Engine.mesh;
 namespace bent::ext {
 
 namespace {
-
-// ---------------------------------------------------------------- navigation
 
 struct NavBox {
     float half = 20.0f;
@@ -87,7 +82,6 @@ Value pathValue(const NavPath& path) {
     return recV({{"found", boolV(path.found)}, {"partial", boolV(path.partial)}, {"points", listV(std::move(points))}, {"links", listV(std::move(links))}, {"length", numV(path.length)}, {"gridCost", numV(path.gridCost)}, {"expansions", intV(path.expansions)}});
 }
 
-// navEval(spec, ops): one mesh, a list of operations, one result per operation.
 Value navEval(const Value& specValue, const Value& opsValue, const SrcLoc& loc) {
     const Rec spec = rec(specValue, loc);
     std::vector<uint32_t> ids;
@@ -141,7 +135,6 @@ const char* stateName(AgentState s) {
     return "?";
 }
 
-// navCrowd(spec, agents, opts): step agents on a mesh; opts {steps, record, crowd, dt}.
 Value navCrowd(const Value& specValue, const Value& agentsValue, const Value& optsValue, const SrcLoc& loc) {
     const Rec spec = rec(specValue, loc);
     const Rec opts = rec(optsValue, loc);
@@ -177,8 +170,6 @@ Value navCrowd(const Value& specValue, const Value& agentsValue, const Value& op
     }
     return recV({{"frames", listV(std::move(frames))}});
 }
-
-// ---------------------------------------------------------------- AI
 
 Status runSlow(AiContext& ctx) {
     const double n = ctx.blackboard.number("slow_n", 0.0) + 1.0;
@@ -255,8 +246,6 @@ Value aiRun(const Value& graphText, const Value& specValue, const SrcLoc& loc) {
                  {"activePath", listV(std::move(path))}});
 }
 
-
-// ---------------------------------------------------------------- skeletons and poses
 
 Skeleton skelOf(const Value& v, const SrcLoc& loc) {
     Skeleton s;
@@ -351,7 +340,6 @@ float matMaxDiff(const glm::mat4& a, const glm::mat4& b) {
 
 glm::vec3 posAt(const std::vector<float>& v, size_t i) { return glm::vec3(v[i * kVertexFloats], v[i * kVertexFloats + 1], v[i * kVertexFloats + 2]); }
 
-// skinCheck(opts, spec): procedural character posed and deformed; returns error metrics against independent references.
 Value skinCheck(const Value& optsValue, const Value& specValue, const SrcLoc& loc) {
     const Rec o = rec(optsValue, loc);
     CharacterOptions options;
@@ -384,7 +372,6 @@ Value skinCheck(const Value& optsValue, const Value& specValue, const SrcLoc& lo
     DeformSettings none;
     std::vector<float> out;
     deformMeshCpu(mesh, palette, morph, none, out);
-    // Reference linear blend skinning.
     float refErr = 0.0f;
     float rigidErr = 0.0f;
     float nanCount = 0.0f;
@@ -407,7 +394,6 @@ Value skinCheck(const Value& optsValue, const Value& specValue, const SrcLoc& lo
         const glm::vec3 got = posAt(out, i);
         if (!std::isfinite(got.x) || !std::isfinite(got.y) || !std::isfinite(got.z)) nanCount += 1.0f;
         else refErr = std::max(refErr, glm::length(got - skinned));
-        // Rigidity: vertices owned by a single joint keep their mutual distances under a rigid pose (no morph).
         if (mesh.skinned() && mesh.skin[i].weights[0] > 0.999f && morph.empty() == false) {
         }
         if (mesh.skinned() && mesh.skin[i].weights[0] > 0.9999f && !s.flag("morph", false)) {
@@ -430,12 +416,10 @@ Value skinCheck(const Value& optsValue, const Value& specValue, const SrcLoc& lo
             for (int rr = 0; rr < 3; ++rr) orthoErr = std::max(orthoErr, std::abs(rtr[c][rr] - (c == rr ? 1.0f : 0.0f)));
         orthoErr = std::max(orthoErr, std::abs(m[3][3] - 1.0f));
     }
-    // Conservative bounds.
     const SkinBounds bounds = buildSkinBounds(mesh);
     const glm::vec4 sphere = computeDynamicBounds(bounds, palette, morph, none);
     float excess = -1.0e30f;
     for (size_t i = 0; i < mesh.vertexCount(); ++i) excess = std::max(excess, glm::length(posAt(out, i) - glm::vec3(sphere)) - sphere.w);
-    // Morph targets are linear (bind palette): out(w) = rest + sum w delta, and out(a w) - rest = a (out(w) - rest).
     float morphErr = 0.0f;
     float morphLinErr = 0.0f;
     {
@@ -514,8 +498,6 @@ Value skinNormalize(const Value& listValue, const Value& jointCount, const SrcLo
     return recV({{"skin", listV(std::move(out))}, {"repaired", intV(static_cast<int64_t>(repaired))}});
 }
 
-// ---------------------------------------------------------------- face
-
 Value faceNames() {
     ValueList out;
     for (const char* n : kArkitBlendshapes) out.push_back(Value::string(n));
@@ -574,8 +556,6 @@ Value faceCombine(const Value& a, const Value& b, const Value& mode, const Value
     else blendshapeAdd(base, layer, static_cast<float>(argNumber(weight, loc, "weight")));
     return weightsV(base);
 }
-
-// ---------------------------------------------------------------- IK
 
 Value ikSolve(const Value& specValue, const SrcLoc& loc) {
     const Rec s = rec(specValue, loc);
@@ -648,8 +628,6 @@ Value skelTwoBone(const Value& skelValue, const Value& chainValue, const Value& 
     const ModelPose after = computeModelPose(skel, pose);
     return recV({{"ok", boolV(ok)}, {"before", modelV(before)}, {"after", modelV(after)}, {"pose", poseV(pose)}});
 }
-
-// ---------------------------------------------------------------- audio
 
 std::shared_ptr<AudioClip> clipFor(const Rec& v) { return AudioClip::sine("tone", v.f("freq", 440.0f), v.f("seconds", 1.0f), v.f("amp", 0.5f), 48000); }
 
@@ -736,7 +714,7 @@ Value audioTrace(const Value& specValue, const SrcLoc& loc) {
     }
     prop.setScene(soup);
     AudioPropagationConfig& cfg = prop.config();
-    const Value configValue = s.has("config") ? *s.get("config") : Value::unit();  // Rec keeps a reference: a ternary temporary would dangle
+    const Value configValue = s.has("config") ? *s.get("config") : Value::unit();
     const Rec c = rec(configValue, loc);
     cfg.maxHops = static_cast<int>(c.integer("maxHops", cfg.maxHops));
     cfg.maxDistance = c.f("maxDistance", cfg.maxDistance);

@@ -1,10 +1,3 @@
-// Terrain surface (docs/Terrain.md): CDLOD-style vertex morphing and splat blending of grass, rock, sand and snow.
-//
-// Per-LOD-level material (engine.enableTerrain fills these):
-//   custom0 = (nodeSize, splitFactor, morphStart, uvScale)   nodeSize < 0: coarsest level, no morph
-//   custom1 = (sandMaxHeight, snowMinHeight, albedo layers, normal layers)
-// Layer ids of engine.loadTexture are packed 6 bits each (grass, rock, sand, snow), 63 = no texture (procedural).
-// Tile meshes carry the morph delta in the normal length (|n| = 1 + delta / 256, TileMeshOptions::packMorph).
 #pragma lit bounds 48.0
 
 const float TERRAIN_MORPH_SCALE = 256.0;
@@ -60,11 +53,9 @@ vec3 terrainTriNormal(uint layer, vec3 p, vec3 n, vec3 w) {
 void surface(in SurfaceInput i, inout Surface s) {
     float uvScale = max(i.custom0.w, 1e-4);
     float ny = clamp(i.geometricNormal.y, 0.0, 1.0);
-    // Object space y is the absolute height (tile entities sit at height 0), uv is baked from world x and z.
     float height = i.objectPosition.y;
     vec4 w = terrainSplat(height, ny, i.custom1.x, i.custom1.y);
 
-    // World-anchored triplanar coordinates (swim free under floating origin) in texture-repeat units.
     vec3 p = vec3(i.uv.x, height * uvScale, i.uv.y);
     vec3 tw = terrainTriWeights(i.geometricNormal);
 
@@ -91,7 +82,6 @@ void surface(in SurfaceInput i, inout Surface s) {
     s.metallic = 0.0;
     s.occlusion = mix(1.0, 0.75 + 0.25 * breakup, w.x + w.y);
 
-    // Normal: texture normal maps when present, procedural bump otherwise (faded with distance to stay alias free).
     float distanceFade = 1.0 - smoothstep(60.0, 400.0, distance(viewPos, i.worldPosition));
     vec3 N = normalize(i.geometricNormal);
     uint nGrass = terrainLayerId(i.custom1.w, 0);

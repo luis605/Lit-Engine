@@ -113,7 +113,6 @@ static void testColorBleedSettings() {
     CHECK(colorBleedUniform(settings).x == 0.0f);
 }
 
-// Small knobs so the stress scenes stay cheap on the CPU-only path.
 static TestSceneParams smallParams() {
     TestSceneParams params;
     params.lightCount = 64;
@@ -124,7 +123,6 @@ static TestSceneParams smallParams() {
     return params;
 }
 
-// Switching scenes on one Engine repeatedly must leave nothing behind: no testscene.* systems, no floating origin, origin back at zero.
 static void testSceneSwitching() {
     Engine engine;
     engine.openHeadless();
@@ -176,7 +174,7 @@ static void testTestScenes() {
         } else if (name == "instancing") {
             CHECK(m.get("instances") > 1.0e6);
             CHECK(m.get("batches") >= 700.0);
-            CHECK(m.get("entities") < 1000.0);  // one entity per batch, not per instance
+            CHECK(m.get("entities") < 1000.0);
         } else if (name == "portal_tilt") {
             CHECK(m.get("cells") == 5.0);
             CHECK(m.get("portals") == 8.0);

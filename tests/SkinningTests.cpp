@@ -86,7 +86,6 @@ void testCharacter() {
         }
         CHECK(nearly(sum, 1.0f));
     }
-    // Inverse bind of the root is the inverse of its bind translation.
     const glm::vec4 hips = mesh.joints[0].inverseBind * glm::vec4(mesh.joints[0].position, 1.0f);
     CHECK(nearly(hips.x, 0.0f) && nearly(hips.y, 0.0f) && nearly(hips.z, 0.0f));
 }
@@ -146,7 +145,6 @@ void testElbowBend() {
     std::vector<float> out;
     DeformSettings none;
     deformMeshCpu(mesh, palette, {}, none, out);
-    // Vertices bound only to the left wrist must move; vertices bound to the right leg must not.
     const int wrist = mesh.findJoint("wristL");
     const int kneeR = mesh.findJoint("kneeR");
     float wristMove = 0.0f;
@@ -186,7 +184,6 @@ void testMorphAndBounds() {
     }
     CHECK(lowestOpen < headRestLow - 0.01f);
 
-    // Conservative bounds: every deformed vertex, over several animated poses, morphs and deform modes, lies inside.
     SkeletalLibrary library;
     const uint32_t walk = library.add(makeWalkClip(skeleton));
     const uint32_t wave = library.add(makeWaveClip(skeleton));
@@ -232,7 +229,6 @@ void testClothNormalsAndDeform() {
         const glm::vec3 n = normal(flat, i);
         CHECK(nearly(n.x, 0.0f) && nearly(n.y, 0.0f) && nearly(std::fabs(n.z), 1.0f));
     }
-    // The front layer faces +z, the back layer -z.
     CHECK(normal(flat, 0).z > 0.9f && normal(flat, sheet.vertexCount() - 1).z < -0.9f);
 
     DeformSettings cloth;
@@ -257,7 +253,6 @@ void testClothNormalsAndDeform() {
     wave.amplitude = 0.0f;
     CHECK(glm::length(deformPoint(wave, glm::vec3(1.0f, 2.0f, 3.0f), glm::vec3(0.0f, 1.0f, 0.0f)) - glm::vec3(1.0f, 2.0f, 3.0f)) < 1.0e-6f);
 
-    // Deformed + recomputed normals stay unit length.
     std::vector<float> out;
     cloth.recomputeNormals = true;
     deformMeshCpu(sheet, {}, {}, cloth, out);
@@ -308,22 +303,21 @@ void append(std::vector<uint8_t>& bytes, const T& value) {
     bytes.insert(bytes.end(), raw, raw + sizeof(T));
 }
 
-// A quad strip skinned to two joints (glTF 2.0, embedded buffer), plus one animation channel.
 void testImportSkinned() {
     std::vector<uint8_t> buffer;
     const float positions[4][3] = {{0, 0, 0}, {1, 0, 0}, {0, 2, 0}, {1, 2, 0}};
-    for (const auto& p : positions) for (float c : p) append(buffer, c);                       // 0..47
-    for (int i = 0; i < 4; ++i) { for (float c : {0.0f, 0.0f, 1.0f}) append(buffer, c); }      // normals 48..95
-    for (uint16_t index : {0, 1, 2, 2, 1, 3}) append(buffer, index);                           // 96..107
-    for (int i = 0; i < 4; ++i) { for (uint8_t j : {0, 1, 0, 0}) append(buffer, j); }          // joints 108..123
-    const float w[4][4] = {{1, 0, 0, 0}, {1, 0, 0, 0}, {0.5f, 0.5f, 0, 0}, {0.2f, 0.6f, 0, 0}}; // weights (last row unnormalised)
-    for (const auto& row : w) for (float c : row) append(buffer, c);                           // 124..187
+    for (const auto& p : positions) for (float c : p) append(buffer, c);
+    for (int i = 0; i < 4; ++i) { for (float c : {0.0f, 0.0f, 1.0f}) append(buffer, c); }
+    for (uint16_t index : {0, 1, 2, 2, 1, 3}) append(buffer, index);
+    for (int i = 0; i < 4; ++i) { for (uint8_t j : {0, 1, 0, 0}) append(buffer, j); }
+    const float w[4][4] = {{1, 0, 0, 0}, {1, 0, 0, 0}, {0.5f, 0.5f, 0, 0}, {0.2f, 0.6f, 0, 0}};
+    for (const auto& row : w) for (float c : row) append(buffer, c);
     const glm::mat4 identity(1.0f);
     glm::mat4 inverseSecond = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-    for (int c = 0; c < 4; ++c) for (int r = 0; r < 4; ++r) append(buffer, identity[c][r]);   // 188..251
-    for (int c = 0; c < 4; ++c) for (int r = 0; r < 4; ++r) append(buffer, inverseSecond[c][r]); // 252..315
-    for (float t : {0.0f, 1.0f}) append(buffer, t);                                            // times 316..323
-    for (float c : {0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.7071f, 0.0f, 0.7071f}) append(buffer, c);  // rotations 324..355
+    for (int c = 0; c < 4; ++c) for (int r = 0; r < 4; ++r) append(buffer, identity[c][r]);
+    for (int c = 0; c < 4; ++c) for (int r = 0; r < 4; ++r) append(buffer, inverseSecond[c][r]);
+    for (float t : {0.0f, 1.0f}) append(buffer, t);
+    for (float c : {0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.7071f, 0.0f, 0.7071f}) append(buffer, c);
     const std::string json = R"({"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0,1]}],
 "nodes":[{"name":"mesh","mesh":0,"skin":0},{"name":"root","children":[2]},{"name":"tip","translation":[0,1,0]}],
 "skins":[{"joints":[1,2],"inverseBindMatrices":6,"skeleton":1}],
@@ -365,7 +359,6 @@ void testImportSkinned() {
         for (float weight : vertex.weights) sum += weight;
         CHECK(nearly(sum, 1.0f));
     }
-    // Vertex 3 had weights 0.2 / 0.6: normalised to 0.25 / 0.75 on the two joints.
     const SkinVertex& last = imported->skin[3];
     float onTip = 0.0f;
     for (size_t k = 0; k < 4; ++k) {

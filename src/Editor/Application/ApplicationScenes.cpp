@@ -180,7 +180,6 @@ void Application::buildPortalScene(int which) {
         material.emissiveIntensity = intensity;
         return m_engine.createMaterial(material);
     };
-    // Frame meshes are uploaded once per shape key (rebuilding the scene reuses them).
     kit.mesh = [this](const std::string& key, const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
         static std::map<std::pair<const Engine*, std::string>, uint32_t> uploaded;
         const auto found = uploaded.find({&m_engine, key});

@@ -64,8 +64,7 @@ size_t normalizeSkinWeights(std::vector<SkinVertex>& skin, uint32_t jointCount) 
             sum += weight;
         }
         if (!std::isfinite(sum)) {
-            // Huge finite weights overflow the sum (inf): the inverse became 0 and left a vertex with all weights zero (found by bent,
-            // ext_phys_anim.bent skin_normalize_repairs_any_weights). Scale by the largest weight first.
+            // huge finite weights overflow the sum to inf, so scale by the largest weight first.
             const float largest = std::max(std::max(vertex.weights[0], vertex.weights[1]), std::max(vertex.weights[2], vertex.weights[3]));
             sum = 0.0f;
             for (float& weight : vertex.weights) {
@@ -435,7 +434,6 @@ DynamicMesh makeProceduralCharacter(const CharacterOptions& options) {
     const float headRadius = 0.12f * s;
     const glm::vec3 headCenter = world[4] + glm::vec3(0.0f, 0.08f * s, 0.0f);
     buildSphere(builder, headCenter, headRadius, 4, 16, 10);
-    // The sphere's pole axis is +Y, longitude theta = 0 faces +X; rotate nothing: the face is on +Z (theta = pi/2).
     mesh.rest = Mesh(std::move(builder.vertices), std::move(builder.indices));
     mesh.skin = std::move(builder.skin);
     if (options.headMorphs) addHeadMorphs(mesh, 4, headCenter, headRadius);

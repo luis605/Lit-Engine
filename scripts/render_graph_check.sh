@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# Pixel and timing comparison of the frame graph path (renderGraph=1) against the immediate path (renderGraph=0).
-# Every scene renders three times with LitShot --deterministic (fixed 1/60 s clock, fixed-size floating window):
-# graph off (a), graph off again (b, measures the run-to-run noise of the GPU: atomics order in light clustering and
-# page allocation), graph on. "on vs off" must stay within the off-vs-off noise. Writes PNGs, logs, timings and
-# summary.txt to the output directory. See docs/RenderGraph.md.
 set -u
 root="$(cd "$(dirname "$0")/.." && pwd)"
 build="${BUILD_DIR:-$root/build-release}"
@@ -23,7 +18,7 @@ shot() {
         LIT_RENDER_GRAPH="$graph" timeout 300 "$litshot" --deterministic --testscene "$scene" --frames "$frames" --size "$size" \
             --screenshot "$png" --timings "$out/${scene}_${name}.timings.txt" >"$out/${scene}_${name}.log" 2>&1
         [ -s "$png" ] && return 0
-        sleep 2  # shared GPU: retry after an out-of-memory or device-lost exit
+        sleep 2
     done
     return 1
 }

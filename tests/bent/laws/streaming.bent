@@ -1,11 +1,8 @@
-# Streaming (docs/Streaming.md): grid cells inside the load radius become resident, cells beyond the keep radius are evicted,
-# and the world holds exactly the content of the resident cells. Deterministic mode: residency depends only on the camera path.
 include "../lib/prelude.bent"
 
 gen gridSetup = streaming(cell: float(20, 120), nx: int(2, 8), nz: int(2, 8), load: float(20, 250), keep: float(0, 120), perCell: int(1, 3))
 gen campos = vec3(float(-150, 900), float(0, 5), float(-150, 900))
 
-# keep is given as an extra distance over load.
 fn grid(s) = streaming(cell: s.cell, nx: s.nx, nz: s.nz, load: s.load, keep: s.load + s.keep, perCell: s.perCell)
 fn route(path) = flatten(map(path, fn(p) => [camera(pos: p), step(n: 2)]))
 
@@ -23,13 +20,11 @@ law streaming_evicts_beyond_keep {
     }
 }
 
-# Hysteresis: a cell that is resident is never inside the load radius and missing, at any tick after settling.
 law streaming_entities_match_cells {
     forall (s: gridSetup, path: listOf(campos, 1, 5))
     => after([grid(s)] ++ route(path) ++ [step(n: 30)]) { entityCount() == len(residentCells()) * s.perCell and streamStats().pending == 0 }
 }
 
-# Rebasing the origin while streaming keeps residency consistent with the (shifted) camera.
 law streaming_survives_rebase {
     forall (s: gridSetup, path: listOf(campos, 1, 4), d: vec3(float(-3000, 3000), 0, float(-3000, 3000)))
     => eventually within 30 after([grid(s)] ++ route(path) ++ [rebase(delta: d)] ++ route(map(path, fn(p) => p - d))) {
@@ -38,7 +33,6 @@ law streaming_survives_rebase {
     }
 }
 
-# Terrain tiles respect the resident tile budget and settle once the camera stops.
 gen terrainCam = vec3(float(-3000, 3000), float(20, 200), float(-3000, 3000))
 law terrain_budget_respected {
     forall (path: listOf(terrainCam, 1, 4), view: float(100, 1200), level: int(0, 4))

@@ -101,9 +101,6 @@ inline PipelineLayout makeLayout(std::initializer_list<Diligent::IShader*> shade
     return layout;
 }
 
-// Bindless texture table (docs/RenderGraph.md, Bindless). LIT_BINDLESS_TEXTURES=1 asks for the table, =0 for the legacy 16-layer
-// arrays, unset takes kBindlessTexturesDefault. The table needs the device features Diligent maps to Vulkan descriptor indexing
-// (BindlessResources + ShaderResourceRuntimeArrays); without them the legacy path is used whatever was asked.
 inline constexpr bool kBindlessTexturesDefault = true;
 inline constexpr const char* kBindlessTableName = "u_textures";
 
@@ -121,10 +118,7 @@ inline bool bindlessTexturesSupported(Diligent::IRenderDevice* device) {
 
 inline bool bindlessTexturesActive(Diligent::IRenderDevice* device) { return bindlessTexturesRequested() && bindlessTexturesSupported(device); }
 
-// Explicit resource signature of a graphics pipeline, built from the shaders' reflection the way Diligent builds its implicit one (one
-// resource per stage and name, every resource mutable, structured buffers without dynamic offsets, combined texture samplers, immutable
-// samplers by name) plus the runtime-sized `u_textures` array of `tableSize` descriptors. Diligent cannot declare an unsized array in an
-// implicit layout, and a PSO cannot mix an implicit layout with signatures.
+// Diligent cannot declare an unsized array in an implicit layout, and a PSO cannot mix implicit layouts with signatures.
 inline RefCntAutoPtr<Diligent::IPipelineResourceSignature> makeBindlessSignature(Diligent::IRenderDevice* device, const std::string& name, std::initializer_list<Diligent::IShader*> shaders, const std::vector<NamedSampler>& samplers, uint32_t tableSize) {
     std::vector<Diligent::PipelineResourceDesc> resources;
     for (Diligent::IShader* shader : shaders) {

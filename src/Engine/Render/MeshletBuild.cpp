@@ -40,7 +40,6 @@ Sphere mergeSpheres(const Sphere& a, const Sphere& b) {
     merged.radius = (d + a.radius + b.radius) * 0.5f;
     const float t = d > 0.0f ? (merged.radius - a.radius) / d : 0.0f;
     for (int axis = 0; axis < 3; ++axis) merged.center[axis] = a.center[axis] + (b.center[axis] - a.center[axis]) * t;
-    // Float rounding: grow slightly so both inputs are contained.
     merged.radius = std::max({merged.radius, distance3(merged.center, a.center) + a.radius, distance3(merged.center, b.center) + b.radius}) * (1.0f + 1e-6f);
     return merged;
 }
@@ -51,16 +50,14 @@ struct Builder {
     size_t vertexCount = 0;
     ClusterBuildOptions options;
     ClusterMesh mesh;
-    std::vector<uint32_t> weld;  // vertex -> canonical vertex with the same position
+    std::vector<uint32_t> weld;
 
     const float* position(uint32_t vertex) const { return vertices.data() + static_cast<size_t>(vertex) * stride; }
 
-    // Splits `indices` (mesh-local vertex ids) into clusters appended to `mesh`, returning their ids.
     std::vector<uint32_t> appendClusters(const std::vector<uint32_t>& indices, uint32_t level, const Sphere* lod, float error) {
         std::vector<uint32_t> created;
         if (indices.empty()) return created;
 
-        // Compact to the referenced vertices so meshopt's per-vertex tables stay small for subsets.
         std::vector<uint32_t> localToMesh;
         std::unordered_map<uint32_t, uint32_t> meshToLocal;
         meshToLocal.reserve(indices.size());
@@ -125,10 +122,8 @@ struct Builder {
         return indices;
     }
 
-    // Greedy grouping of adjacent clusters (shared welded vertices), seeded in creation order which
-    // is spatially coherent (meshopt emits meshlets along a surface walk).
     std::vector<std::vector<uint32_t>> partition(const std::vector<uint32_t>& pending) const {
-        std::vector<std::pair<uint32_t, uint32_t>> touches;  // (canonical vertex, pending slot)
+        std::vector<std::pair<uint32_t, uint32_t>> touches;
         for (uint32_t slot = 0; slot < pending.size(); ++slot) {
             const MeshCluster& cluster = mesh.clusters[pending[slot]];
             for (uint32_t v = 0; v < cluster.vertexCount; ++v) touches.emplace_back(weld[mesh.vertices[cluster.vertexOffset + v]], slot);
@@ -185,7 +180,6 @@ struct Builder {
         return groups;
     }
 
-    // Simplifies one group. Returns the new clusters or nothing when the reduction is too small.
     std::vector<uint32_t> simplifyGroup(const std::vector<uint32_t>& group, uint32_t level, uint32_t groupId) {
         std::vector<uint32_t> merged;
         Sphere sphere;
@@ -238,7 +232,6 @@ struct Builder {
     }
 
     void finish() {
-        // Roots: no parent. Give them a parent sphere equal to their self sphere so GPU math stays finite.
         for (MeshCluster& cluster : mesh.clusters) {
             if (cluster.parentError != kClusterRootError) continue;
             for (int axis = 0; axis < 3; ++axis) cluster.parentCenter[axis] = cluster.selfCenter[axis];
@@ -295,7 +288,6 @@ ClusterMesh buildClusterMesh(std::span<const float> vertices, size_t floatsPerVe
         if (index >= builder.vertexCount) return {};
     }
 
-    // Weld by position only (attribute seams split vertices that are still adjacent for grouping).
     {
         std::vector<unsigned int> positionWeld(builder.vertexCount);
         std::vector<float> positions(builder.vertexCount * 3);
@@ -316,7 +308,7 @@ ClusterMesh buildClusterMesh(std::span<const float> vertices, size_t floatsPerVe
         for (const auto& group : groups) {
             const std::vector<uint32_t> created = builder.simplifyGroup(group, level, ++groupId);
             if (created.empty()) {
-                next.insert(next.end(), group.begin(), group.end());  // retry with coarser neighbours next pass
+                next.insert(next.end(), group.begin(), group.end());
                 continue;
             }
             progressed = true;

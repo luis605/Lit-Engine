@@ -68,9 +68,7 @@ void Renderer::dispatchCascadeCull(int cascadeIndex, int hizLayer, Diligent::IPi
     context->SetPipelineState(pipeline);
     context->CommitShaderResources(binding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{dispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
-    // Instance batches: cascade planes per cell and instance, once per cascade (early pass only; no shadow Hi-Z retest).
     if (pipeline == gpu.pShadowCullPSO.RawPtr()) cullInstanceCascade(cascadeIndex);
-    // Cluster LOD from cascade texels: orthographic, error in texels = world error * texels per unit.
     const glm::vec4 lodView(0.0f, 0.0f, 0.0f, cascade.texelsPerUnit);
     setMeshletShadowLod(std::span<const glm::vec4>(&lodView, 1), 1u);
     buildVisibilityDraws(kPhaseShadow);
@@ -122,7 +120,6 @@ void Renderer::drawShadows(uint32_t objectCount) {
 void Renderer::drawVirtualShadows(uint32_t objectCount) {
     auto& gpu = *m_diligent;
     if (!m_lighting.virtualShadowsActive()) return;
-    // Virtual shadow maps for local lights: page requests come from this view's depth buffer.
     VirtualShadowInputs inputs;
     inputs.sceneUniforms = gpu.pSceneUBO[m_currentFrame];
     inputs.worldMatrices = gpu.pWorldMatrixBuffer[m_currentFrame];
@@ -143,7 +140,6 @@ void Renderer::drawCascadeShadows(uint32_t objectCount) {
     auto& gpu = *m_diligent;
     auto* context = gpu.pImmediateContext.RawPtr();
     const int cascadeCount = gpu.pShadowCullPSO && gpu.pShadowLateCullPSO ? std::min<int>(m_lighting.cascadeCount(), kCascadeShadowViews) : 0;
-    // m_cascadeReuse: the view samples the frame's shared cascades, which an earlier view already rendered.
     if (cascadeCount <= 0 || !m_viewSunShadows || m_cascadeReuse) return;
     ensureShadowHiZ();
     const CullingUniforms uniforms = MakeCullingUniforms(objectCount, m_maxObjects, 0.0f, m_lodBias, m_forcedLod, m_numDrawingShaders);
@@ -152,7 +148,7 @@ void Renderer::drawCascadeShadows(uint32_t objectCount) {
     for (int cascadeIndex = 0; cascadeIndex < cascadeCount; ++cascadeIndex) {
         if (m_lighting.cascades()[static_cast<size_t>(cascadeIndex)].due) renderCascade(cascadeIndex);
     }
-    m_sharedCascades.resident = m_cascadeShared;  // the shadow map now holds the shared set, or a view's own set
+    m_sharedCascades.resident = m_cascadeShared;
 }
 
 void Renderer::drawLocalShadows(uint32_t objectCount) {
@@ -198,7 +194,6 @@ void Renderer::drawLocalShadows(uint32_t objectCount) {
         context->CommitShaderResources(binding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{gpu.pLocalCasterDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
         cullInstanceLocal(static_cast<uint32_t>(first), static_cast<uint32_t>(count), std::span<const glm::vec4>(batch.origins, static_cast<size_t>(count)));
-        // Cluster LOD from local shadow texels: perspective from the light, texels per unit at distance 1.
         std::array<glm::vec4, kMaxLocalShadowViews> lodViews{};
         for (int offset = 0; offset < count; ++offset) lodViews[static_cast<size_t>(offset)] = batch.origins[offset];
         setMeshletShadowLod(std::span<const glm::vec4>(lodViews.data(), static_cast<size_t>(count)), 0u);

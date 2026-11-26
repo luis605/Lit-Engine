@@ -4,11 +4,6 @@
 #extension GL_GOOGLE_include_directive : require
 #include "instance_cull.glsl"
 
-// Level 1 of the instance cull: one thread per cell of the instance pool (64 instances of one batch, spatially sorted).
-// A cell is rejected as a whole by its batch state, frustum (camera or cascade) or local shadow faces, draw distance and,
-// for the camera, Hi-Z. Accepted cells are appended (cell, local view mask) for instance_cull.comp. The early phase also
-// clears the visibility bits of rejected cells (the cell owns two words), so the retest phase tests their instances.
-
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 #ifdef INSTANCE_EARLY

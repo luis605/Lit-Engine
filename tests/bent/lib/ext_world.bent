@@ -1,12 +1,8 @@
-# Shared generators and helpers for the world / core laws (tests/bent/laws/ext_world_*.bent, docs/Bent.md).
 include "prelude.bent"
-
-# ---------------------------------------------------------------- generators
 
 gen uniformScale = map(float(0.25, 3), fn(s) => vec3(s, s, s))
 gen unitish = float(-1, 1)
 
-# Unparented or parented transform-only entities with shear-free (uniform) scales: matrix identities hold exactly (to float precision).
 gen hierSpawn = spawn(shape: "none", dynamic: false, pos: smallVec, rot: unitQuat(), scale: uniformScale, mesh: int(-1, 7),
                       parent: frequency([[2, just(-1)], [3, target]]))
 gen hierEdit = frequency([
@@ -20,10 +16,8 @@ gen hierEdit = frequency([
 ])
 gen hierProg = map([hierSpawn, listOf(hierEdit, 0, 16)], fn(pair) => [pair[0]] ++ pair[1])
 
-# Spawn / destroy / reparent churn without physics (cheap, many handle reuses).
 gen lifeProg = map([hierSpawn, listOf(frequency([[5, hierSpawn], [4, destroy(target: target)], [1, reparent(target: target, parent: int(-1, 31))], [1, step(n: 1)]]), 0, 40)], fn(pair) => [pair[0]] ++ pair[1])
 
-# Everything a game does with hierarchy, names, tags and layers, plus the persistence round trips.
 gen tagGen = elements(["a", "b", "c", "dd", ""])
 gen metaEdit = frequency([
     [4, spawn(shape: "none", dynamic: false, pos: smallVec, tag: tagGen, layer: int(0, 255), parent: frequency([[2, just(-1)], [1, target]]), name: elements(["n1", "n2", "n3", "x"]))],
@@ -42,8 +36,6 @@ gen metaEdit = frequency([
 ])
 gen metaProg = listOf(metaEdit, 1, 25)
 
-# ---------------------------------------------------------------- helpers
-
 fn idx(e) = handle(e).index
 fn generationOf(e) = handle(e).generation
 fn sortedIndices() = sort(map(entities(), idx))
@@ -54,15 +46,11 @@ fn mulv(a, b) = vec3(a.x * b.x, a.y * b.y, a.z * b.z)
 fn isRoot(e) = parent(e) == -1
 fn matClose(a, b, tol) = a ~= b within tol
 
-# Bit helpers for layer masks (no bitwise operators in Bent).
 fn bitOf(n, i) = floor(n / pow(2, i)) % 2 == 1
 fn u32(n) = ((n % 4294967296) + 4294967296) % 4294967296
 fn masksShare(a, b) = exists i in range(0, 32): bitOf(a, i) and bitOf(b, i)
 
-# Tolerance for positions of a scene that spans +-20 m: a few ulps plus slack for chained float matrices.
 fn posTol(a) = 1e-5 * (1 + length(a)) + 1e-4
-
-# ---------------------------------------------------------------- JSON documents (same shapes as tests/bent/laws/json.bent)
 
 gen xJsonLeaf = oneof(just(unit), bool(), float(-1e15, 1e15), int(-9007199254740992, 9007199254740992), text(0, 12), nasty(float(-1e300, 1e300)))
 gen xJsonKey = text(0, 6)
@@ -78,7 +66,6 @@ fn xFinite(v) =
     else if kindOf(v) == "list" then all(v, xFinite)
     else if kindOf(v) == "record" then all(values(v), xFinite)
     else true
-# text() emits a lone 0xFF byte as its only invalid sequence; dump replaces invalid UTF-8 (by design), so documents with it are excluded.
 fn xValid(v) =
     if kindOf(v) == "string" then not contains(v, "\xff")
     else if kindOf(v) == "list" then all(v, xValid)

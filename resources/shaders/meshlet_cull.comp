@@ -5,13 +5,6 @@
 #include "hiz.glsl"
 #include "meshlet.glsl"
 
-// Cluster LOD, stage 3. One workgroup per work item (an instance and up to 64 consecutive clusters:
-// a hierarchy leaf from meshlet_nodes, a flat chunk, or a retest record).
-// Each lane tests one cluster: DAG cut (projected self error <= threshold < projected parent
-// error), frustum, backface cone and Hi-Z. Survivors are compacted in a fixed order and their
-// triangles are expanded into the phase's index buffer as ONE indexed draw (instanceCount 1,
-// baseInstance = the instance's visible-entry slot), so the existing surface shaders, G-buffer,
-// shadow and portal passes draw clusters without any change. No mesh shaders needed.
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430) readonly buffer SortedVisibleObjectBuffer {

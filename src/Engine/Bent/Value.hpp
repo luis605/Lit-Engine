@@ -1,7 +1,5 @@
 #pragma once
 
-// Bent values: immutable, shared, structurally compared. See docs/Bent.md.
-
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -19,7 +17,6 @@ struct SrcLoc {
     [[nodiscard]] std::string str() const;
 };
 
-// Every language-level failure (lex, parse, type, runtime) carries a location.
 struct BentError : std::runtime_error {
     SrcLoc loc;
     BentError(const SrcLoc& where, const std::string& message) : std::runtime_error(where.str() + ": " + message), loc(where) {}
@@ -40,9 +37,9 @@ using ValueList = std::vector<Value>;
 struct Value {
     Kind kind = Kind::Unit;
     bool b = false;
-    int64_t i = 0;  // Int, Entity reference
+    int64_t i = 0;
     double f = 0.0;
-    double v[4] = {0.0, 0.0, 0.0, 0.0};  // Vec3 (x, y, z), Quat (w, x, y, z)
+    double v[4] = {0.0, 0.0, 0.0, 0.0};
     std::shared_ptr<const std::string> s;
     std::shared_ptr<const ValueList> list;
     std::shared_ptr<const RecordV> rec;
@@ -69,15 +66,13 @@ struct Value {
     [[nodiscard]] const Value* field(const std::string& name) const;
 };
 
-// Fields sorted by name, so printing and comparison are canonical.
 struct RecordV {
     std::vector<std::pair<std::string, Value>> fields;
 };
 
-// An action is data: the interpreter for a scene program (the host) gives it meaning.
 struct ActionV {
     std::string name;
-    std::vector<std::pair<std::string, Value>> args;  // sorted by name, only the given ones
+    std::vector<std::pair<std::string, Value>> args;
     [[nodiscard]] const Value* arg(const std::string& key) const;
 };
 
@@ -92,20 +87,16 @@ struct FuncV {
     std::vector<std::string> params;
     std::shared_ptr<const Expr> body;
     std::shared_ptr<const Env> closure;
-    NativeFn native;  // set for builtins and partially applied natives
+    NativeFn native;
     bool liftable = false;
 };
 
-// Structural equality. Numbers compare numerically (1 == 1.0); NaN != NaN.
 [[nodiscard]] bool equal(const Value& a, const Value& b);
-// Approximate equality: numbers (absolute or relative tolerance), vectors, quaternions (sign canonical), lists and records recursively.
 [[nodiscard]] bool approxEqual(const Value& a, const Value& b, double tolerance);
-// Total order used by sort/distinct (by kind first).
 [[nodiscard]] int compare(const Value& a, const Value& b);
 [[nodiscard]] uint64_t hashValue(const Value& value);
 [[nodiscard]] bool containsGen(const Value& value);
 
-// Canonical source form: parsing and evaluating the printed text gives an equal value (for data, actions and entities).
 [[nodiscard]] std::string print(const Value& value);
 [[nodiscard]] std::string printFloat(double value);
 [[nodiscard]] std::string quoteString(const std::string& text);

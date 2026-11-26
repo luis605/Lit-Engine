@@ -50,12 +50,11 @@ layout(std140) uniform SceneData {
     vec4 bleedParams;
     vec4 qualityParams;
     vec4 qualityParams2;
-    vec4 vsmParams;  // x virtual shadows on, y atlas size (texels), z atlas pages per side, w resolution scale
-    vec4 vsmParams2; // x finest mip (0..4)
-    vec4 originParams; // xyz world origin mod 4096 (pattern phase), w world origin y (altitude)
-    vec4 cellParams;   // x portal cell of this view (-1: local lights are not filtered by cell), y first portal light + 1 (0: none),
-                       // z > 0: sun cascades are shared (pick the finest cascade containing the point, up to this view depth)
-    vec4 cellTint;     // rgb lighting grade of this view's cell (sun and ambient), w unused
+    vec4 vsmParams;
+    vec4 vsmParams2;
+    vec4 originParams;
+    vec4 cellParams;
+    vec4 cellTint;
 };
 
 float projectedDiameterPx(float radius, float dist) {
@@ -65,13 +64,11 @@ float projectedDiameterPx(float radius, float dist) {
 float sceneTime() { return timeParams.x; }
 float frameIndex() { return timeParams.z; }
 float farPlane() { return timeParams.w; }
-// Floating origin: world = local + origin. Procedural world-space patterns sample local + originPhase() (origin modulo 4096, so float
-// precision holds and a rebase does not move the pattern when its period divides 4096); altitude-dependent effects use skyViewPos().
+// originPhase() is the origin modulo 4096, so float precision holds and rebases do not move patterns whose period divides 4096.
 vec3 originPhase() { return originParams.xyz; }
 vec3 skyViewPos() { return viewPos + vec3(0.0, originParams.w, 0.0); }
 int debugViewMode() { return int(exposureParams.w + 0.5); }
 
-// Reversed Z: depth 1 is the near plane, 0 the far plane (sky and cleared pixels hold 0).
 bool isSkyDepth(float depth) { return depth <= 0.0; }
 const float FAR_DEPTH = 0.0;
 

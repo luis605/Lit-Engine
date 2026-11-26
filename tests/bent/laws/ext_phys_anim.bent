@@ -1,5 +1,3 @@
-# Animation: clip sampling, pose blending, model-space poses, the skeletal animator, skinning against CPU references, morph targets and
-# the ARKit blendshape mapping. Skeletons / clips are plain Bent data handed to skelSample, skelBlend, skelModel, skelAnimate.
 include "../lib/ext_phys.bent"
 
 gen jointOffset = vec3(float(-1, 1), float(0.2, 1.2), float(-1, 1))
@@ -8,7 +6,6 @@ gen skelGen = map(listOf(jointOffset, 2, 6), chainSkeleton)
 gen keyTimes = map(listOf(int(0, 100), 2, 5), fn(ts) => map(dedup(sort(ts)), fn(t) => t / 100.0))
 gen posKey = vec3(float(-2, 2), float(-2, 2), float(-2, 2))
 
-# A clip animating joint `joint` with position and rotation keys at the (scaled) times.
 fn trackOf(joint, dur, ts, ps, qs) = {joint: joint, pos: map(enumerate(ts), fn(e) => [e[1] * dur, ps[e[0] % len(ps)]]),
                                       rot: map(enumerate(ts), fn(e) => [e[1] * dur, qs[e[0] % len(qs)]]), scale: []}
 gen clipGen = bind(float(0.5, 3), fn(dur) => bind(keyTimes, fn(ts) => bind(listOf(posKey, 1, 5), fn(ps) => bind(listOf(unitQuat(), 1, 5), fn(qs) => bind(bool(),
@@ -19,7 +16,6 @@ fn posBounds(clip, which) = let t = head(clip.tracks) in
 fn qunit(q) = abs(sq(q.w) + sq(q.x) + sq(q.y) + sq(q.z) - 1.0) < 1e-3
 fn poseJoint(pose, j) = pose[j % len(pose)]
 
-# Sampling exactly at a key time returns the key (position and rotation, rotation up to sign).
 law anim_sampling_at_keys_returns_keys {
     forall (skel: skelGen, clip: clipGen)
     => let t = head(clip.tracks) in
@@ -27,7 +23,6 @@ law anim_sampling_at_keys_returns_keys {
        forall key in filter(t.pos, fn(k) => not clip.loop or k[0] < clip.duration - 1e-4): (let pose = skelSample(skel, with(clip, tracks: [with(t, joint: j)]), key[0]) in pose[j].pos ~= key[1] within 1e-4)
 }
 
-# Sampled positions never overshoot the keys (linear interpolation) and sampled rotations stay unit quaternions, for any time.
 law anim_samples_stay_within_keys {
     forall (skel: skelGen, clip: clipGen, time: float(-1, 6))
     => let t = head(clip.tracks) in
@@ -39,7 +34,6 @@ law anim_samples_stay_within_keys {
        and qunit(pose[j].rot)
 }
 
-# Looping clips are periodic (away from the wrap seam, where float rounding decides which side of the seam a time falls on); non looping clips hold their last (and first) pose outside [0, duration].
 law anim_looping_and_clamping {
     forall (skel: skelGen, clip: clipGen, phase: float(0.05, 0.95), n: int(1, 3))
     => let time = phase * clip.duration in
@@ -54,8 +48,6 @@ law anim_looping_and_clamping {
 
 gen poseGen = bind(int(2, 6), fn(n) => listOf({pos: posKey, rot: unitQuat(), scale: vec3(1, 1, 1)}, n, n))
 
-# Blending two poses: weight 0 is the first, weight 1 the second, weight w is symmetric with 1 - w, positions interpolate linearly and
-# rotations stay unit.
 law anim_blend_endpoints_symmetry_and_linearity {
     forall (a: poseGen, w: float(0, 1), seed: int(0, 1000))
     => let b = map(a, fn(j) => {pos: j.pos * -1.0 + vec3(0.5, 0.25, 0), rot: quat(1, 0, 0, 0), scale: vec3(1, 1, 1)}) in
@@ -66,7 +58,6 @@ law anim_blend_endpoints_symmetry_and_linearity {
            and mid[i].pos ~= skelBlend(skel, b, a, 1.0 - w, [])[i].pos within 1e-4)
 }
 
-# Masked blending: every joint moves by weight * mask along the segment from the first pose to the second.
 law anim_masked_blend_scales_weight_by_mask {
     forall (a: poseGen, w: float(0, 1), masks: listOf(float(0, 1), 6, 6))
     => let b = map(a, fn(j) => {pos: j.pos + vec3(1, 1, 1), rot: j.rot, scale: vec3(1, 1, 1)}) in
@@ -76,8 +67,6 @@ law anim_masked_blend_scales_weight_by_mask {
        forall i in range(len(a)): out[i].pos ~= lerp(a[i].pos, b[i].pos, w * mask[i]) within 1e-4
 }
 
-# Forward kinematics (unit scale): model positions equal parent position + parent rotation * local offset, and a joint is exactly
-# its local offset length away from its parent whatever the rotations (rigid transforms preserve distances).
 fn fk(skel, pose) = fold(enumerate(pose), [], fn(acc, e) =>
     let i = e[0] in let j = e[1] in let par = skel[i].parent in
     if par < 0 then acc ++ [{pos: j.pos, rot: j.rot}]
@@ -91,8 +80,6 @@ law anim_model_pose_is_forward_kinematics {
        and (forall i in range(1, len(skel)): abs(distance(model[i].pos, model[skel[i].parent].pos) - length(pose[i].pos)) < 1e-4)
 }
 
-# After a crossfade finishes the animator shows exactly the new clip at its own time; during it the pose never leaves the key box of both
-# clips and the remaining fade time only decreases.
 law anim_crossfade_ends_at_target_clip {
     forall (skel: skelGen, c0: clipGen, c1: clipGen, fade: float(0.1, 0.6), warm: int(1, 20))
     => let j0 = head(c0.tracks).joint % len(skel) in
@@ -110,7 +97,6 @@ law anim_crossfade_ends_at_target_clip {
             forall i in range(len(skel)): end.pose[i].pos ~= ref[i].pos within 1e-3)
 }
 
-# Two bone solver: a reachable target is hit exactly, bone lengths never change, and unreachable targets give the straight chain pointing at them.
 gen twoBoneSkel = map([float(0.4, 1.5), float(0.4, 1.5)], fn(ls) => chainSkeleton([vec3(0, 0, 0), vec3(0, ls[0], 0), vec3(0.1, ls[1], 0)]))
 law anim_two_bone_reaches_or_extends {
     forall (l1: float(0.4, 1.5), l2: float(0.4, 1.5), dir: unitVec3(), reach: float(0.2, 2.6), weight: float(1, 1))
@@ -124,8 +110,6 @@ law anim_two_bone_reaches_or_extends {
             else (if reach > total + 0.01 then distance(m[2].pos, normalize(target) * total) < 5e-3 else true))
 }
 
-# ---------------------------------------------------------------- skinning (procedural character, independent references)
-
 gen skinOpts = {height: float(1.2, 2.2), radial: int(4, 10), rings: int(1, 3), morphs: true}
 gen skinPose = {mode: elements(["bind", "random", "walk", "wave"]), seed: int(0, 100000), angle: float(0.1, 1.2), time: float(0, 2), morph: bool()}
 
@@ -135,46 +119,37 @@ law skin_weights_are_normalised_and_valid {
        r.valid and r.weightErr < 1e-4 and r.maxJoint < r.joints and r.joints >= 2 and r.vertices > 0 and r.morphs > 0
 }
 
-# The CPU deformation reference equals an independent linear-blend-skinning evaluation (morph then skin), for bind, random, walk and wave poses.
 law skin_cpu_deform_matches_reference {
     forall (o: skinOpts, s: skinPose)
     => let r = skinCheck(o, s) in r.nonFinite == 0 and r.refErr < 1e-3
 }
 
-# The bind pose is the identity: every palette matrix is identity and the mesh does not move.
 law skin_bind_pose_is_identity {
     forall (o: skinOpts)
     => let r = skinCheck(o, {mode: "bind"}) in r.identErr < 1e-4 and r.refErr < 1e-4
 }
 
-# Rigid poses (unit scale) give orthonormal palette matrices, and vertices owned by a single joint keep their mutual distances.
 law skin_rigid_pose_preserves_distances {
     forall (o: skinOpts, seed: int(0, 100000), angle: float(0.1, 1.5))
     => let r = skinCheck(o, {mode: "random", seed: seed, angle: angle}) in r.orthoErr < 1e-3 and r.rigidErr < 1e-3
 }
 
-# Morph targets are linear: output = rest + sum(weight * delta), and scaling the weights scales the displacement.
 law skin_morph_targets_are_linear {
     forall (o: skinOpts, seed: int(0, 100000))
     => let r = skinCheck(o, {mode: "bind", seed: seed}) in r.morphErr < 1e-4 and r.morphLinErr < 1e-4
 }
 
-# The conservative bounding sphere contains every deformed vertex (posed and morphed).
 law skin_bounds_contain_deformed_vertices {
     forall (o: skinOpts, s: skinPose)
     => skinCheck(o, s).boundsExcess <= 1e-3
 }
 
 gen rawSkin = listOf([int(0, 9), int(0, 9), int(0, 9), int(0, 9), nasty(float(-1, 3)), nasty(float(-1, 3)), nasty(float(-1, 3)), nasty(float(-1, 3))], 1, 6)
-# Weight repair: whatever garbage comes in (negative, NaN, infinite, joints out of range) every vertex ends with non negative weights that
-# sum to 1 and joints inside the skeleton.
 law skin_normalize_repairs_any_weights {
     forall (raw: rawSkin, joints: int(1, 8))
     => let r = skinNormalize(raw, joints) in
        forall v in r.skin: abs(sum(drop(v, 4)) - 1.0) < 1e-4 and all(drop(v, 4), fn(w) => w >= 0 and isFinite(w)) and all(take(v, 4), fn(j) => j >= 0 and j < joints)
 }
-
-# ---------------------------------------------------------------- ARKit blendshapes
 
 law face_arkit_names_are_unique_and_indexed {
     forall (i: int(0, 51), junk: text(1, 8))
@@ -182,7 +157,6 @@ law face_arkit_names_are_unique_and_indexed {
        len(names) == 52 and allDistinct(names) and faceIndex(names[i]) == i and (contains(names, junk) or faceIndex(junk) == -1)
 }
 
-# Mapping ARKit weights onto the character's morph targets copies each named channel and never leaves [0, 1].
 law face_morph_mapping_copies_and_bounds {
     forall (ws: listOf(float(0, 1), 52, 52))
     => let m = faceMorph(ws) in
@@ -194,7 +168,6 @@ fn faceCurveOf(ch, dur, vs) = {channel: ch, keys: map(enumerate(vs), fn(e) => [d
 gen faceCurves = listOf([int(0, 51), listOf(float(-0.5, 1.5), 2, 5)], 1, 4)
 gen faceClip = bind(float(0.5, 3), fn(dur) => bind(bool(), fn(loop) => map(faceCurves, fn(cs) => {duration: dur, loop: loop, curves: map(cs, fn(c) => faceCurveOf(c[0], dur, c[1]))})))
 
-# Sampled blendshape weights are clamped to [0, 1] at any time (even with keys outside the range), and looping clips are periodic.
 law face_clip_sampling_bounded_and_periodic {
     forall (clip: faceClip, t: float(-1, 8))
     => let w = faceClipSample(clip, t) in
@@ -202,7 +175,6 @@ law face_clip_sampling_bounded_and_periodic {
        and (not clip.loop or clip.duration <= 0 or all(zip(w, faceClipSample(clip, t + clip.duration)), fn(p) => abs(p[0] - p[1]) < 1e-3))
 }
 
-# Layering: max is the pointwise maximum; add never exceeds the sum and the result stays finite.
 law face_layering_bounds {
     forall (a: listOf(float(0, 1), 52, 52), b: listOf(float(0, 1), 52, 52), w: float(0, 1))
     => let m = faceCombine(a, b, "max", 1.0) in

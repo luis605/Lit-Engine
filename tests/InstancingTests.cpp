@@ -15,9 +15,6 @@ import Engine.Render.entity;
 import Engine.Rng;
 import Engine.glm;
 
-// GPU instancing, CPU side (docs/Instancing.md): pool sub-allocator, component edits (free mask, swap-remove keys, dirty
-// ranges), GPU record packing, spatial cells and the CPU reference of the GPU cull.
-
 namespace {
 
 std::vector<InstanceData> field(uint32_t count, float extent, uint64_t seed) {
@@ -43,26 +40,23 @@ void testAllocator() {
     CHECK(pool.highWater() == 35 && pool.usedCells() == 35);
     pool.free(*b, 20);
     CHECK(pool.freeRanges() == 1 && pool.usedCells() == 15);
-    // Best fit reuses the hole.
     const auto d = pool.allocate(8);
     CHECK(d && *d == 10);
     const auto e = pool.allocate(12);
     CHECK(e && *e == 18);
     CHECK(pool.freeRanges() == 0 && pool.highWater() == 35);
-    // Freeing the tail lowers the high water; neighbours merge.
     pool.free(*c, 5);
     CHECK(pool.highWater() == 30);
     pool.free(*d, 8);
     pool.free(*e, 12);
     CHECK(pool.highWater() == 10 && pool.freeRanges() == 0);
-    CHECK(!pool.allocate(91));  // limit
+    CHECK(!pool.allocate(91));
     CHECK(pool.allocate(90).has_value());
     CHECK(!pool.allocate(1));
     CHECK(!pool.allocate(0));
     pool.clear();
     CHECK(pool.highWater() == 0 && pool.usedCells() == 0);
 
-    // Random alloc/free never overlaps and frees everything back.
     InstanceAllocator random(4096);
     Pcg32 rng(9, 1);
     std::vector<std::pair<uint32_t, uint32_t>> live;
@@ -96,7 +90,6 @@ void testBatchEdits() {
     const uint64_t layout = batch.layoutVersion;
     CHECK(batch.aliveCount() == 10 && !batch.dirty());
 
-    // Update: dirty range, no layout change.
     const uint64_t version = batch.version;
     InstanceData moved = data[3];
     moved.position += glm::vec3(1.0f, 0.0f, 0.0f);
@@ -107,7 +100,6 @@ void testBatchEdits() {
     CHECK(batch.dirtyFirst == 3 && batch.dirtyEnd == 8);
     batch.clearDirty();
 
-    // Free mask keeps every index.
     CHECK(batch.remove(5));
     CHECK(!batch.remove(5));
     CHECK(!batch.remove(10));
@@ -117,7 +109,6 @@ void testBatchEdits() {
     CHECK(batch.indexOfKey(105) == 5u);
     CHECK(batch.revive(5) && batch.aliveCount() == 10);
 
-    // Swap-remove: the last instance (and its key) moves into the hole.
     const InstanceData last = batch.instances[9];
     const auto movedKey = batch.swapRemove(2);
     CHECK(movedKey == 109u);
@@ -126,12 +117,11 @@ void testBatchEdits() {
     CHECK(!batch.indexOfKey(102));
     CHECK(batch.indexOfKey(109) == 2u);
     CHECK(batch.layoutVersion > layout);
-    CHECK(!batch.swapRemove(8).has_value());  // removing the last moves nothing
+    CHECK(!batch.swapRemove(8).has_value());
     CHECK(batch.instances.size() == 8);
     std::set<uint64_t> keys(batch.keys.begin(), batch.keys.end());
     CHECK(keys.size() == 8);
 
-    // Update past the end grows the batch (layout change).
     const uint64_t before = batch.layoutVersion;
     batch.update(10, std::span<const InstanceData>(&moved, 1));
     CHECK(batch.instances.size() == 11 && batch.keys.size() == 11 && batch.layoutVersion > before);
@@ -196,11 +186,9 @@ void testCells() {
         naiveRadius += naive.sphere.w;
     }
     CHECK(contained);
-    // Spatial order makes cells several times tighter than insertion order on a random field.
     CHECK(spatialRadius * 3.0f < naiveRadius);
     std::printf("cells %zu: mean radius spatial %.1f m, insertion order %.1f m\n", cells, spatialRadius / static_cast<float>(cells), naiveRadius / static_cast<float>(cells));
 
-    // Dead instances leave the bounds; an all-dead cell has none.
     std::vector<InstanceData> dead = data;
     for (InstanceData& d : dead) d.flags |= InstanceFlags::Dead;
     const InstanceCellGpu empty = buildInstanceCell(dead, std::span<const uint32_t>(order.data(), kInstanceCellSize), meshSphere, 0);
@@ -224,7 +212,6 @@ void testReferenceCull() {
     InstanceCullView flat = view;
     flat.cellCull = false;
     const InstanceCullResult brute = cullInstancesReference(batch, owner, meshSphere, flat);
-    // Cells are conservative: the same instances survive, far fewer are tested.
     CHECK(cells.visible == brute.visible && cells.perLod == brute.perLod);
     CHECK(cells.visible > 100 && cells.visible < brute.instancesTested);
     CHECK(cells.instancesTested < brute.instancesTested && cells.instancesTested >= cells.visible);
@@ -235,7 +222,6 @@ void testReferenceCull() {
     CHECK(lodSum == cells.visible);
     CHECK(cells.perLod[0] > 0 && cells.perLod[3] + cells.perLod[4] + cells.perLod[5] + cells.perLod[6] > 0);
 
-    // Draw distance: hard cut, then a seed-dithered fade that keeps a monotonic fraction.
     batch.settings.drawDistance = 300.0f;
     const InstanceCullResult cut = cullInstancesReference(batch, owner, meshSphere, view);
     batch.settings.fadeStart = 150.0f;
@@ -279,7 +265,6 @@ void testComponent() {
         for (size_t i = 0; i < 50; ++i) same = same && glm::length(parsed->instances[i].position - batch.instances[i].position) < 1.0e-4f && parsed->instances[i].seed == batch.instances[i].seed;
         CHECK(same);
     }
-    // Snapshot / restore and editor text edits go through the same serializer.
     const std::string snapshot = world.snapshot();
     World other;
     registerCoreComponents(other);

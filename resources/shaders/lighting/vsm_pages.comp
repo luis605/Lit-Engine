@@ -2,21 +2,6 @@
 #extension GL_GOOGLE_include_directive : require
 #include "vsm_pass.glsl"
 
-// Page management of the virtual shadow maps, one entry point per macro:
-//   MOTION      (per object, first view of a frame) compares the object's bounds and transform with
-//               the copy kept from the previous frame and lists the swept sphere of every object that
-//               moved, appeared or disappeared. This is the scheduled cache invalidation, not image history.
-//   FACE_DIRTY  (per face slot) a face is dirty when the CPU says its light changed or a moved object
-//               overlaps the light's range.
-//   RELEASE     (per physical page) pages nobody requested this frame or the previous one go back to
-//               the free stack; pages of dirty faces lose their VALID bit so they are re-rendered.
-//   CLEAR_DIRTY (per face slot) dirty flags are consumed once per frame.
-//   HIST        (per request) counts the requested pages that still need a physical page per (mip, face priority tier).
-//   PLAN        (single thread) grants (mip, tier) groups whole, coarse mips first then by tier, while free pages last.
-//   ALLOCATE    (per request) pops a physical page for requested pages of granted groups (the others count as overflow) and queues
-//               every requested page that is not VALID for rendering.
-//   FINALIZE    (single thread) settles the free stack and writes the indirect arguments.
-
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430) buffer VsmCounters {
@@ -70,9 +55,6 @@ void main() {
     if (id >= vsmCounts.z) return;
     vec4 sphere = cullSpheres[id];
     WorldRows rows = worldRows[id];
-    // Slot 4 holds the renderable word (mesh, material, shader, flags) and the deform stamp of dynamic meshes
-    // (bumped whenever a pose, morph or deform changed the vertices), so a mesh that deforms inside its old
-    // bounds, or changes material or mesh, invalidates the pages like a moved object does.
     uvec4 content = uvec4(renderables[id], dynamicStamps[id], 0u, 0u);
     vec4 previousSphere = vsmPrevious[id * 5u];
     bool moved = any(notEqual(sphere, previousSphere)) || any(notEqual(rows.r0, vsmPrevious[id * 5u + 1u])) || any(notEqual(rows.r1, vsmPrevious[id * 5u + 2u])) || any(notEqual(rows.r2, vsmPrevious[id * 5u + 3u])) ||
@@ -114,7 +96,6 @@ void main() {
         vec3 d = sphere.xyz - f.sphere.xyz;
         float reach = sphere.w + f.sphere.w;
         if (dot(d, d) > reach * reach) continue;
-        // Inside the light's range: test the sphere against the face frustum.
         mat4 m = f.viewProjection;
         vec4 rows[4] = vec4[](vec4(m[0][0], m[1][0], m[2][0], m[3][0]), vec4(m[0][1], m[1][1], m[2][1], m[3][1]), vec4(m[0][2], m[1][2], m[2][2], m[3][2]), vec4(m[0][3], m[1][3], m[2][3], m[3][3]));
         vec4 planes[4] = vec4[](rows[3] + rows[0], rows[3] - rows[0], rows[3] + rows[1], rows[3] - rows[1]);
@@ -147,7 +128,7 @@ layout(std430) readonly buffer VsmPageStamp {
 };
 
 layout(std430) buffer VsmPhysical {
-    uint vsmPhysical[]; // [0, P) owner page index or VSM_INVALID, [P, 2P) free stack
+    uint vsmPhysical[];
 };
 
 layout(std430) readonly buffer VsmFaceDirty {
@@ -260,7 +241,7 @@ void main() {
     vsmPageTable[index] = entry;
 }
 
-#else // FINALIZE (also the variant built by the startup shader check, which defines no macro)
+#else
 layout(std430) writeonly buffer VsmArgs {
     uint vsmArgs[];
 };

@@ -1,7 +1,5 @@
 #pragma once
 
-// Virtual shadow map state (included from LightingInternal.hpp). See LightingVirtualShadows.cpp.
-
 namespace lighting_detail {
 
 inline constexpr uint32_t kVsmPage = 64;
@@ -12,8 +10,7 @@ inline constexpr uint32_t kVsmRequestCapacity = 1u << 18;
 inline constexpr uint32_t kVsmInstanceCapacity = 1u << 20;
 inline constexpr uint32_t kVsmMovedCapacity = 4096;
 inline constexpr uint32_t kVsmBuckets = 2048;
-inline constexpr uint32_t kVsmTiers = 8;  // face priority tiers (see vsm_pass.glsl)
-// Words 0..9 counters, 16.. histogram of unallocated requests per (mip, tier), then the grant flags of the same groups.
+inline constexpr uint32_t kVsmTiers = 8;
 inline constexpr uint32_t kVsmCounterWords = 16 + 2 * kVsmMips * kVsmTiers;
 inline constexpr uint32_t kVsmHistWords = kVsmMips * kVsmTiers;
 inline constexpr uint32_t kVsmArgsWords = 16;
@@ -23,7 +20,7 @@ struct VsmFaceGpu {
     glm::mat4 viewProjection{0.0f};
     glm::vec4 info{0.0f};
     glm::vec4 sphere{0.0f};
-    glm::vec4 clipPlane{0.0f, 0.0f, 0.0f, 1.0f};  // casters with dot(xyz, p) + w < 0 are cut (portal lights: behind the portal plane)
+    glm::vec4 clipPlane{0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 struct VsmConstantsGpu {
@@ -33,7 +30,6 @@ struct VsmConstantsGpu {
     glm::vec4 tuning;
 };
 
-// CPU record of a light that owned face slots last frame (for stable slots across frames).
 struct VsmLightSlot {
     uint64_t exactKey = 0;
     uint64_t identityKey = 0;
@@ -47,7 +43,7 @@ struct VirtualShadowGpu {
     RefCntAutoPtr<Diligent::ITexture> atlas;
     RefCntAutoPtr<Diligent::ISampler> compareSampler;
     RefCntAutoPtr<Diligent::IBuffer> noStamps;
-    RefCntAutoPtr<Diligent::IBuffer> zeroSource;  // 1 MB of zeros, GPU-side source for clearing the page table and stamps
+    RefCntAutoPtr<Diligent::IBuffer> zeroSource;
     RefCntAutoPtr<Diligent::IBuffer> faces, pageTable, stamps, physical, counters, args, requests, renderList, faceDirty, previousObjects, moved, instances, sorted, buckets, commands, constants;
     RefCntAutoPtr<Diligent::IBuffer> readback[kVsmReadbackRing];
     uint32_t readbackFrame[kVsmReadbackRing]{};

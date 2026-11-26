@@ -131,7 +131,7 @@ void Renderer::allocateMeshBuffers() {
 
 void Renderer::allocateVisibilityBuffers() {
     auto& gpu = *m_diligent;
-    const auto objectCapacity = static_cast<Diligent::Uint32>(VisibleEntryCapacity(m_maxObjects));  // objects plus visible instances
+    const auto objectCapacity = static_cast<Diligent::Uint32>(VisibleEntryCapacity(m_maxObjects));
     const auto shaderCount = static_cast<Diligent::Uint32>(m_numDrawingShaders);
     const uint32_t totalBuckets = shaderCount * kMaxMeshes;
     const size_t commandBytes = static_cast<size_t>(kMaxMeshes) * m_numDrawingShaders * sizeof(DrawElementsIndirectCommand);
@@ -201,7 +201,6 @@ void Renderer::allocateCandidateBuffers() {
     gpu.pEarlyCandidateDispatchArgs = CreateDispatchArgsBuffer(gpu.pDevice, "Early Candidate Dispatch Args");
     gpu.shadowHiZSourceMap = nullptr;
 
-    // Objects' bits, then one bit per instance pool slot (docs/Instancing.md).
     std::vector<uint32_t> clearedBits(static_cast<size_t>(objectCapacity + kWorkgroupSize - 1) / kWorkgroupSize * kVisibilityBitWordsPerGroup + kInstanceVisibilityWords, 0u);
     gpu.pVisibilityBits = CreateStructuredBuffer(gpu.pDevice, "Visibility Bits", sizeof(uint32_t), static_cast<Diligent::Uint32>(clearedBits.size()), clearedBits.data());
     gpu.pTransparentCandidateCounter = CreateStructuredBuffer(gpu.pDevice, "Transparent Candidate Counter", sizeof(unsigned int), 1, &zero);

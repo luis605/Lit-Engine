@@ -114,8 +114,6 @@ void registerCoreComponents(World& world) {
     registerInstanceBatchComponent(world);
 }
 
-// GPU instancing (docs/Instancing.md): mesh id, material, shader, settings and every instance as text (scene files, snapshots,
-// prefabs, editor and DeltaStore component diffs). Mesh ids are not remapped by name.
 void registerInstanceBatchComponent(World& world) {
     world.registerComponent<InstanceBatch>(
         "InstanceBatch", [](const InstanceBatch& batch, std::ostream& out) { out << instanceBatchText(batch); },

@@ -1,9 +1,7 @@
-# GPU laws: render settings. Brightness responds to exposure the right way; hostile settings never produce a broken frame or log errors.
 include "../../lib/gpu.bent"
 
 gen scene = elements(["vista", "showcase", "gallery"])
 
-# Manual exposure: a higher EV100 means less light reaches the sensor, so the frame cannot get brighter.
 law gpu_exposure_is_monotone {
     forall (s: scene, lo: elements([10, 11, 12]), step: elements([2, 3]))
     => let bright = shot(s, [["autoExposure", 0], ["manualEV100", lo]]) in
@@ -11,7 +9,6 @@ law gpu_exposure_is_monotone {
        bright.ok and dark.ok and bright.mean >= dark.mean - 0.002 and bright.mean > dark.mean * 0.9
 }
 
-# Exposure compensation is the same knob: +2 stops is never darker than -2 under manual exposure.
 law gpu_exposure_compensation_monotone {
     forall (s: scene)
     => let up = shot(s, [["autoExposure", 0], ["exposureCompensation", 2]]) in
@@ -19,7 +16,6 @@ law gpu_exposure_compensation_monotone {
        up.ok and down.ok and up.mean >= down.mean
 }
 
-# Day is brighter than night (manual exposure, same camera).
 law gpu_noon_brighter_than_midnight {
     forall (s: elements(["vista", "showcase"]))
     => let noon = shot(s, [["autoExposure", 0], ["manualEV100", 13], ["timeOfDay", 12]]) in
@@ -27,13 +23,11 @@ law gpu_noon_brighter_than_midnight {
        noon.ok and night.ok and noon.mean > night.mean
 }
 
-# Every debug view draws something and logs nothing.
 law gpu_debug_views_render {
     forall (v: int(0, 11), s: elements(["vista", "showcase"]))
     => let r = shot(s, [["debugView", v]]) in r.ok and r.logErrors == 0 and r.std > 0.005 and r.mean > 0.001
 }
 
-# Hostile setting values (nan, inf, negative, enormous, junk) are rejected or clamped before they reach the renderer: the frame is still healthy.
 gen renderKey = elements(["renderScale", "exposureCompensation", "manualEV100", "bloomIntensity", "bloomRadius", "aoRadius", "aoIntensity", "ssrSteps", "shadowDistance",
                           "shadowResolution", "shadowCascades", "fogDensity", "reflectionIntensity", "vignette", "contrast", "saturation", "temperature", "cloudCoverage",
                           "sunIlluminance", "skyBrightness", "environmentIntensity", "upscaleSharpness", "clusterErrorPixels", "timeOfDay", "grain", "localShadowCount"])
@@ -44,7 +38,6 @@ law gpu_hostile_settings_keep_frames_sane {
        r.ok and r.logErrors == 0 and r.exactBlackFrac < 0.95 and r.mean < 0.99 and (r.mean > 0.002 or len(filter(writes, fn(w) => contains(["exposureCompensation", "manualEV100", "sunIlluminance", "skyBrightness", "environmentIntensity", "timeOfDay"], w[0]))) > 0)
 }
 
-# Every renderer feature toggled off still renders a healthy frame with a clean log (the features are independent switches).
 law gpu_feature_switches_independent {
     forall (offs: subseq(["ssao", "ssgi", "bloom", "shadows", "fog", "clouds", "godRays", "fxaa", "areaLights", "bentNormals", "contactShadows", "pcss", "virtualShadows", "localShadows", "instancing", "clusterLod", "colorBleed"]))
     => let r = shot("showcase", map(offs, fn(k) => [k, 0])) in

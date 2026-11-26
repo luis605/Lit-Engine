@@ -32,8 +32,6 @@ layout(std430) readonly buffer ExposureBuffer {
     vec4 exposureData;
 };
 
-// Material textures. Legacy: two 16-layer arrays (sRGB color, linear data), a texture is a layer. LIT_BINDLESS: one table of native-size
-// 2D textures, a texture is a slot (Material::*Texture, MaterialData.textures); the slot's format already says sRGB or linear.
 #ifdef LIT_BINDLESS
 uniform sampler2D u_textures[];
 #else
@@ -41,7 +39,6 @@ uniform sampler2DArray u_colorTextures;
 uniform sampler2DArray u_dataTextures;
 #endif
 
-// Samples texture `slot` (what engine.loadTexture returned). `color` selects the legacy array and is ignored by the table.
 vec4 litTexture(bool color, int slot, vec2 uv) {
 #ifdef LIT_BINDLESS
     return texture(u_textures[nonuniformEXT(slot)], uv);
@@ -57,7 +54,7 @@ layout(location = 3) flat in uint in_entity;
 layout(location = 4) flat in uint in_material;
 layout(location = 5) in vec3 in_objectPos;
 layout(location = 6) flat in float in_alpha;
-layout(location = 9) flat in uvec2 in_instance;  // InstanceBatch colour (RGBA8) and seed
+layout(location = 9) flat in uvec2 in_instance;
 #ifdef POINT_SPRITE
 layout(location = 7) flat in float in_pointRound;
 layout(location = 8) flat in float in_pointSize;

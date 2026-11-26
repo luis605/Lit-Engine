@@ -112,7 +112,6 @@ void Renderer::cullVisibilityPhase(int phaseIndex, uint32_t objectCount, Diligen
     } else {
         context->DispatchCompute(Diligent::DispatchComputeAttribs((objectCount + kWorkgroupSize - 1) / kWorkgroupSize, 1, 1));
     }
-    // Instance batches append to the same entries; the frame graph runs them as passes of their own (Instance Cull).
     if (!renderGraphEnabled()) cullInstances(phaseIndex, hiz, phaseIndex == kPhaseOpaque ? 0u : 1u);
 }
 
@@ -143,7 +142,7 @@ void Renderer::buildVisibilityDraws(int phaseIndex, uint32_t views, bool meshlet
         LIT_UP_MARK(litUp8);
         Diligent::MapHelper<ScatterConstants> constants(context, gpu.pScatterConstants, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
         LIT_UP_COMMIT(litUp8);
-        constants->maxDraws = static_cast<uint32_t>(VisibleEntryCapacity(m_maxObjects));  // objects plus visible instances
+        constants->maxDraws = static_cast<uint32_t>(VisibleEntryCapacity(m_maxObjects));
     }
     context->CommitShaderResources(phase.scatterSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{phase.scatterDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
@@ -164,7 +163,7 @@ void Renderer::buildVisibilityDraws(int phaseIndex, uint32_t views, bool meshlet
     }
     context->CommitShaderResources(phase.commandGenSRB[m_currentFrame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchCompute(Diligent::DispatchComputeAttribs((totalBuckets + kWorkgroupSize - 1) / kWorkgroupSize, 1, 1));
-    if (meshlets) buildMeshletDraws(phaseIndex, views);  // the frame graph runs it as its own pass
+    if (meshlets) buildMeshletDraws(phaseIndex, views);
 }
 
 void Renderer::bindSceneTargets(bool clear) {
@@ -210,7 +209,6 @@ void Renderer::uploadCascadeCull(bool empty) {
     }
     cull.info[1] = static_cast<uint32_t>(localCount);
     const auto& cascades = m_lighting.cascades();
-    // No caster marking for cascades the view does not render (sunless cell, or shared cascades already in the shadow map).
     const int cascadeCount = !empty && m_viewSunShadows && !m_cascadeReuse && m_diligent->pShadowCullPSO ? std::min<int>(m_lighting.cascadeCount(), kCascadeShadowViews) : 0;
     for (int cascadeIndex = 0; cascadeIndex < cascadeCount; ++cascadeIndex) {
         const Cascade& cascade = cascades[static_cast<size_t>(cascadeIndex)];

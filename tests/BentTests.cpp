@@ -1,4 +1,3 @@
-// Unit tests of the Bent language core: lexer, parser, evaluator, generators, shrinker, checker (no engine).
 #include "TestSupport.hpp"
 
 #include <cmath>
@@ -13,7 +12,6 @@ using namespace bent;
 
 namespace {
 
-// A toy world: a counter that actions add to and ticks advance.
 class CounterSim final : public Sim {
   public:
     void apply(const ActionV& action, const SrcLoc& loc, const std::function<bool()>& onTick) override {
@@ -158,7 +156,6 @@ fn odd(n) = if n == 0 then false else even(n - 1)
 }
 
 void testPrintRoundTrip() {
-    // Every printed value parses back to an equal value (this is what makes counterexamples runnable).
     const std::unique_ptr<Program> program = load(R"(
 let leaf = oneof(int(-1000000, 1000000), nasty(float(-1e9, 1e9)), text(0, 8), bool(), unitVec3(), unitQuat(), entity(int(0, 9)), add(n: int(0, 5)))
 let anyValue = oneof(leaf, listOf(leaf, 0, 4), {a: leaf, b: listOf(leaf, 0, 3), "odd key": leaf})
@@ -166,7 +163,7 @@ let anyValue = oneof(leaf, listOf(leaf, 0, 4), {a: leaf, b: listOf(leaf, 0, 3), 
     for (uint64_t seed = 0; seed < 300; ++seed) {
         const Value v = evalIn(*program, "anyValue", seed);
         const Value back = evalIn(*program, print(v));
-        const bool same = equal(v, back) || print(v) == print(back);  // NaN != NaN but prints the same
+        const bool same = equal(v, back) || print(v) == print(back);
         if (!same) std::fprintf(stderr, "roundtrip mismatch: %s vs %s\n", print(v).c_str(), print(back).c_str());
         CHECK(same);
     }
@@ -186,13 +183,11 @@ void testGenerators() {
             CHECK(x >= -5 && x <= 5 && f >= 0.0 && f <= 1.0);
         }
     }
-    // Choice 0 everywhere gives the simplest value.
     Interp in(*program);
     Tape zero = Tape::replay({});
     in.tape = &zero;
     const Value simplest = in.realize(program->globals.at("g"), SrcLoc{});
     CHECK(print(simplest) == "[{f: 0.0, x: 0}, {f: 0.0, x: 0}]");
-    // nasty() reaches non-finite values; filter and bind compose.
     bool sawNaN = false;
     for (uint64_t seed = 0; seed < 400 && !sawNaN; ++seed) sawNaN = std::isnan(evalText("nasty(float(0, 1))").f) || std::isnan(evalIn(*program, "nasty(float(0, 1))", seed).f);
     CHECK(sawNaN);
@@ -229,12 +224,10 @@ void testShrinking() {
     const LawReport floatReport = check("law f { forall (x: float(-1000, 1000)) => x < 10.0 }", "f");
     CHECK(floatReport.status == "fail" && floatReport.shrunk.bindings[0].second.f >= 10.0 && floatReport.shrunk.bindings[0].second.f <= 10.5);
 
-    // Action removal: only the add that makes the counter large survives.
     const LawReport actionReport = check("law bounded { forall (p: listOf(oneof(add(n: int(0, 3)), wait(n: int(0, 3)), add(n: int(10, 20))), 0, 20)) => after(p) { value() < 10 } }", "bounded");
     CHECK(actionReport.status == "fail");
     CHECK(print(actionReport.shrunk.bindings[0].second) == "[add(n: 10)]");
 
-    // Parallel and serial runs find the same first failure and the same minimal counterexample.
     const LawReport serial = check("law small { forall (x: int(0, 100000), y: int(0, 9)) => x < 5000 or y != 3 }", "small", 300, 1);
     const LawReport parallel = check("law small { forall (x: int(0, 100000), y: int(0, 9)) => x < 5000 or y != 3 }", "small", 300, 4);
     CHECK(serial.failingCase == parallel.failingCase && serial.failingCase >= 0);
@@ -249,7 +242,7 @@ void testTemporal() {
     CHECK(equal(evalIn(*program, "eventually within 10 after([add(n: 1)]) { now() >= 7 }"), Value::boolean(true)));
     CHECK(equal(evalIn(*program, "eventually within 3 after([add(n: 1)]) { now() >= 7 }"), Value::boolean(false)));
     CHECK(equal(evalIn(*program, "always within 4 after([]) { now() <= 4 }"), Value::boolean(true)));
-    CHECK(equal(evalIn(*program, "after([add(n: 1)]) { value() } + after([add(n: 5)]) { value() }"), Value::integer(6)));  // worlds are independent
+    CHECK(equal(evalIn(*program, "after([add(n: 1)]) { value() } + after([add(n: 5)]) { value() }"), Value::integer(6)));
     CHECK(errorOf([&] { (void)evalIn(*program, "after([1]) { true }"); }).find("not an action") != std::string::npos);
 }
 
@@ -273,7 +266,6 @@ example positive { x = -1 }
 }
 
 void testCounterexampleProgram() {
-    // The regression text a failure writes is itself a loadable program whose example fails the same way.
     const std::string lawFile = testsupport::tempFilePath("bent_", "law.bent");
     {
         std::ofstream out(lawFile);
@@ -294,7 +286,6 @@ void testCounterexampleProgram() {
 }
 
 void testIsolation() {
-    // A crashing engine call is caught in a child process and shrunk like any failure.
     const std::unique_ptr<Program> program = load("law survives { forall (p: listOf(oneof(add(n: int(0, 3)), crash()), 0, 6)) => after(p) { true } }");
     CheckOptions options;
     options.cases = 50;

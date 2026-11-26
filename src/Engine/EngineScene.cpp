@@ -340,8 +340,6 @@ bool Engine::requestMesh(const std::string& name, int lod, int priority, size_t 
         m_residentMeshIds[name][level] = id;
         if (onMeshResident) onMeshResident(name, id, level);
     };
-    // Eviction frees the GPU geometry of that level. A finer upload evicts the coarser one after onMeshResident ran,
-    // so entities were already retargeted by then; entities still using an evicted id draw nothing.
     request.evict = [this, name](int level) {
         const auto byName = m_residentMeshIds.find(name);
         if (byName == m_residentMeshIds.end()) return;

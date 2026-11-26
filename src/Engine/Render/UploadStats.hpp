@@ -1,10 +1,5 @@
 #pragma once
 
-// Per call site accounting of CPU->GPU upload traffic (see docs/GpuTimings.md, "Upload counters").
-// Diligent's Vulkan upload heap and dynamic heap bump two global counters on every allocation. A LIT_UP(context)
-// proxy snapshots them around one UpdateBuffer/UpdateTexture call and attributes the delta to __FILE__:__LINE__.
-// Dynamic (MapBuffer WRITE_DISCARD) sites use LIT_UP_MARK/LIT_UP_COMMIT. Everything is a no-op unless LIT_UPLOAD_STATS is set.
-
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
@@ -62,7 +57,6 @@ public:
         m_attributedFrame += bytes;
     }
 
-    // Called once per frame (Renderer::beginFrame) before the next frame starts to upload.
     void endFrame() {
         if (!m_enabled) return;
         std::lock_guard lock(m_mutex);
@@ -81,7 +75,6 @@ public:
         for (auto& [name, site] : m_sites) site.frameBytes = 0;
     }
 
-    // Average steady state (after warm-up) upload-heap MB per frame, or -1 if too few frames.
     double steadyUploadMB() const { return steadyAverage(true); }
     double steadyDynamicMB() const { return steadyAverage(false); }
     double firstFrameMB() const { return m_frames.empty() ? 0.0 : mb(m_frames.front().upload); }
@@ -172,7 +165,6 @@ private:
 
 inline void endFrame() { Registry::get().endFrame(); }
 
-// Wraps a context pointer (raw or RefCntAutoPtr) for one call expression: LIT_UP(context)->UpdateBuffer(...).
 template <class T>
 class CallScope {
 public:

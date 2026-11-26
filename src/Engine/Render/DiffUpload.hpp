@@ -1,9 +1,5 @@
 #pragma once
 
-// Delta uploads: keeps a CPU shadow of what the GPU copy of a buffer holds and only sends the 256-byte blocks that
-// changed (adjacent changed blocks are merged). Valid for buffers that are written exclusively through this path
-// (read-only on the GPU). Call invalidate() when a shader writes into the buffer or the buffer is recreated.
-
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -17,7 +13,6 @@
 
 namespace litgpu {
 
-// LIT_UPLOAD_LEGACY=1 restores the full uploads (A/B comparisons of pixels and traffic).
 inline bool legacyUploads() {
     static const bool legacy = [] {
         const char* value = std::getenv("LIT_UPLOAD_LEGACY");
@@ -36,7 +31,6 @@ public:
         return uploader;
     }
 
-    // Equivalent to context->UpdateBuffer(buffer, offset, size, data, TRANSITION) but skips blocks the GPU already holds.
     void update(Diligent::IDeviceContext* context, Diligent::IBuffer* buffer, Diligent::Uint64 offset, Diligent::Uint64 size, const void* data, const char* file, int line) {
         if (size == 0) return;
         if (legacyUploads()) {
@@ -76,7 +70,6 @@ public:
                 continue;
             }
             std::memcpy(entry.shadow.data() + begin, source + (begin - offset), stop - begin);
-            // A partially covered block only becomes "known" once the whole block was written.
             if (full) entry.valid[block] = 1;
             if (runStart == ~0ull) runStart = begin;
             runEnd = stop;
@@ -102,8 +95,6 @@ private:
 
 namespace litgpu {
 
-// Zero-fills a buffer range on the GPU from a persistent zero buffer (no CPU upload). Falls back to UpdateBuffer
-// with `fallbackZeros` when no zero buffer is available or it is too small.
 inline void zeroFill(Diligent::IDeviceContext* context, Diligent::IBuffer* zero, Diligent::IBuffer* destination, Diligent::Uint64 offset, Diligent::Uint64 bytes, const void* fallbackZeros) {
     if (bytes == 0) return;
     if (!legacyUploads() && zero && zero->GetDesc().Size >= bytes) {

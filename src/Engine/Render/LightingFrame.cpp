@@ -138,7 +138,6 @@ void fillSkyUniforms(const Lighting::Data& state, const SunState& sun, SceneUnif
     uniforms.skyGradient[0] = glm::vec4(settings.gradientZenith, settings.cloudAltitude);
     uniforms.skyGradient[1] = glm::vec4(settings.gradientHorizon, settings.environmentIntensity);
     uniforms.skyGradient[2] = glm::vec4(settings.gradientGround, glm::length(illuminance) > 0.0f ? (illuminance.x + illuminance.y + illuminance.z) / 3.0f : 0.0f);
-    // Cloud patterns live in world space: the wind offset carries the (wrapped) world origin so a rebase (local -= d, origin += d) leaves p + offset unchanged.
     const glm::vec2 cloudOrigin(static_cast<float>(std::fmod(state.worldOrigin.x, static_cast<double>(kMaxCloudOffset))), static_cast<float>(std::fmod(state.worldOrigin.z, static_cast<double>(kMaxCloudOffset))));
     uniforms.cloudParams = glm::vec4(state.cloudOffset + cloudOrigin, std::fmod(state.cloudTime, kCloudTimeWrap), settings.cloudSpeed);
     const bool portalLights = !state.lightApertures.empty() && state.firstPortalLight < state.lightCount;

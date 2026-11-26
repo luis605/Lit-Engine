@@ -22,10 +22,6 @@ import Engine.Render.material;
 import Engine.mesh;
 import Engine.asset;
 
-// Dense-geometry stress scene for the cluster LOD path: a few procedural high-poly meshes (displaced icospheres, 1.3M and 330k triangles
-// at the default detail) instanced on a grid, giving hundreds of millions to billions of source triangles. Compare `clusterLod=0`
-// (per-object LOD chain) against the default cluster path.
-
 uint32_t testSceneMaterial(Engine& engine, const TestSceneKit& kit, const Material& material);
 uint32_t testSceneMesh(Engine& engine, const std::string& key, const std::function<uint32_t()>& upload);
 
@@ -98,14 +94,12 @@ Mesh makeRock(int subdivisions, float roughness, float seed) {
 
 }
 
-// Uploaded once per Engine and (detail, roughness, seed); returns kit.cube when no GPU is available (headless).
 uint32_t testSceneRockMesh(Engine& engine, const TestSceneKit& kit, int subdivisions, float roughness, float seed) {
     if (engine.headless()) return kit.cube;
     const std::string key = "rock." + std::to_string(subdivisions) + "." + std::to_string(roughness) + "." + std::to_string(seed);
     return testSceneMesh(engine, key, [&] { return engine.uploadProcessedMesh(AssetManager::processMesh(makeRock(subdivisions, roughness, seed))); });
 }
 
-// Small procedural mesh (portal frames) uploaded once per Engine and key; 0 without a GPU.
 uint32_t testSceneProceduralMesh(Engine& engine, const std::string& key, const std::vector<float>& vertices, const std::vector<unsigned int>& indices) {
     if (engine.headless() || vertices.empty() || indices.empty()) return 0u;
     return testSceneMesh(engine, key, [&] { return engine.uploadProcessedMesh(AssetManager::processMesh(Mesh(vertices, indices))); });

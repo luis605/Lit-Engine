@@ -5,11 +5,6 @@
 #include "mesh.glsl"
 #include "material.glsl"
 
-// One 64-thread group per page queued for rendering. The group builds the page's sub-frustum
-// (the face projection restricted to the page's NDC rectangle, near plane, light range) and tests
-// every object's bounding sphere against it. Each overlapping opaque object becomes one instance
-// (object, render-list slot), bucketed by mesh LOD for the instanced indirect draw.
-
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430) readonly buffer VsmFaceBuffer {
@@ -65,7 +60,6 @@ void main() {
         for (int i = 0; i < 6; ++i) s_planes[i] = planes[i] / max(length(planes[i].xyz), 1e-8);
         s_depthRow = r3;
         s_cut = f.clipPlane;
-        // Caster LOD: projected diameter in this page's texels is diameter * texelsPerUnitAtUnitDepth / depth.
         s_lod = vec2(float(VSM_PAGE << page.mip) / (2.0 * f.info.x), vsmTuning.x);
     }
     barrier();

@@ -1,21 +1,15 @@
-# World core: determinism across runs, worker counts and replays (docs/Determinism.md). Cases run on many threads at once, each with
-# its own Engine, so these laws also catch shared mutable state between worlds.
 include "../lib/ext_world.bent"
 
-# The full state dump (not only its hash) is identical for two runs of the same program, whatever it did.
 law same_program_same_state_dump {
     forall (p: programPlus)
     => after(p ++ [step(n: 5)]) { stateDump() } == after(p ++ [step(n: 5)]) { stateDump() }
 }
 
-# Simulation results do not depend on how many worker threads the world's job system has (including none).
 law simulation_does_not_depend_on_the_worker_count {
     forall (p: programPlus, w1: int(0, 6), w2: int(0, 6))
     => after([jobWorkers(n: w1)] ++ p ++ [step(n: 20)]) { [worldHash(), contentHash(), cameraView()] } == after([jobWorkers(n: w2)] ++ p ++ [step(n: 20)]) { [worldHash(), contentHash(), cameraView()] }
 }
 
-# The spatial index refresh is parallel above 8192 pending entities (and its apply phase above 65536): queries, frustum culling and
-# the world hash are the same for every worker count.
 gen bigBatchSize = frequency([[11, int(8200, 9500)], [1, int(65600, 66200)]])
 law parallel_spatial_refresh_equals_serial {
     forall (n: bigBatchSize, w: int(1, 6), d: offset, c: vec3(float(-20, 20), 0, float(-20, 20)), r: float(1, 30))
@@ -25,15 +19,12 @@ law parallel_spatial_refresh_equals_serial {
        cover("many entities", n > 8192) and run(0) == run(w)
 }
 
-# Loading a big scene (parallel parse above 16384 entities) gives the same world with any worker count.
 law parallel_scene_parse_equals_serial {
     forall (n: int(16400, 16800), w: int(1, 6))
     => let run = fn(workers) => after([jobWorkers(n: workers), spawnBatch(n: n, pos: vec3(0, 0, 0), spacing: 0.5, mesh: 0), saveLoad()]) { [contentHash(), entityCount()] } in
        run(0) == run(w)
 }
 
-# Replaying recorded input into a second engine reproduces the world, also with timers, event subscribers, random streams and
-# physics around (everything that runs inside a tick).
 gen replayActions = listOf(frequency([
     [3, input(keys: listOf(elements([87, 65, 83, 68, 340, 32]), 0, 3), delta: vec3(float(-20, 20), float(-20, 20), 0))],
     [3, step(n: int(1, 20))],
@@ -46,7 +37,6 @@ law replay_reproduces_ticks_with_timers_and_streams {
     => replayMatches([flyCamera(), camera(pos: vec3(0, 2, 10))] ++ p ++ [step(n: 5)])
 }
 
-# Two engines in one process never share state: running a second, different program in between changes nothing.
 law engines_do_not_share_state {
     forall (p: programPlus, q: programPlus)
     => let first = after(p ++ [step(n: 5)]) { worldHash() } in

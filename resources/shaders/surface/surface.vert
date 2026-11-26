@@ -58,8 +58,7 @@ void main() {
     uint objectId = entry.x & 0x1FFFFFFFu;
     uint materialId = entry.y & 0x7FFFu;
     uint maskBit = entry.y & 0x8000u;
-    
-    // InstanceBatch entries (docs/Instancing.md): batch entity world times the instance's local transform.
+
     bool instanced = isInstanceEntry(objectId);
     uint entity = objectId;
     uvec2 instanceData = uvec2(0xFFFFFFFFu, (objectId * 2654435761u) >> 8u);

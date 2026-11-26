@@ -124,7 +124,6 @@ void forEachShapeEntity(World& world, Fn&& fn) {
     world.view<ConvexHullCollider>([&](EntityHandle entity, ConvexHullCollider&) { visit(entity); });
 }
 
-// Entity placement of a static surface (heightfield, triangle mesh): rigid part plus uniform scale for distances.
 struct Frame {
     glm::mat4 toWorld{1.0f};
     glm::mat4 toLocal{1.0f};
@@ -151,7 +150,6 @@ Frame makeFrame(const World& world, EntityHandle entity) {
     return frame;
 }
 
-// A surface contact: normal points out of the surface toward the body.
 struct SurfaceHit {
     glm::vec3 normal;
     float depth;
@@ -254,9 +252,6 @@ float planeReach(const Part& part, const glm::vec3& normal, const glm::vec3& cen
     return -1.0f;
 }
 
-// ----------------------------------------------------------------------------------------------------------------------------
-// Contact solver (position based with velocity impulses, Coulomb friction, sphere spin and rolling resistance).
-
 struct Material {
     float restitution = 0.0f;
     float staticFriction = 0.6f;
@@ -294,7 +289,6 @@ Material surfaceMaterial(const RigidBody& body, float restitution, float frictio
     return material;
 }
 
-// Normal points from a to b. Returns the closing speed before the impulse.
 float applyContact(Side& a, Side& b, const glm::vec3& normal, float depth, const Material& material, float dt) {
     const float invSum = a.invMass + b.invMass;
     if (invSum <= 0.0f) return 0.0f;
@@ -333,7 +327,6 @@ float applyContact(Side& a, Side& b, const glm::vec3& normal, float depth, const
                 if (b.spin > 0.0f) b.body->body->angularVelocity += glm::cross(-normal * b.spin, -tangent * tangentImpulse) * (b.invMass / (kSpinInertiaFactor * b.spin * b.spin));
             }
             if (stick && a.spin == 0.0f && b.spin == 0.0f) {
-                // Static friction also cancels the slip integrated this step (otherwise bodies creep down slopes).
                 const glm::vec3 drift = tangentVelocity * dt;
                 if (aMoves) a.body->position += drift * (a.invMass / invSum);
                 if (bMoves) b.body->position -= drift * (b.invMass / invSum);
@@ -409,7 +402,6 @@ void resolvePair(Body& first, Body& second, Solver& solver) {
     if (solver.record) solver.collisions.push_back({first.entity, second.entity, normal, depth, std::max(0.0f, -closing)});
 }
 
-// Applies a set of contacts of one body against one static surface. Contacts sharing a direction are merged by the depth already pushed out.
 void resolveSurface(Body& body, EntityHandle surface, std::vector<SurfaceHit>& hits, float restitution, float friction, Solver& solver) {
     if (hits.empty()) return;
     std::sort(hits.begin(), hits.end(), [](const SurfaceHit& l, const SurfaceHit& r) { return l.depth > r.depth; });
@@ -819,7 +811,6 @@ std::optional<PhysicsHit> castImpl(World& world, const glm::vec3& origin, const 
     return best;
 }
 
-// Overlap query: a capsule segment (a == b is a sphere) or an axis aligned part (box).
 struct Query {
     bool capsule = true;
     glm::vec3 a{0.0f};
@@ -831,7 +822,6 @@ struct Query {
 
 std::optional<Contact> queryVersusPart(const Query& query, const Part& target, const glm::vec3& tc) {
     if (!query.capsule) return collideParts(target, tc, query.part, query.center);
-    // Normal returned points from the collider toward the query.
     switch (target.kind) {
     case ShapeKind::Sphere: {
         const glm::vec3 offset = closestOnSegment(query.a, query.b, tc) - tc;
@@ -1024,8 +1014,6 @@ void registerPhysicsComponents(World& world) {
             if (!(input >> collider.radius >> collider.halfHeight)) return std::nullopt;
             return collider;
         });
-    // Hull colliders were not serialized at all, so save / load and snapshots silently dropped them (found by bent,
-    // persistence.bent save_load_then_simulate). The hull is stored as its vertices and rebuilt on load.
     world.registerComponent<ConvexHullCollider>(
         "ConvexHullCollider",
         [](const ConvexHullCollider& collider, std::ostream& output) {
@@ -1065,8 +1053,6 @@ void registerPhysicsComponents(World& world) {
             }
             return collider;
         });
-    // Triangle mesh and height field colliders were not serialized either (found by bent, ext_phys_dynamics.bent
-    // px_every_collider_survives_save_load): save / load, snapshots and the save system silently dropped terrain and mesh colliders.
     world.registerComponent<TriMeshCollider>(
         "TriMeshCollider",
         [](const TriMeshCollider& collider, std::ostream& output) {

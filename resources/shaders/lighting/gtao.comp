@@ -9,7 +9,6 @@ uniform sampler2D u_linearDepth;
 uniform sampler2D u_gbuffer1;
 layout(rgba16f) writeonly uniform image2D u_output;
 #ifdef GI_PASS
-// Lit colour of the current frame (pre-exposed HDR, captured right after the lighting pass).
 uniform sampler2D u_sceneColor;
 #else
 layout(rgba8) writeonly uniform image2D u_bent;
@@ -17,10 +16,6 @@ layout(rgba8) writeonly uniform image2D u_bent;
 
 const float BAYER[16] = float[](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
 const uint SECTORS = 32u;
-// One-bounce indirect light uses the actual outgoing radiance of the emitter (this frame's lit
-// colour: shadows, local lights, sky occlusion and albedo included). Earlier versions lit every
-// emitter with the unshadowed sun (albedo * E_sun / pi), which leaked sunlight into closed rooms,
-// made concave corners glow and washed interiors flat.
 const float GI_SOURCE_MIP = 1.0;
 const float GI_MAX_RADIANCE = 16.0;
 
@@ -115,9 +110,6 @@ void main() {
     float radiusPx = radius * projection[1][1] * 0.5 * screenParams.y / max(-P.z, 1e-3);
     int slices = int(aoParams.z + 0.5);
 #ifdef GI_PASS
-    // Indirect light comes from few bright emitters; with only the AO slice count the gather shows
-    // as directional streaks that a short spatial blur cannot remove. GI is low frequency, so take
-    // more slices here (spatial only, no temporal accumulation).
     slices = max(slices * 2, 6);
 #endif
     int steps = int(aoParams.w + 0.5);
@@ -171,9 +163,6 @@ void main() {
                 vec3 S = viewPositionAt(sampleUv, textureLod(u_linearDepth, sampleUv, 0.0).r);
                 vec3 delta = S - P;
                 float dist = length(delta);
-                // Smooth distance falloff instead of a hard cut at 2R (which produced a visible
-                // halo/band where occluders crossed the cutoff): the occluded arc of a sample
-                // shrinks toward the unoccluded end of the slice as it moves away.
                 float reach = 1.0 - smoothstep(radius, radius * 2.0, dist);
                 if (reach <= 0.0) continue;
                 vec3 back = delta - V * thickness;

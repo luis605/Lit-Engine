@@ -91,7 +91,6 @@ Value Value::makeList(ValueList items) {
 namespace {
 void sortFields(std::vector<std::pair<std::string, Value>>& fields) {
     std::stable_sort(fields.begin(), fields.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
-    // Later duplicates win (record update semantics).
     std::vector<std::pair<std::string, Value>> unique;
     for (auto& field : fields) {
         if (!unique.empty() && unique.back().first == field.first) unique.back().second = std::move(field.second);

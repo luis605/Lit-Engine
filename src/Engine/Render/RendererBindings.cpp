@@ -21,7 +21,6 @@ import Engine.Render.observation;
 
 namespace {
 
-// Writes slots [first, first + count) of the bindless texture table into a surface binding (slots without a texture get the placeholder).
 void SetTextureTable(Diligent::IShaderResourceBinding* binding, Lighting& lighting, uint32_t first, uint32_t count) {
     if (!binding || count == 0) return;
     auto* variable = binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, litgpu::kBindlessTableName);
@@ -63,7 +62,6 @@ Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> MakeSurfaceBinding(Dil
     };
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding;
     if (!pipeline) return binding;
-    // Bindless pipelines use an explicit signature, whose bindings Diligent only creates through the signature.
     if (lighting.bindlessTextures()) pipeline->GetResourceSignature(0)->CreateShaderResourceBinding(&binding, true);
     else pipeline->CreateShaderResourceBinding(&binding, true);
     litgpu::bind(binding.RawPtr(), resources);
@@ -296,8 +294,6 @@ void Renderer::syncTextureTable() {
     const uint64_t epoch = m_lighting.textureTableEpoch();
     const uint64_t applied = gpu.textureTableApplied[m_currentFrame];
     if (epoch == applied) return;
-    // This frame slot's fence has been waited on, so its descriptor sets are idle: only the slots that changed since it was last
-    // brought up to date are written (a texture load or release touches one descriptor per binding, never the whole table).
     uint32_t first = kBindlessTextureCapacity;
     uint32_t last = 0;
     for (uint32_t slot = 0; slot < kBindlessTextureCapacity; ++slot) {

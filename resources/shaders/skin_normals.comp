@@ -1,8 +1,5 @@
 #version 450
 
-// Dynamic mesh refit: recompute smooth vertex normals from the deformed positions.
-// Uses a CSR vertex -> triangle adjacency built on the CPU when the source mesh was created.
-
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 layout(std140, binding = 0) uniform NormalUniforms {

@@ -351,8 +351,7 @@ void World::setParent(EntityHandle entity, EntityHandle parent, bool keepWorldTr
     markSpatialSubtree(entity.index);
     if (keepWorldTransform) {
         const glm::mat4 parentWorld = parent.isNull() ? glm::mat4(1.0f) : getWorldMatrix(parent);
-        // A singular parent (zero scale) cannot preserve the world transform: inverting it produced NaN locals (found by bent,
-        // core.bent degenerate_scale_stays_finite). Keep the previous local matrix in that case.
+        // a singular parent (zero scale) inverts to NaN, so the previous local matrix is kept.
         const glm::mat4 local = glm::inverse(parentWorld) * world;
         bool finite = true;
         for (int column = 0; finite && column < 4; ++column) finite = std::isfinite(local[column].x + local[column].y + local[column].z + local[column].w);

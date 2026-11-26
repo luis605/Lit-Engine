@@ -17,7 +17,6 @@ import Engine.Render.reflection;
 
 export bool collectLights(World& world, const glm::vec3& viewPos, LightSet& out, size_t maxLights = 64);
 export void registerCoreComponents(World& world);
-// "InstanceBatch" serializer (also part of registerCoreComponents); idempotent.
 export void registerInstanceBatchComponent(World& world);
 export struct ReflectionBoxSource {
     std::function<bool(uint32_t, glm::vec3&, glm::vec3&)> meshBox;

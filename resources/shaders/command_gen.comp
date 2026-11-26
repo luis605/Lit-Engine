@@ -2,9 +2,6 @@
 #extension GL_GOOGLE_include_directive : require
 #include "mesh.glsl"
 
-// One thread per (shaderId, mesh) bucket - fixed dispatch size regardless of scene/visible-object
-// count - emitting a single instanced draw command per non-empty bucket. Replaces the old one
-// draw-command-per-object scheme, which produced up to one indirect draw per visible object.
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430, binding = 0) buffer DrawAtomicCounterBuffer {
@@ -36,8 +33,8 @@ layout(std430, binding = 7) buffer PointCommandBuffer {
 };
 
 layout(std140, binding = 5) uniform CommandGenConstants {
-    uint u_maxBucketsPerShader; // = MAX_MESHES
-    uint u_totalBuckets;        // = numDrawingShaders * MAX_MESHES
+    uint u_maxBucketsPerShader;
+    uint u_totalBuckets;
     uint u_bucketSlots;
     uint u_viewBuckets;
 };
@@ -66,8 +63,6 @@ void main() {
     }
 
     MeshInfo mesh = meshInfos[meshId];
-    // Cluster LOD meshes upload indexCount 0 for their triangle LOD slots while the cluster path
-    // is active; meshlet_cull.comp emits their draws instead.
     if (mesh.indexCount == 0u) return;
 
     uint drawIdx = atomicAdd(drawCounters[shaderId], 1);

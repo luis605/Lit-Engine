@@ -1,9 +1,3 @@
-// Bent bridge: GPU mode. A law asks for a frame with rxGpuShot({scene, settings, env, ...}); the frame is rendered by LitShot (the
-// same Engine rendering path as src/Shot, deterministic clock, fixed window, 320x180 by default) in a child process, which keeps the
-// shared GPU's memory bounded (one process at a time, retried on out-of-memory / device loss) and isolates driver crashes. The
-// result is a record of frame statistics read from the PNG, the process log and the upload statistics. Images are compared with
-// rxImageDiff. Natives are only usable after setGpuMode(true) (`bent --gpu`).
-
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -38,7 +32,7 @@ namespace bent {
 namespace {
 
 std::atomic<bool> gGpuMode{false};
-std::mutex gGpuLock;  // one LitShot at a time (shared GPU) and the cache below
+std::mutex gGpuLock;
 std::map<std::string, Value> gShots;
 
 std::filesystem::path scratchDir() {
@@ -155,8 +149,8 @@ RunResult spawnWait(const std::vector<std::string>& args, const std::vector<std:
 struct Image {
     int w = 0;
     int h = 0;
-    std::vector<unsigned char> rgb;  // 3 bytes per pixel
-    std::vector<float> lum;          // Rec. 709 luma of the sRGB bytes, 0..1
+    std::vector<unsigned char> rgb;
+    std::vector<float> lum;
 };
 
 bool loadImage(const std::string& path, Image& out) {
@@ -185,7 +179,6 @@ uint64_t hashBytes(const std::vector<unsigned char>& bytes) {
     return h;
 }
 
-// Mean luma of 8x8 blocks.
 std::vector<float> blockMeans(const Image& img, int block, int& bw, int& bh) {
     bw = img.w / block;
     bh = img.h / block;
@@ -217,7 +210,6 @@ Value statsRecord(const Image& img) {
     }
     const double n = static_cast<double>(img.lum.size());
     const double mean = sum / n;
-    // Structure: mean absolute luma gradient, and isolated dark blocks (a block much darker than all eight neighbours).
     double gradient = 0.0;
     for (int y = 0; y + 1 < img.h; ++y) {
         for (int x = 0; x + 1 < img.w; ++x) {
@@ -347,7 +339,6 @@ Value renderShot(const Value& spec, const SrcLoc& loc) {
         }
     }
 
-    // Retry: the GPU is shared, so a render can fail with out-of-memory or device loss through no fault of the engine.
     RunResult run;
     std::string logText;
     bool oom = false;
@@ -361,7 +352,6 @@ Value renderShot(const Value& spec, const SrcLoc& loc) {
         if (run.ok && !oom && std::filesystem::exists(png, exists)) break;
         std::this_thread::sleep_for(std::chrono::seconds(2 + 2 * attempt));
     }
-    // The GPU is shared: persistent out-of-memory says nothing about the engine, so the case is discarded instead of failed.
     if (oom) throw Discard{"GPU out of memory (shared device)"};
     std::error_code exists;
     if (!run.ok || !std::filesystem::exists(png, exists)) {
@@ -390,7 +380,6 @@ Value renderShot(const Value& spec, const SrcLoc& loc) {
     return gShots[key] = Value::record(std::move(fields));
 }
 
-// rxImageDiff(a, b): per-channel byte differences between two shots, and the difference of their 20x20 block mean lumas (structure).
 Value imageDiff(const Value& a, const Value& b, const SrcLoc& loc) {
     const Value* pa = field(a, "png");
     const Value* pb = field(b, "png");
@@ -413,7 +402,6 @@ Value imageDiff(const Value& a, const Value& b, const SrcLoc& loc) {
         }
         meanAbs /= static_cast<double>(ia.rgb.size());
     }
-    // Block structure on a fixed 16 x 9 grid, independent of the image size.
     const auto grid = [](const Image& img) {
         std::vector<double> cells(16 * 9, 0.0);
         std::vector<int> counts(16 * 9, 0);
@@ -442,7 +430,7 @@ Value imageDiff(const Value& a, const Value& b, const SrcLoc& loc) {
                           {"blockMean", Value::number(blockMean / static_cast<double>(ga.size()))}});
 }
 
-}  // namespace
+}
 
 void setGpuMode(bool enabled) { gGpuMode = enabled; }
 bool gpuMode() { return gGpuMode; }
@@ -478,6 +466,6 @@ void registerExtGpuBuiltins(Program& program) {
     });
 }
 
-}  // namespace ext
+}
 
-}  // namespace bent
+}

@@ -19,7 +19,7 @@ float ParamCurve::eval(float input) const {
     if (!(input > points.front().first)) return points.front().second;
     if (input >= points.back().first) return points.back().second;
     size_t upper = 1;
-    while (points[upper].first <= input) ++upper;  // the segment [x_k, x_k+1): a step holds y_k from its knot on, like the last knot does
+    while (points[upper].first <= input) ++upper;
     const auto& [lowerX, lowerY] = points[upper - 1];
     const auto& [upperX, upperY] = points[upper];
     if (mode == CurveMode::Step) return lowerY;

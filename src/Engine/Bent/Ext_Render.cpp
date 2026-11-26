@@ -1,8 +1,3 @@
-// Bent bridge: rendering, settings and tooling natives that need no GPU (laws in tests/bent/laws/ext_render_*.bent).
-// Everything here is a pure function of its arguments: it drives the real engine code (render settings, quality governor, camera
-// projection, material packing, cluster LOD builder, render graph with a fake backend, texture slot allocator, parameter bus, scene
-// text) and returns plain Bent values. Registered from EngineHost::addBuiltins through registerExtRenderBuiltins.
-
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -90,15 +85,12 @@ std::string settingText(const Value& value) {
     return print(value);
 }
 
-// ---------------------------------------------------------------- render settings
-
 std::string dumpSettings(const RenderSettings& settings) {
     std::ostringstream out;
     writeRenderSettings(settings, out, "");
     return out.str();
 }
 
-// Everything the engine promises about a settings object, as a list of violated promises.
 std::vector<std::string> settingsViolations(const RenderSettings& s) {
     std::vector<std::string> bad;
     RenderSettings copy = s;
@@ -138,10 +130,8 @@ Value stringList(const std::vector<std::string>& items) {
     return Value::makeList(std::move(out));
 }
 
-// ---------------------------------------------------------------- cluster meshes
-
 struct Soup {
-    std::vector<float> vertices;  // 8 floats per vertex, position first
+    std::vector<float> vertices;
     std::vector<uint32_t> indices;
 };
 
@@ -189,7 +179,6 @@ std::array<uint32_t, 3> clusterTriangle(const ClusterMesh& mesh, const MeshClust
 
 float dist3(const float* a, const float* b) { return std::sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2])); }
 
-// Edges used an odd number of times by the selected clusters: a crack between clusters of different detail.
 size_t openEdges(const ClusterMesh& mesh, const std::vector<uint32_t>& cut) {
     std::map<std::pair<uint32_t, uint32_t>, int> edges;
     for (const uint32_t id : cut) {
@@ -300,8 +289,6 @@ Value meshReport(const BuiltMesh& built) {
                           {"hash", integer(static_cast<int64_t>(built.hash & 0x7fffffffffffffffULL))}});
 }
 
-// ---------------------------------------------------------------- render graph
-
 struct FakeBackend final : rg::Backend {
     uintptr_t next = 0x1000;
     int created = 0;
@@ -323,8 +310,6 @@ struct FakeBackend final : rg::Backend {
     void endTiming(int) override {}
 };
 
-// spec: {transients: [descId], imports: n, passes: [{reads: [res], writes: [res], side: bool}], frames: n, retire: n}
-// Resource ids: 0..imports-1 are imported textures, then the transient textures (desc id selects the description).
 Value runGraph(const Value& spec, const SrcLoc& loc) {
     const Value* transients = fld(spec, "transients");
     const Value* passes = fld(spec, "passes");
@@ -403,8 +388,6 @@ Value runGraph(const Value& spec, const SrcLoc& loc) {
     return Value::record({{"frames", Value::makeList(std::move(frameResults))}, {"createdTotal", integer(backend.created)}, {"destroyedTotal", integer(backend.destroyed)}, {"poolAfterClear", integer(pool.size())}});
 }
 
-// ---------------------------------------------------------------- camera
-
 Camera makeCamera(const Value& spec) {
     const float nearPlane = static_cast<float>(getNum(spec, "near", 0.1));
     const float farPlane = static_cast<float>(getNum(spec, "far", 100.0));
@@ -427,8 +410,6 @@ double det3(const glm::mat4& m) {
 
 Value v4(const glm::vec4& v) { return Value::record({{"x", num(v.x)}, {"y", num(v.y)}, {"z", num(v.z)}, {"w", num(v.w)}}); }
 
-// ---------------------------------------------------------------- hooks
-
 bool lineKey(const std::string& line, std::string& key, std::string& rest) {
     const size_t space = line.find(' ');
     if (space == std::string::npos) return false;
@@ -437,13 +418,11 @@ bool lineKey(const std::string& line, std::string& key, std::string& rest) {
     return true;
 }
 
-}  // namespace
+}
 
 namespace ext {
 
 void registerExtRenderBuiltins(Program& program) {
-    // ------------------------------------------------------------ settings
-    // rsApply([[key, value], ...]): apply in order to default settings. {dump, accepted, violations}
     program.native("rxRsApply", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "rsApply(pairs)");
         RenderSettings settings;
@@ -454,7 +433,6 @@ void registerExtRenderBuiltins(Program& program) {
         }
         return Value::record({{"dump", str(dumpSettings(settings))}, {"accepted", Value::makeList(std::move(accepted))}, {"violations", stringList(settingsViolations(settings))}});
     });
-    // rsLoadDump(text): parse a settings dump line by line into default settings and dump again.
     program.native("rxRsLoadDump", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "rsLoadDump(text)");
         RenderSettings settings;
@@ -472,7 +450,6 @@ void registerExtRenderBuiltins(Program& program) {
         visitRenderSettings(settings, [&](std::string_view name, auto&) { names.push_back(str(std::string(name))); });
         return Value::makeList(std::move(names));
     });
-    // rxDumpField(dump, key): the text after "key " on its line (unit when absent); rxDumpNum parses it as a number
     program.native("rxDumpField", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 2) throw BentError(loc, "rxDumpField(dump, key)");
         std::istringstream in(argString(args[0], loc, "dump"));
@@ -495,7 +472,6 @@ void registerExtRenderBuiltins(Program& program) {
     });
     program.native("rxRsDefaultDump", [](Interp&, const ValueList&, const NamedArgs&, const SrcLoc&) { return str(dumpSettings(RenderSettings{})); });
     program.native("rxRsViolationsOfDefault", [](Interp&, const ValueList&, const NamedArgs&, const SrcLoc&) { return stringList(settingsViolations(RenderSettings{})); });
-    // rsKind(key): "float", "int", "bool", "vec3", "string" or "enum" (what the dump of the default value looks like), "" for an unknown key
     program.native("rxRsKind", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "rsKind(key)");
         const std::string wanted = argString(args[0], loc, "rsKind");
@@ -514,8 +490,6 @@ void registerExtRenderBuiltins(Program& program) {
         return str(kind);
     });
 
-    // ------------------------------------------------------------ governor
-    // govRun({scale, shadow, refl, minScale, target, enabled}, [[frameMs, dt], ...])
     program.native("rxGovRun", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 2) throw BentError(loc, "govRun(config, samples)");
         RenderSettings settings;
@@ -559,8 +533,6 @@ void registerExtRenderBuiltins(Program& program) {
         return Value::record({{"scale", num(limits.renderScale)}, {"shadow", integer(limits.shadowResolution)}, {"refl", integer(limits.reflectionQuality)}});
     });
 
-    // ------------------------------------------------------------ camera / projection
-    // camProject(spec): {clip, ndc, depth, front, right, up, viewDet} for spec.point
     program.native("rxCamProject", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "camProject(spec)");
         const Camera camera = makeCamera(args[0]);
@@ -581,7 +553,6 @@ void registerExtRenderBuiltins(Program& program) {
                               {"viewDet", num(det3(view))}});
     });
 
-    // ------------------------------------------------------------ material packing
     program.native("rxMatPack", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "matPack(material)");
         Material m;
@@ -621,12 +592,10 @@ void registerExtRenderBuiltins(Program& program) {
                               {"flags", floats(p.flags)}});
     });
 
-    // ------------------------------------------------------------ cluster LOD
     program.native("rxClusterReport", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "clusterReport(spec)");
         return meshReport(*buildMesh(args[0]));
     });
-    // clusterCuts(spec, queries): per query {flat, hier, open, tris, minLevel, maxLevel, allRoots, nodesVisited, clustersTested}
     program.native("rxClusterCuts", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 2) throw BentError(loc, "clusterCuts(spec, queries)");
         const auto built = buildMesh(args[0]);
@@ -682,7 +651,6 @@ void registerExtRenderBuiltins(Program& program) {
         std::sort(ids.begin(), ids.end(), [](const Value& a, const Value& b) { return a.i < b.i; });
         return Value::makeList(std::move(ids));
     });
-    // clusterProjected(center, radius, error, camera, scale, near)
     program.native("rxClusterProjected", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 6) throw BentError(loc, "clusterProjected(center, radius, error, camera, scale, near)");
         const glm::vec3 c = toVec(args[0], loc, "center");
@@ -691,7 +659,6 @@ void registerExtRenderBuiltins(Program& program) {
         const float camera[3] = {cam.x, cam.y, cam.z};
         return num(clusterProjectedError(center, static_cast<float>(argNumber(args[1], loc, "radius")), static_cast<float>(argNumber(args[2], loc, "error")), camera, static_cast<float>(argNumber(args[4], loc, "scale")), static_cast<float>(argNumber(args[5], loc, "near"))));
     });
-    // clusterFuzz(points, indices): build clusters from an arbitrary triangle soup
     program.native("rxClusterFuzz", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 2) throw BentError(loc, "clusterFuzz(points, indices)");
         std::vector<float> vertices;
@@ -716,14 +683,11 @@ void registerExtRenderBuiltins(Program& program) {
                               {"level0", integer(mesh.empty() ? 0 : static_cast<int64_t>(mesh.triangleCount(0)))}, {"inputTris", integer(static_cast<int64_t>(indices.size() / 3))}});
     });
 
-    // ------------------------------------------------------------ render graph
     program.native("rxRgRun", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "rgRun(spec)");
         return runGraph(args[0], loc);
     });
 
-    // ------------------------------------------------------------ texture slots
-    // slotsRun(capacity, ops): op -1 allocates (result: slot or -1), op >= 0 releases that slot (result 1 / 0)
     program.native("rxSlotsRun", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 2) throw BentError(loc, "slotsRun(capacity, ops)");
         texslots::SlotAllocator allocator(static_cast<uint32_t>(std::clamp<int64_t>(argInt(args[0], loc, "capacity"), 0, 4096)));
@@ -743,7 +707,6 @@ void registerExtRenderBuiltins(Program& program) {
                               {"allocated", Value::makeList(std::move(allocated))}, {"full", boolean(allocator.full())}});
     });
 
-    // ------------------------------------------------------------ parameter bus
     program.native("rxParamsLoad", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "paramsLoad(text)");
         ParamBus bus;
@@ -755,7 +718,6 @@ void registerExtRenderBuiltins(Program& program) {
         }
         return Value::record({{"ok", boolean(ok)}, {"error", str(error)}, {"params", Value::makeList(std::move(params))}});
     });
-    // paramsDrive(text, ops): ops are [name, value, seconds]; returns, after each op, a record name -> value of every parameter
     program.native("rxParamsDrive", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 2) throw BentError(loc, "paramsDrive(text, ops)");
         ParamBus bus;
@@ -775,7 +737,6 @@ void registerExtRenderBuiltins(Program& program) {
         }
         return Value::makeList(std::move(values));
     });
-    // curveEval(points, mode, x)
     program.native("rxCurveEval", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 3) throw BentError(loc, "curveEval(points, mode, x)");
         ParamCurve curve;
@@ -785,7 +746,6 @@ void registerExtRenderBuiltins(Program& program) {
         return num(curve.eval(static_cast<float>(argNumber(args[2], loc, "x"))));
     });
 
-    // ------------------------------------------------------------ scene text, validator, frame explain
     program.native("rxSceneSaveText", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "sceneSaveText(program)");
         EngineSim sim;
@@ -794,7 +754,6 @@ void registerExtRenderBuiltins(Program& program) {
         if (!sim.world().saveScene(text)) throw BentError(loc, "saveScene failed");
         return str(text.str());
     });
-    // sceneLoadText(text): load arbitrary text as a scene into a fresh world. {ok, entities, errors, validatorErrors}
     program.native("rxSceneLoadText", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "sceneLoadText(text)");
         EngineSim sim;
@@ -806,7 +765,6 @@ void registerExtRenderBuiltins(Program& program) {
         const std::vector<ValidationIssue> issues = validateScene(sim.world());
         return Value::record({{"ok", boolean(ok)}, {"entities", integer(entities)}, {"errors", stringList(errors)}, {"validatorErrors", integer(static_cast<int64_t>(countIssues(issues, Severity::Error)))}});
     });
-    // validatorCodes(program): sorted issue codes of validateScene after the program (determinism / stability checks)
     program.native("rxValidatorCodes", [](Interp&, const ValueList& args, const NamedArgs&, const SrcLoc& loc) {
         if (args.size() != 1) throw BentError(loc, "validatorCodes(program)");
         EngineSim sim;
@@ -840,6 +798,6 @@ void registerExtRenderBuiltins(Program& program) {
     });
 }
 
-}  // namespace ext
+}
 
-}  // namespace bent
+}

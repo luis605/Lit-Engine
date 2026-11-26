@@ -43,8 +43,6 @@ import Engine.glm;
 
 namespace bent {
 
-// ---------------------------------------------------------------- conversions
-
 glm::vec3 toVec(const Value& value, const SrcLoc& loc, const char* what) {
     if (value.kind == Kind::Vec3) return glm::vec3(static_cast<float>(value.v[0]), static_cast<float>(value.v[1]), static_cast<float>(value.v[2]));
     if (value.isNumber()) return glm::vec3(static_cast<float>(value.num()));
@@ -122,8 +120,6 @@ void EngineHost::silenceEngineLog(bool silent) {
     std::cout.rdbuf(silent ? &null : original);
 }
 
-// ---------------------------------------------------------------- action specs
-
 const std::vector<ActionSpec>& engineActionSpecs() {
     static const std::vector<ActionSpec> specs = {
         {"spawn",
@@ -182,15 +178,12 @@ const std::vector<ActionSpec>& engineActionSpecs() {
     return specs;
 }
 
-// ---------------------------------------------------------------- sim
-
 EngineSim::EngineSim() {
     m_engine = std::make_unique<Engine>();
     m_engine->openHeadless();
     m_engine->seed(1);
     World& w = m_engine->world();
     registerPhysicsComponents(w);
-    // Synthetic mesh kit: headless has no GPU meshes, so mesh ids get deterministic bounds (origin centred sphere).
     w.setMeshBoundsHook([](uint32_t id) { return glm::vec4(0.0f, 0.0f, 0.0f, id == NO_MESH ? 0.0f : 0.5f + 0.5f * static_cast<float>(id % 4)); });
     w.camera().setPos(glm::vec3(0.0f, 2.0f, 10.0f));
 }
@@ -225,8 +218,7 @@ EntityHandle EngineSim::resolve(const Value& target, const SrcLoc& loc, bool all
     if (index < 0 && allowNull) return NULL_ENTITY;
     if (m_refs.empty()) return NULL_ENTITY;
     const int64_t count = static_cast<int64_t>(m_refs.size());
-    if (index < 0) index = count - 1 - ((-index - 1) % count);  // -1: the most recently spawned entity
-    // Random ints address spawned entities modulo their count, so every generated program is meaningful.
+    if (index < 0) index = count - 1 - ((-index - 1) % count);
     return m_refs[static_cast<size_t>(index % static_cast<int64_t>(m_refs.size()))];
 }
 
@@ -263,7 +255,6 @@ void EngineSim::doTick() {
     if (!m_replaying) m_engine->setInput(m_input);
     m_engine->tick(kBentStep);
     if (m_input.mouseDelta != glm::vec2(0.0f) && !m_replaying) {
-        // delta persists by design of the action (applies every tick)
     }
     ++m_ticks;
 }
@@ -298,7 +289,7 @@ void EngineSim::walkCamera(const glm::vec3& delta, int64_t steps, const std::fun
                 ++m_crossings;
                 if (m_lastCrossed >= 0 && portals.portals()[static_cast<size_t>(m_lastCrossed)].partner == crossed) ++m_pingPongs;
                 m_lastCrossed = crossed;
-                stepDelta = glm::vec3(transform * glm::vec4(stepDelta, 0.0f));  // keep walking straight on the far side
+                stepDelta = glm::vec3(transform * glm::vec4(stepDelta, 0.0f));
             } else {
                 m_lastCrossed = -1;
             }
@@ -345,7 +336,7 @@ void EngineSim::apply(const ActionV& action, const SrcLoc& loc, const std::funct
     const ArgReader a{action, loc};
     World& w = world();
     const std::string& name = action.name;
-    if (extWorldApply(*this, action, loc, onTick)) return;  // Ext_World.cpp
+    if (extWorldApply(*this, action, loc, onTick)) return;
     if (name == "step") {
         const int64_t n = a.integer("n", 1);
         if (n < 0 || n > 1000000) throw BentError(loc, "step(n) needs 0 <= n <= 1000000");
@@ -557,7 +548,6 @@ void EngineSim::apply(const ActionV& action, const SrcLoc& loc, const std::funct
         const auto it = m_textSnapshots.find(a.integer("slot", 0));
         if (it == m_textSnapshots.end()) return;
         const std::vector<EntityHandle> before = liveHandles(w);
-        // World::restore translates the saved slot ids it finds in `remap` (in) to the new handles (out): offer every slot we know.
         std::vector<EntityHandle> remap;
         uint32_t slotCount = 0;
         for (const EntityHandle& known : m_refs) slotCount = std::max<uint32_t>(slotCount, known.index < INVALID_ENTITY - 1 ? known.index + 1 : 0);
@@ -566,7 +556,6 @@ void EngineSim::apply(const ActionV& action, const SrcLoc& loc, const std::funct
         if (!w.restore(it->second, &remap)) throw BentError(loc, "World::restore rejected its own snapshot text");
         std::vector<EntityHandle> after;
         for (const EntityHandle h : before) after.push_back(h.index < remap.size() ? remap[h.index] : NULL_ENTITY);
-        // Entities created after the snapshot are gone; references to older ones follow the remap of the snapshot's slots.
         std::map<std::pair<uint32_t, uint32_t>, EntityHandle> map;
         m_refIndex.clear();
         for (size_t ref = 0; ref < m_refs.size(); ++ref) {
@@ -756,8 +745,6 @@ void EngineSim::apply(const ActionV& action, const SrcLoc& loc, const std::funct
     }
     throw BentError(loc, "unknown action '" + name + "'");
 }
-
-// ---------------------------------------------------------------- host
 
 EngineHost::EngineHost() = default;
 EngineHost::~EngineHost() = default;

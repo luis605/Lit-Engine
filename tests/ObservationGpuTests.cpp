@@ -33,7 +33,6 @@ int main() {
             EntityDesc d;
             d.name = name;
             d.mesh = cube;
-            // cube.obj spans [0, 1]^3 (corner origin): offset so `position` is the box centre the scene layout assumes.
             d.position = position - 0.5f * scale;
             d.scale = scale;
             return world.create(d);

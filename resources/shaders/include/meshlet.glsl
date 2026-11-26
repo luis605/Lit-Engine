@@ -1,17 +1,13 @@
 #ifndef LIT_MESHLET_GLSL
 #define LIT_MESHLET_GLSL
 
-// Cluster LOD shared declarations. CPU mirror: Engine.meshlet (src/Engine/Render/Meshlet.cppm) and
-// src/Engine/Render/RendererMeshlets.cpp. Offsets inside Cluster and ClusterLevel are global (rebased
-// at upload), so the buffers below are flat arrays over every cluster mesh.
-
 const uint MESHLET_GROUP_SIZE = 64u;
 const uint MESHLET_FLAG_FRUSTUM = 1u;
 const uint MESHLET_FLAG_HIZ = 2u;
 const uint MESHLET_FLAG_CONE = 4u;
 const uint MESHLET_FLAG_RETEST_OUTPUT = 8u;
-const uint MESHLET_FLAG_VIEW_LOD = 16u;    // LOD metric from u_lodViews (shadow views) instead of the camera
-const uint MESHLET_FLAG_HIERARCHY = 32u;   // instances seed the node traversal instead of the flat chunk loop
+const uint MESHLET_FLAG_VIEW_LOD = 16u;
+const uint MESHLET_FLAG_HIERARCHY = 32u;
 const uint MESHLET_STAT_INSTANCES = 0u;
 const uint MESHLET_STAT_WORK_ITEMS = 1u;
 const uint MESHLET_STAT_TESTED = 2u;
@@ -22,38 +18,33 @@ const uint MESHLET_STAT_DRAWS = 6u;
 const uint MESHLET_STAT_OVERFLOW = 7u;
 const uint MESHLET_STAT_NODES = 8u;
 const uint MESHLET_MAX_DISPATCH_X = 65535u;
-const uint MESHLET_MAX_LOD_VIEWS = 24u;    // kMaxLocalShadowViews
+const uint MESHLET_MAX_LOD_VIEWS = 24u;
 const uint MESHLET_NODE_LEAF = 0x80000000u;
-const uint MESHLET_RETEST_NODE = 1u;       // retest record type (tail.w): 0 cluster mask, 1 hierarchy node
+const uint MESHLET_RETEST_NODE = 1u;
 
 struct Cluster {
-    vec4 bounds;        // culling sphere (mesh space): centre, radius
-    vec4 cone;          // backface cone: axis, cutoff (>= 1 disables)
-    vec4 selfSphere;    // LOD sphere of the simplification that produced this cluster
-    vec4 parentSphere;  // LOD sphere of the simplification that consumed it
-    vec4 errors;        // x self error, y parent error (FLT_MAX for roots), z/w level and group bits
-    uvec4 ranges;       // vertex offset, triangle offset, vertex count, triangle count
+    vec4 bounds;
+    vec4 cone;
+    vec4 selfSphere;
+    vec4 parentSphere;
+    vec4 errors;
+    uvec4 ranges;
 };
 
 struct ClusterMeshInfo {
-    vec4 lodCenter;     // xyz centre, w max extent of every LOD sphere around it
-    uvec4 info;         // chunk offset, chunk count, base vertex, root hierarchy node
+    vec4 lodCenter;
+    uvec4 info;
 };
 
-// Hierarchy node (CPU mirror ClusterNode in Engine.meshlet). Leaves: <= 64 consecutive clusters of
-// one DAG level; internal nodes: <= 8 consecutive children. Spheres enclose every descendant's culling
-// sphere (cull) and self + parent LOD spheres (lod); errors bound the descendants' self / parent errors.
 struct ClusterNode {
     vec4 cullSphere;
     vec4 lodSphere;
     float minSelfError;
     float maxParentError;
-    uint first;         // leaf: first cluster, internal: first child node
-    uint count;         // leaf: cluster count | MESHLET_NODE_LEAF, internal: child count
+    uint first;
+    uint count;
 };
 
-// Up to 64 consecutive clusters of one DAG level. The sphere encloses every culling and LOD sphere
-// of its clusters, so [distance - r, distance + r] bounds each cluster's LOD distance.
 struct ClusterChunk {
     vec4 sphere;
     float minSelfError;
@@ -85,14 +76,13 @@ layout(std140) uniform MeshletConstants {
     uint u_twoSidedMask;
     uint u_statsBase;
     uint u_retestCapacity;
-    uint u_queueCapacity;   // node traversal: items per queue half
-    uint u_orthoMask;       // bit per LOD view: orthographic (cascade) metric
+    uint u_queueCapacity;
+    uint u_orthoMask;
     uint u_lodPad0;
     uint u_lodPad1;
-    vec4 u_lodViews[MESHLET_MAX_LOD_VIEWS];  // xyz origin (perspective), w error scale (texels per unit at distance 1, or per unit)
+    vec4 u_lodViews[MESHLET_MAX_LOD_VIEWS];
 };
 
-// Pixels of error per unit of mesh-space error at distance 1 (projection[1][1] * height / 2).
 float meshletErrorScale() { return projection[1][1] * screenParams.y * 0.5; }
 
 float meshletProjectedError(vec3 center, float radius, float error, float scale) {
@@ -100,9 +90,6 @@ float meshletProjectedError(vec3 center, float radius, float error, float scale)
     return error * scale / distance;
 }
 
-// LOD metric of one view, with the instance's maximum axis scale folded into `scale`. Camera views
-// project in pixels from viewPos; shadow views (MESHLET_FLAG_VIEW_LOD) in shadow texels: perspective
-// from the light origin (local shadow maps) or orthographic (cascades: no distance term).
 struct MeshletLod {
     vec3 origin;
     float scale;
@@ -130,8 +117,6 @@ float meshletLodError(MeshletLod lod, vec3 center, float radius, float error) {
     return error * lod.scale / max(length(center - lod.origin) - radius, nearPlane);
 }
 
-// Node test: some descendant can be in the cut only if its self error can be within the threshold at
-// the farthest distance of the LOD sphere and its parent error can exceed it at the nearest.
 bool meshletNodeInCut(MeshletLod lod, vec3 center, float radius, float minSelfError, float maxParentError) {
     if (lod.orthographic) return minSelfError * lod.scale <= u_errorThreshold && maxParentError * lod.scale > u_errorThreshold;
     float distance = length(center - lod.origin);

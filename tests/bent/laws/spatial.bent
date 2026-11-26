@@ -1,4 +1,3 @@
-# Spatial grid queries agree with brute force over every entity's bounding sphere (World::getWorldBounds).
 include "../lib/prelude.bent"
 
 gen farPos = vec3(float(-80, 80), float(-20, 20), float(-80, 80))
@@ -17,7 +16,6 @@ gen spatialAction = frequency([
 ])
 gen spatialProgram = listOf(spatialAction, 1, 40)
 
-# Hidden entities are not in the spatial index (by design: World queries are for visible geometry), so brute force skips them too.
 fn queryable(e) = visible(e) and bounds(e).radius > 0
 fn gap(e, c, r) = let b = bounds(e) in distance(b.center, c) - r - b.radius
 
@@ -46,7 +44,6 @@ fn bruteRay(from, to) =
             let t = raySphere(from, d, b.center, b.radius) in
             if t >= 0 and t <= reach and t < best.distance then {hit: true, distance: t, entity: e} else best))
 
-# Near-tangent rays and hits at the very end of the segment are numerically ambiguous: only clear cases are checked.
 fn ambiguous(from, to) =
     let d = normalize(to - from) in
     exists e in entities(): (let b = bounds(e) in queryable(e) and (
@@ -67,7 +64,6 @@ law raycast_matches_brute_force {
     }
 }
 
-# The bounding sphere of a mesh entity follows its transform: centre at the world position, radius scaled by the largest axis.
 law bounds_follow_transform {
     forall (p: spatialProgram)
     => after(p) {

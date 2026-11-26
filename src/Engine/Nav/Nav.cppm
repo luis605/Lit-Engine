@@ -134,8 +134,6 @@ export class NavMesh {
     [[nodiscard]] std::optional<float> groundHeight(const glm::vec3& position) const;
     [[nodiscard]] const Bvh& bvh() const { return m_bvh; }
 
-    // Floating origin: the world moved by `shift` (positions become p - shift). Geometry, grid origin, tile heights, obstacles and links are translated; tile
-    // indices and node ids stay valid, so paths keep working once agents are shifted too (navShiftAgents, NavCrowd::shiftOrigin). Does not bump version().
     void shiftOrigin(const glm::vec3& shift);
 
   private:
@@ -213,7 +211,6 @@ export struct NavAgent {
     AgentState state = AgentState::Idle;
 };
 
-// Translate agent state after NavMesh::shiftOrigin (position, target, path points).
 export void navShiftAgents(std::vector<NavAgent>& agents, const glm::vec3& shift);
 
 export using NavLinkTraverseFn = std::function<void(NavAgent&, const NavLink&, const glm::vec3& exit)>;
@@ -251,7 +248,6 @@ export class NavCrowd {
     [[nodiscard]] const NavCrowdConfig& config() const;
     [[nodiscard]] const NavCrowdStats& stats() const;
     void clearCache();
-    // Floating origin: shifts cached paths and drops in-flight path queries (they restart on the next step).
     void shiftOrigin(const glm::vec3& shift);
     void step(const NavMesh& mesh, std::vector<NavAgent>& agents, float dt, const NavLinkTraverseFn& traverse = {});
 

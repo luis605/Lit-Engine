@@ -1,8 +1,5 @@
 #pragma once
 
-// Helpers for the physics / character / nav / AI / animation / IK / audio builtins (Ext_Physics.cpp, Ext_Sim.cpp).
-// Include after the engine module imports (needs glm).
-
 #include <cmath>
 #include <string>
 #include <vector>
@@ -28,7 +25,6 @@ inline Value boolV(bool b) { return Value::boolean(b); }
 inline Value listV(ValueList items) { return Value::makeList(std::move(items)); }
 inline Value recV(std::vector<std::pair<std::string, Value>> fields) { return Value::record(std::move(fields)); }
 
-// Reads fields of a record value with defaults.
 struct Rec {
     const Value& v;
     const SrcLoc& loc;

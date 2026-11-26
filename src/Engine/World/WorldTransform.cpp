@@ -267,8 +267,6 @@ void World::syncCamera() {
     if (!cameraComponent) return;
     const glm::mat4 world = getWorldMatrix(m_activeCamera);
     m_camera.setPos(glm::vec3(world[3]));
-    // Full orientation (roll included): decomposed against the camera's frame, so a tilted portal crossing that moved the entity
-    // keeps the view exact.
     m_camera.setRotation(glm::mat3(axisOf(world, 0), axisOf(world, 1), axisOf(world, 2)));
     m_camera.setFov(cameraComponent->fov);
     m_camera.setNearPlane(cameraComponent->nearPlane);

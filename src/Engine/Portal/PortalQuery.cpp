@@ -67,7 +67,6 @@ int PortalSystem::step(Camera& camera) {
     }
     glm::vec3 moved = nearCenter;
     int cell = m_cameraCell;
-    // Any rigid transform: Camera::transformBy carries the full orientation (rolled, pitched, floor / ceiling, flipped portals).
     const int crossedId = stepPoint(moved, cell, m_previousNear, false);
     if (crossedId < 0) {
         m_previousNear = nearCenter;
@@ -129,7 +128,6 @@ std::vector<PortalLightImage> PortalSystem::lightImages(int cell, const glm::vec
         float side = 0.0f;
         const float distance = rectDistance(source, position, side);
         if (side <= 0.0f || distance >= range || source.partner < 0) continue;
-        // The source end's transform maps its cell onto the partner's: the light appears behind the receiving end.
         const Portal& receiver = m_portals[static_cast<size_t>(source.partner)];
         PortalLightImage image;
         image.portal = source.partner;

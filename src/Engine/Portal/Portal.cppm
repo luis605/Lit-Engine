@@ -40,13 +40,8 @@ export struct PortalEnd {
     glm::vec2 halfSize{1.0f, 1.0f};
 };
 
-// Opening shape of a pair (both ends): the quad is its bounding box. Crossing, ray casts and the composite use the shape.
 export enum class PortalShape : uint8_t { Rect = 0, Ellipse = 1, Rounded = 2 };
 
-// Generated frame (docs/Portals.md, "Frames and edges"): a bevelled ring around the opening, `depth` in front of the plane (the
-// reveal the viewer sees before the far side) and `back` behind it (covers the opening contour, so the feathered edge blends
-// with the frame and never with what lies behind the quad). Body: colour / metalness / roughness. Reveal (inner tube): emissive
-// when set, else the body material.
 export struct PortalFrameStyle {
     bool enabled = true;
     float width = 0.16f;
@@ -60,9 +55,6 @@ export struct PortalFrameStyle {
     float emissiveIntensity = 0.0f;
 };
 
-// Edge treatment in the composite (spatial only, no history): anti-aliased edge (`feather` pixels), rim glow (exposed HDR units,
-// `rimWidth` metres, plus a Fresnel term at grazing angles), refraction (`distortion` pixels) and chromatic split (`chroma` pixels)
-// near the rim, optional noisy dissolve (0..1) of the rim band.
 export struct PortalEdgeStyle {
     float feather = 1.25f;
     float rim = 0.25f;
@@ -76,14 +68,13 @@ export struct PortalEdgeStyle {
 
 export struct PortalLook {
     PortalShape shape = PortalShape::Rect;
-    float cornerRadius = 0.35f;  // Rounded only, metres
+    float cornerRadius = 0.35f;
     PortalFrameStyle frame;
     PortalEdgeStyle edge;
-    float spill = 1.0f;  // light spill of the far room into this end's cell (cheap proxy light, 0 = off)
+    float spill = 1.0f;
 };
 
 export [[nodiscard]] const char* portalShapeName(PortalShape shape);
-// Signed distance (metres, negative inside) of local point (u along right, v along up) to the opening of a quad of `half` size.
 export [[nodiscard]] float portalShapeDistance(PortalShape shape, const glm::vec2& half, float cornerRadius, float u, float v);
 
 export struct Portal {
@@ -94,7 +85,7 @@ export struct Portal {
     glm::vec2 half{1.0f, 1.0f};
     glm::mat4 transform{1.0f};
     float twist = 0.0f;
-    glm::vec3 euler{0.0f};  // authored yaw / pitch / roll (degrees), kept for toJson
+    glm::vec3 euler{0.0f};
     PortalLook look;
     [[nodiscard]] bool inside(float u, float v) const { return portalShapeDistance(look.shape, half, look.cornerRadius, u, v) <= 0.0f; }
     [[nodiscard]] glm::vec3 center() const { return glm::vec3(pose[3]); }
@@ -109,21 +100,13 @@ export struct PortalSettings {
     float blendDistance = 2.0f;
     float minPixels = 6.0f;
     bool occlusion = true;
-    // Lighting grade per cell: sun and ambient are multiplied by mix(1, tint / max(tint), tintLighting). A cell scalar
-    // "tintLighting" overrides it per cell.
     float tintLighting = 0.35f;
-    // Lights of a cell shine through its portals into the neighbouring cells (one hop, docs/Portals.md).
     bool lightTransport = true;
-    // Free camera after a tilted crossing (Engine): the frame turns back to the cell's gravity-up keeping the view direction, the
-    // leftover roll decays over uprightSeconds (0 = at once). Off: the camera keeps the crossing's orientation.
     bool uprightCamera = true;
     float uprightSeconds = 0.3f;
-    // Scale of every pair's light spill (PortalLook::spill); 0 turns the spill lights off.
     float spill = 1.0f;
 };
 
-// A light of one cell seen through a portal from the neighbouring cell: `transform` maps the light from its cell into the
-// receiving `cell`, the aperture is the receiving end's quad (normal toward the receivers).
 export struct PortalLightImage {
     int portal = -1;
     int cell = -1;
@@ -153,13 +136,10 @@ export struct PortalSceneKit {
     uint32_t sphere = 0;
     uint32_t floorShader = 0;
     std::function<uint32_t(const glm::vec3& color, const glm::vec3& emissive, float emissiveIntensity, float roughness)> material;
-    // Optional: metallic material (frames) and procedural meshes by key (frame rings). Without `mesh` frames fall back to cube bars.
     std::function<uint32_t(const glm::vec3& color, float metalness, float roughness, const glm::vec3& emissive, float emissiveIntensity)> metalMaterial;
     std::function<uint32_t(const std::string& key, const std::vector<float>& vertices, const std::vector<unsigned int>& indices)> mesh;
 };
 
-// Frame ring of one portal end in its local space (x right, y up, z = normal, plane z = 0): body (front, bevels, outer side) and
-// reveal (inner tube). Vertices are position, normal, uv (8 floats).
 export struct PortalFrameMesh {
     std::vector<float> vertices;
     std::vector<unsigned int> indices;
@@ -181,13 +161,8 @@ export class PortalSystem {
     void clear();
     int addCell(const PortalCell& cell);
     int addPair(const std::string& name, const PortalEnd& a, const PortalEnd& b, float twistDegrees = 0.0f, const PortalLook& look = {});
-    // Look of the pair that portal `portal` belongs to (both ends).
     void setLook(int portal, const PortalLook& look);
-    // Up of a cell (minus its normalised gravity; +Y without gravity or cell).
     [[nodiscard]] glm::vec3 cellUp(int cell) const;
-    // Light spill of the far room through portal end `portal` into its own cell: irradiance (colour * intensity) arriving at the
-    // partner end's quad from the far room, estimated from the packed local lights (4 vec4 per light: position / range, colour /
-    // intensity, ...) whose `cells` entry is the partner cell, plus the sun scaled by that cell's `sun`. Zero when spill is off.
     [[nodiscard]] glm::vec3 spillIrradiance(int portal, const std::vector<glm::vec4>& packedLights, const std::vector<int32_t>& cells, const glm::vec3& sunDirection, const glm::vec3& sunIlluminance) const;
     bool loadJson(const std::string& path);
     bool parseJson(std::string_view text);
@@ -206,7 +181,6 @@ export class PortalSystem {
     [[nodiscard]] int resolveCell(int cell, const glm::vec3& position) const;
     [[nodiscard]] int cameraCell() const { return m_cameraCell; }
     void setCameraCell(int cell);
-    // Floating origin: subtract `shift` (the origin delta) from cell bounds, portal poses/transforms and tracked state.
     void shiftOrigin(const glm::vec3& shift);
 
     [[nodiscard]] PortalFrame buildFrame(const Camera& camera, float viewportHeight, const PortalBlockedFn& blocked = {}) const;
@@ -216,10 +190,7 @@ export class PortalSystem {
     void setCrossHook(PortalCrossHook hook) { m_crossHook = std::move(hook); }
 
     [[nodiscard]] PortalCellParams sampleParams(int cell, const glm::vec3& position) const;
-    // Images of a light (sphere of `range` at `position` in `cell`) in the cells behind the portals it reaches: the light
-    // must be in front of the portal end of its cell and its sphere must touch that quad. Empty when lightTransport is off.
     [[nodiscard]] std::vector<PortalLightImage> lightImages(int cell, const glm::vec3& position, float range) const;
-    // Lighting grade of a cell (see PortalSettings::tintLighting).
     [[nodiscard]] glm::vec3 lightTint(int cell) const;
     [[nodiscard]] PortalRayHit raycast(World& world, const glm::vec3& origin, const glm::vec3& direction, float maxDistance, int cell = -1, int maxCrossings = 8) const;
     [[nodiscard]] std::vector<PortalOverlap> overlapSphere(World& world, const glm::vec3& center, float radius, int cell = -1) const;
@@ -253,7 +224,5 @@ export class PortalSystem {
 export enum class PortalTestScene { Loop, Torture, Tilt };
 
 export void buildPortalScene(PortalSystem& portals, World& world, const PortalSceneKit& kit, PortalTestScene which);
-// Frame entities (body + reveal per end, docs/Portals.md "Frames and edges") for every portal whose look has a frame. Scenes loaded
-// from JSON call it after loadJson; buildPortalScene does it itself.
 export void buildPortalFrames(const PortalSystem& portals, World& world, const PortalSceneKit& kit);
 export [[nodiscard]] glm::vec3 portalSceneStart(PortalTestScene which, float& yawDegrees, float& pitchDegrees);

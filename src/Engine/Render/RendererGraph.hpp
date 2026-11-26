@@ -1,9 +1,5 @@
 #pragma once
 
-// Renderer side of the render graph (docs/RenderGraph.md). Included after RendererInternal.hpp by the implementation
-// units that build or run the frame graph (RendererGraph.cpp, RendererPortalViews.cpp); needs Engine.Render.graph.
-
-// Diligent backend: transient resources, declared-state barriers and the GpuPass timestamp scopes.
 class DiligentGraphBackend final : public rg::Backend {
   public:
     DiligentGraphBackend(DiligentData& gpu, std::function<void(int)> beginTiming, std::function<void(int)> endTiming);
@@ -33,7 +29,7 @@ struct RendererGraphState {
     rg::RenderGraph graph;
     rg::TransientPool pool{8};
     std::unique_ptr<DiligentGraphBackend> backend;
-    std::string dumpPath;  // requested by requestGraphDump: written after the next graph frame
+    std::string dumpPath;
     std::string envDumpPath;
     uint64_t envDumpFrame = 0;
     uint64_t frames = 0;
@@ -42,7 +38,6 @@ struct RendererGraphState {
     ~RendererGraphState();
 };
 
-// Per-frame values the passes hand to each other (filled while the graph executes, in pass order).
 struct FrameGraphData {
     const Camera* camera = nullptr;
     SceneDatabase* scene = nullptr;
@@ -50,8 +45,8 @@ struct FrameGraphData {
     float deltaTime = 0.0f;
     uint32_t objectCount = 0;
     bool portalsActive = false;
-    SceneUniforms uniforms{};      // main view (Lighting::beginFrame)
-    SceneUniforms rootUniforms{};  // main view with the camera cell's parameters (portal frames)
+    SceneUniforms uniforms{};
+    SceneUniforms rootUniforms{};
     FrameInput input;
     int hdrIndex = 0;
     rg::Handle depth;
@@ -63,7 +58,7 @@ struct FrameGraphData {
     rg::Handle vertices;
     rg::Handle indices;
     rg::Handle objects;
-    rg::Handle instances;  // instance pool (RendererInstancing.cpp)
+    rg::Handle instances;
     rg::Handle phases[kPhaseCount];
     rg::Handle meshlets[kPhaseCount];
     rg::Handle accumulation;

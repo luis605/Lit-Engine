@@ -1,7 +1,5 @@
 #pragma once
 
-// Shape math shared by the Engine.Physics implementation units. Included after `module Engine.Physics;`.
-
 namespace phys_detail {
 
 inline constexpr float kEps = 1.0e-7f;
@@ -37,7 +35,6 @@ inline glm::vec3 closestOnTriangle(const glm::vec3& p, const Triangle& t) {
     return t.a + ab * (vb * denominator) + ac * (vc * denominator);
 }
 
-// Two sided ray / triangle (direction need not be unit; distance is in units of direction).
 inline std::optional<float> rayTriangle(const glm::vec3& origin, const glm::vec3& direction, const Triangle& t) {
     const glm::vec3 e1 = t.b - t.a;
     const glm::vec3 e2 = t.c - t.a;
@@ -69,7 +66,6 @@ inline glm::vec3 closestOnSegment(const glm::vec3& start, const glm::vec3& end, 
     return start + segment * glm::clamp(glm::dot(point - start, segment) / lengthSquared, 0.0f, 1.0f);
 }
 
-// Closest points between segments p1-q1 and p2-q2 (Ericson).
 inline void closestSegmentSegment(const glm::vec3& p1, const glm::vec3& q1, const glm::vec3& p2, const glm::vec3& q2, glm::vec3& c1, glm::vec3& c2) {
     const glm::vec3 d1 = q1 - p1;
     const glm::vec3 d2 = q2 - p2;
@@ -115,7 +111,6 @@ struct Contact {
 
 enum class ShapeKind : uint8_t { Sphere, Box, Capsule, Hull };
 
-// One primitive of a body (offset from the body position, world axes).
 struct Part {
     ShapeKind kind = ShapeKind::Sphere;
     glm::vec3 offset{0.0f};
@@ -192,7 +187,6 @@ inline WorldHull makeBoxHull(const glm::vec3& c, const glm::vec3& h) {
             out.faces.push_back(std::move(f));
         }
     }
-    // Box faces carry corner indices only for the closest point fans; build them from the bit patterns.
     for (WorldHull::Face& f : out.faces) {
         int axis = std::abs(f.n.x) > 0.5f ? 0 : (std::abs(f.n.y) > 0.5f ? 1 : 2);
         const int bit = 1 << axis;
@@ -201,7 +195,6 @@ inline WorldHull makeBoxHull(const glm::vec3& c, const glm::vec3& h) {
         for (uint32_t i = 0; i < 8; ++i) {
             if (((i & bit) != 0) == positive) ring.push_back(i);
         }
-        // order around the face: sort by angle
         const glm::vec3 fc = c + f.n * h[axis];
         glm::vec3 u = std::abs(f.n.x) > 0.5f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
         const glm::vec3 w = glm::normalize(glm::cross(f.n, u));
@@ -227,7 +220,6 @@ struct HullPoint {
     float dist;
 };
 
-// dist is signed: negative inside. normal points out of the hull toward p.
 inline HullPoint closestOnHull(const WorldHull& hull, const glm::vec3& p) {
     float maxSeparation = -1.0e30f;
     int best = 0;
@@ -261,7 +253,8 @@ struct SatAxis {
     bool edge;
 };
 
-// Separating axis test. Normal points from A to B (by center). Edge axes must beat face axes by 5 percent.
+inline constexpr float kEdgeAxisBeatsFaceAxisRatio = 0.95f;
+
 inline std::optional<Contact> satContact(const std::vector<glm::vec3>& va, const std::vector<glm::vec3>& vb, const glm::vec3& ca, const glm::vec3& cb, const std::vector<SatAxis>& axes) {
     float best = 1.0e30f;
     glm::vec3 bestAxis(0.0f, 1.0f, 0.0f);
@@ -285,7 +278,7 @@ inline std::optional<Contact> satContact(const std::vector<glm::vec3>& va, const
             }
             const float overlap = std::min(maxA - minB, maxB - minA);
             if (overlap <= 0.0f) return std::nullopt;
-            const bool better = axis.edge ? overlap < best * 0.95f - 1.0e-5f : overlap < best;
+            const bool better = axis.edge ? overlap < best * kEdgeAxisBeatsFaceAxisRatio - 1.0e-5f : overlap < best;
             if (better || (!haveFace && !axis.edge)) {
                 best = overlap;
                 bestAxis = glm::dot(l, cb - ca) >= 0.0f ? l : -l;
@@ -306,7 +299,6 @@ inline std::optional<Contact> hullHull(const WorldHull& a, const WorldHull& b) {
     return satContact(a.v, b.v, a.center, b.center, axes);
 }
 
-// Normal from the triangle toward the hull.
 inline std::optional<Contact> hullTriangle(const WorldHull& hull, const Triangle& t) {
     std::vector<SatAxis> axes;
     const glm::vec3 tn = triangleNormal(t);
@@ -329,7 +321,6 @@ inline std::optional<Contact> sphereSphere(const glm::vec3& c1, float r1, const 
     return Contact{d > 1.0e-6f ? offset / d : glm::vec3(0.0f, 1.0f, 0.0f), reach - d};
 }
 
-// Normal from sphere to box.
 inline std::optional<Contact> sphereBox(const glm::vec3& sc, float radius, const glm::vec3& bc, const glm::vec3& half) {
     const glm::vec3 local = sc - bc;
     const glm::vec3 closest = glm::clamp(local, -half, half);
@@ -369,14 +360,11 @@ inline std::optional<Contact> boxBox(const glm::vec3& c1, const glm::vec3& h1, c
     return Contact{normal, overlap[axis]};
 }
 
-// Normal from capsule to box.
 inline std::optional<Contact> capsuleBox(const glm::vec3& s0, const glm::vec3& s1, float radius, const glm::vec3& bc, const glm::vec3& half) {
     const glm::vec3 low = bc - half;
     const glm::vec3 high = bc + half;
     glm::vec3 onSegment = closestOnSegment(s0, s1, bc);
     glm::vec3 onBox = glm::clamp(onSegment, low, high);
-    // Alternating projection between the segment and the box (distance never grows). Four rounds left oblique, long capsules up to
-    // ~0.15 m short of the true closest points, so overlaps that deep were missed (bent: ext_phys_queries.bent); iterate to convergence.
     for (int i = 0; i < 32; ++i) {
         const glm::vec3 previous = onBox;
         onSegment = closestOnSegment(s0, s1, onBox);
@@ -405,7 +393,6 @@ inline std::optional<Contact> capsuleBox(const glm::vec3& s0, const glm::vec3& s
     return Contact{-outward, shallowest + radius};
 }
 
-// Normal from capsule (or sphere when s0 == s1) to hull.
 inline std::optional<Contact> capsuleHull(const glm::vec3& s0, const glm::vec3& s1, float radius, const WorldHull& hull) {
     glm::vec3 p = closestOnSegment(s0, s1, hull.center);
     HullPoint hp = closestOnHull(hull, p);
@@ -422,7 +409,6 @@ inline void capsuleSegment(const Part& part, const glm::vec3& c, glm::vec3& s0, 
     s1 = c + glm::vec3(0.0f, part.halfHeight, 0.0f);
 }
 
-// Contact between two parts (centers are world). Normal points a -> b.
 inline std::optional<Contact> collideParts(const Part& pa, const glm::vec3& ca, const Part& pb, const glm::vec3& cb) {
     if (pa.kind > pb.kind) {
         auto flipped = collideParts(pb, cb, pa, ca);
@@ -478,7 +464,6 @@ inline std::optional<Contact> collideParts(const Part& pa, const glm::vec3& ca, 
     return std::nullopt;
 }
 
-// World bounds (center +- extent) of a part at a position.
 inline void partBounds(const Part& part, const glm::vec3& c, glm::vec3& lo, glm::vec3& hi) {
     switch (part.kind) {
     case ShapeKind::Sphere:
@@ -507,7 +492,6 @@ inline void partBounds(const Part& part, const glm::vec3& c, glm::vec3& lo, glm:
     }
 }
 
-// Surface contact of a capsule segment against one world triangle. Normal points from the triangle toward the capsule.
 inline std::optional<Contact> capsuleTriangle(const glm::vec3& s0, const glm::vec3& s1, float radius, const Triangle& t) {
     const glm::vec3 axis = s1 - s0;
     const float length = glm::length(axis);
@@ -534,7 +518,6 @@ inline std::optional<Contact> capsuleTriangle(const glm::vec3& s0, const glm::ve
     return Contact{d > 1.0e-6f ? away / d : tn, radius - d};
 }
 
-// Surface contact of a part against one world triangle. Normal points from the triangle toward the part.
 inline std::optional<Contact> partTriangle(const Part& part, const glm::vec3& c, const Triangle& t, const WorldHull* hull) {
     switch (part.kind) {
     case ShapeKind::Sphere: {
@@ -555,4 +538,4 @@ inline std::optional<Contact> partTriangle(const Part& part, const glm::vec3& c,
     return std::nullopt;
 }
 
-}  // namespace phys_detail
+}

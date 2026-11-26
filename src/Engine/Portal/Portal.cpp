@@ -35,7 +35,6 @@ glm::mat4 portalPose(const glm::vec3& position, const glm::vec3& eulerDegrees) {
 glm::mat4 obliqueProjection(const glm::mat4& projection, const glm::mat4& view, const glm::vec4& worldPlane) {
     const glm::mat4 inverseView = glm::inverse(view);
     const glm::vec4 viewPlane(glm::dot(inverseView[0], worldPlane), glm::dot(inverseView[1], worldPlane), glm::dot(inverseView[2], worldPlane), glm::dot(inverseView[3], worldPlane));
-    // Reversed Z (near = 1, far = 0): the clip depth row becomes w - scale * plane, so points on the plane map to depth 1 and the far corner to 0.
     const glm::vec4 corner = glm::inverse(projection) * glm::vec4(viewPlane.x < 0.0f ? -1.0f : 1.0f, viewPlane.y < 0.0f ? -1.0f : 1.0f, 0.0f, 1.0f);
     const float denominator = glm::dot(viewPlane, corner);
     if (std::abs(denominator) < kMinObliqueDenominator) return projection;
@@ -61,8 +60,6 @@ std::array<glm::vec4, 6> extractFrustumPlanes(const glm::mat4& viewProjection) {
     return planes;
 }
 
-// Any rigid transform (rolled, pitched, floor / ceiling, flipped portals): the camera frame takes the rotation, so the view
-// matrix after the swap is the virtual camera the portal view was rendered from (docs/Portals.md, "Camera crossing").
 void applyTransformToCamera(Camera& camera, const glm::mat4& transform) { camera.transformBy(transform); }
 
 void PortalSystem::clear() {
@@ -124,7 +121,6 @@ float portalShapeDistance(PortalShape shape, const glm::vec2& half, float corner
     const float au = std::abs(u);
     const float av = std::abs(v);
     if (shape == PortalShape::Ellipse) {
-        // First-order distance (value over gradient length): exact on the contour, which is all the inside test needs.
         const glm::vec2 h = glm::max(half, glm::vec2(1.0e-4f));
         const float k = std::sqrt((au * au) / (h.x * h.x) + (av * av) / (h.y * h.y));
         const float g = std::sqrt((au * au) / (h.x * h.x * h.x * h.x) + (av * av) / (h.y * h.y * h.y * h.y));
@@ -169,8 +165,6 @@ glm::vec3 PortalSystem::spillIrradiance(int portal, const std::vector<glm::vec4>
         const float distanceSquared = glm::dot(offset, offset);
         const float range = positionRange.w;
         if (range <= 0.0f || distanceSquared >= range * range) continue;
-        // Light that reaches the far room's surfaces around the opening: cosine to the far end's normal (lights behind it do not count),
-        // smooth range window like the shaders.
         const float facing = std::max(glm::dot(normal, offset) / std::sqrt(std::max(distanceSquared, 1.0e-8f)), 0.0f);
         const float ratio = distanceSquared / (range * range);
         const float window = (1.0f - ratio * ratio) * (1.0f - ratio * ratio);

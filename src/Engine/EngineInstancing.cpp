@@ -13,10 +13,6 @@ import Engine.Render.entity;
 import Engine.Instancing;
 import Engine.glm;
 
-// GPU instancing, engine side (docs/Instancing.md): InstanceBatch components are the source of truth (editor, scene files,
-// snapshots, deltas); syncInstanceBatches mirrors them into the renderer every frame (new and destroyed components, owner
-// entity index after compaction, visibility, dirty ranges, layout changes).
-
 EntityHandle Engine::createInstanceBatch(uint32_t mesh, uint32_t material, std::span<const InstanceData> instances, const InstanceBatchSettings& settings, uint32_t shader, const glm::vec3& position, EntityHandle parent) {
     EntityDesc desc;
     desc.name = "InstanceBatch";

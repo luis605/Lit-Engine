@@ -50,8 +50,6 @@ namespace bent {
 
 namespace {
 
-// ---------------------------------------------------------------- per sim state
-
 struct BentTestEvent {
     int64_t value = 0;
 };
@@ -59,11 +57,11 @@ struct BentTestEvent {
 struct ExtWorldState {
     std::map<int64_t, Prefab> prefabs;
     std::map<int64_t, uint32_t> timerIds;
-    std::vector<std::pair<int64_t, int64_t>> timerLog;  // (user id, tick the callback ran in)
+    std::vector<std::pair<int64_t, int64_t>> timerLog;
     std::vector<bool> cancelResults;
     std::map<int64_t, uint32_t> busSubs;
-    std::vector<std::pair<int64_t, int64_t>> busLog;  // (subscriber, value)
-    std::vector<std::array<int64_t, 4>> entityEvents;  // (kind, index, generation, aux)
+    std::vector<std::pair<int64_t, int64_t>> busLog;
+    std::vector<std::array<int64_t, 4>> entityEvents;
     std::vector<std::pair<std::string, uint32_t>> rngLog;
     std::map<int64_t, std::set<std::pair<uint32_t, uint32_t>>> textSnapshotAlive;
     std::unique_ptr<JobSystem> jobs;
@@ -161,8 +159,6 @@ uint64_t subtreeHash(World& w, EntityHandle h, int depth) {
 
 int64_t asInt64(uint64_t v) { return static_cast<int64_t>(v); }
 
-// ---------------------------------------------------------------- specs
-
 const std::vector<ActionSpec> kActions = {
     {"setWorldPosition", {"target", "pos"}, "World::setWorldPosition (through the parent chain)"},
     {"setWorldRotation", {"target", "rot"}, "World::setWorldRotation"},
@@ -223,7 +219,7 @@ const std::vector<ObservationSpec> kObservations = {
     {"jobWorkerCount", "jobWorkerCount()", "workers of the JobSystem given by jobWorkers (0 when none)"},
 };
 
-}  // namespace
+}
 
 const std::vector<ActionSpec>& extWorldActionSpecs() { return kActions; }
 const std::vector<ObservationSpec>& extWorldObservationSpecs() { return kObservations; }
@@ -239,8 +235,6 @@ bool extWorldAliveAtTextSnapshot(EngineSim& sim, int64_t slot, uint32_t index, u
     const auto it = all.find(slot);
     return it != all.end() && it->second.contains({index, generation});
 }
-
-// ---------------------------------------------------------------- actions
 
 bool extWorldApply(EngineSim& sim, const ActionV& action, const SrcLoc& loc, const std::function<bool()>& onTick) {
     (void)onTick;
@@ -298,7 +292,7 @@ bool extWorldApply(EngineSim& sim, const ActionV& action, const SrcLoc& loc, con
             if (mode == 1) world->events().unsubscribe(*handle);
             if (mode == 2 && event.value < 1000) world->events().emit(BentTestEvent{event.value + 1000});
         });
-        if (const auto old = st.busSubs.find(id); old != st.busSubs.end()) (void)old;  // an id may be reused: the old subscription stays
+        if (const auto old = st.busSubs.find(id); old != st.busSubs.end()) (void)old;
         st.busSubs[id] = *handle;
         return true;
     }
@@ -350,14 +344,11 @@ bool extWorldApply(EngineSim& sim, const ActionV& action, const SrcLoc& loc, con
         else if (mode == 2) text.replace(at, 1, ch);
         else if (mode == 3) text.resize(at);
         else if (mode == 5) {
-            // rewrite the format version in the header line ("LITSCENE <version>")
             const size_t lineEnd = text.find('\n');
             if (lineEnd != std::string::npos) text = "LITSCENE " + std::to_string(a.integer("at", 3)) + text.substr(lineEnd);
         } else if (mode == 6) {
-            // a newer writer: extra metadata and unknown keywords after the known sections
             text += "meta writer future-version\nfuturekeyword 1 2 3\tpayload\n";
         } else {
-            // swap the line containing `at` with the next one
             const size_t start = text.rfind('\n', at) == std::string::npos ? 0 : text.rfind('\n', at) + 1;
             const size_t end = text.find('\n', start);
             const size_t next = end == std::string::npos ? std::string::npos : text.find('\n', end + 1);
@@ -408,8 +399,6 @@ bool extWorldApply(EngineSim& sim, const ActionV& action, const SrcLoc& loc, con
     }
     return false;
 }
-
-// ---------------------------------------------------------------- observations
 
 bool extWorldObserve(EngineSim& sim, const std::string& name, const ValueList& args, const SrcLoc& loc, Value& out) {
     const bool mine = std::any_of(kObservations.begin(), kObservations.end(), [&](const ObservationSpec& s) { return s.name == name; });
@@ -534,8 +523,6 @@ bool extWorldObserve(EngineSim& sim, const std::string& name, const ValueList& a
     return false;
 }
 
-// ---------------------------------------------------------------- world-free natives
-
 namespace {
 
 ValueList u32List(const std::vector<uint32_t>& v) {
@@ -559,10 +546,9 @@ Pcg32 makeRng(const ValueList& a, const SrcLoc& loc) { return Pcg32(static_cast<
 
 float asFloat(const Value& v, const SrcLoc& loc, const char* what) { return static_cast<float>(argNumber(v, loc, what)); }
 
-}  // namespace
+}
 
 void extWorldBuiltins(Program& program) {
-    // Actions and observations: same wrapping as the core ones.
     for (const ActionSpec& spec : kActions) {
         if (program.globals.contains(spec.name)) throw BentError(SrcLoc{"<host>", 0, 0}, "action '" + spec.name + "' shadows a builtin");
         program.native(
@@ -595,7 +581,6 @@ void extWorldBuiltins(Program& program) {
     const auto pos = [](const ValueList& a, const NamedArgs&) { return a; };
     (void)pos;
 
-    // ---- Pcg32
     def("hashName", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 1, loc, "hashName(text)");
         return Value::integer(asInt64(hashName(argString(a[0], loc, "hashName"))));
@@ -654,7 +639,6 @@ void extWorldBuiltins(Program& program) {
         for (size_t k = 0; k < n; ++k) out.push_back(Value::boolean(rng.chance(p)));
         return Value::makeList(std::move(out));
     });
-    // Draw `skip` values, save (state, increment), restore into a second generator: both continue identically.
     def("rngRestoreCheck", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 4, loc, "rngRestoreCheck(seed, sequence, skip, n)");
         Pcg32 rng = makeRng(a, loc);
@@ -668,7 +652,6 @@ void extWorldBuiltins(Program& program) {
         for (size_t k = 0; k < n; ++k) restored.push_back(Value::integer(copy.next()));
         return Value::record({{"original", Value::makeList(std::move(original))}, {"restored", Value::makeList(std::move(restored))}, {"equalObjects", Value::boolean(rng == copy)}});
     });
-    // ops: [name, count] draws count values from the named stream; ["@seed", value] reseeds the service. Result: one list per op.
     def("rngService", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 2, loc, "rngService(seed, ops)");
         RandomService service;
@@ -692,7 +675,6 @@ void extWorldBuiltins(Program& program) {
         return Value::makeList(std::move(results));
     });
 
-    // ---- TextTable: ops ["set", i, text] ["erase", i] ["move", from, to] ["resize", n] ["clear"]; indices wrap modulo the size.
     def("textTableRun", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 2, loc, "textTableRun(size, ops)");
         TextTable table;
@@ -725,7 +707,6 @@ void extWorldBuiltins(Program& program) {
         return Value::makeList(std::move(out));
     });
 
-    // ---- JobSystem: parallelFor over `count` items, `submitters` threads each running one full pass.
     def("jobsRun", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 4, loc, "jobsRun(count, grain, workers, submitters)");
         const size_t total = count(a[0], loc, "count", 200000);
@@ -765,7 +746,6 @@ void extWorldBuiltins(Program& program) {
         return Value::record({{"visits", Value::makeList(std::move(visitList))}, {"values", Value::makeList(std::move(valueList))}, {"chunks", Value::makeList(std::move(chunkList))}, {"badChunks", Value::integer(static_cast<int64_t>(badChunks.load()))}});
     });
 
-    // ---- AsyncJobs: job k has priority prios[k] (lower runs first) and is submitted with a pre-set cancel token when cancel[k].
     def("asyncRun", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 3, loc, "asyncRun(workers, priorities, cancelMask)");
         const size_t workers = std::max<size_t>(1, count(a[0], loc, "workers", 8));
@@ -810,7 +790,6 @@ void extWorldBuiltins(Program& program) {
         }
         return Value::record({{"order", Value::makeList(std::move(orderList))}, {"calls", Value::makeList(std::move(callList))}, {"cancelled", Value::makeList(std::move(cancelList))}, {"cancelledJobs", Value::integer(static_cast<int64_t>(cancelledJobs))}, {"pending", Value::integer(static_cast<int64_t>(pendingAfter))}});
     });
-    // Submit n jobs and destroy the pool immediately (no waitIdle): every job must still run exactly once.
     def("asyncDestroyRun", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 2, loc, "asyncDestroyRun(workers, n)");
         const size_t workers = std::max<size_t>(1, count(a[0], loc, "workers", 8));
@@ -825,8 +804,6 @@ void extWorldBuiltins(Program& program) {
         return Value::makeList(std::move(out));
     });
 
-    // ---- ParamBus. ops: ["declare", name, initial, smooth, min, max] ["set", name, v] ["snap", name, v] ["update", dt]
-    // Result: {trace: per op the [value, target] of every param in declaration order, params: [{name, slot, value, target, min, max, smooth}]}
     def("paramRun", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 1, loc, "paramRun(ops)");
         ParamBus bus;
@@ -876,7 +853,6 @@ void extWorldBuiltins(Program& program) {
         return Value::record({{"ok", Value::boolean(ok)}, {"error", Value::string(error)}, {"count", Value::integer(static_cast<int64_t>(bus.params().size()))}, {"slots", Value::makeList(std::move(slots))}, {"slotsDistinct", Value::boolean(distinct)}});
     });
 
-    // ---- Replay. ticks: [[dt, keys, mouse, delta, buttons], ...]
     const auto buildReplay = [](const ValueList& a, const SrcLoc& loc) {
         ReplayData data;
         data.seed = static_cast<uint64_t>(argInt(a[0], loc, "seed"));
@@ -903,7 +879,6 @@ void extWorldBuiltins(Program& program) {
         arity(a, 2, loc, "replayText(seed, ticks)");
         return Value::string(serializeReplay(buildReplay(a, loc)));
     });
-    // Serialise, parse back, compare every field the format promises to keep.
     def("replayRoundtrip", [buildReplay](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 2, loc, "replayRoundtrip(seed, ticks)");
         const ReplayData data = buildReplay(a, loc);
@@ -922,7 +897,6 @@ void extWorldBuiltins(Program& program) {
         }
         return Value::record({{"ok", Value::boolean(ok)}, {"error", Value::string(error)}, {"seedEqual", Value::boolean(ok && back.seed == data.seed)}, {"lengthEqual", Value::boolean(ok && back.ticks.size() == data.ticks.size())}, {"firstBad", Value::integer(firstBad)}});
     });
-    // ---- strings and bytes (Bent strings are byte strings)
     def("utf8Encode", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 1, loc, "utf8Encode(codepoint)");
         const int64_t cp = argInt(a[0], loc, "codepoint");
@@ -965,7 +939,6 @@ void extWorldBuiltins(Program& program) {
         }
         return Value::boolean(true);
     });
-    // ---- Json helpers (jsonDiff / jsonFind of Engine.Json)
     def("jsonDiffOf", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 3, loc, "jsonDiffOf(a, b, epsilon)");
         return Value::string(jsonDiff(valueToJson(a[0], loc), valueToJson(a[1], loc), argNumber(a[2], loc, "epsilon")));
@@ -976,7 +949,6 @@ void extWorldBuiltins(Program& program) {
         const Json* found = jsonFind(doc, argString(a[1], loc, "path"));
         return Value::record({{"found", Value::boolean(found != nullptr)}, {"value", found ? jsonToValue(*found) : Value::unit()}});
     });
-    // ---- gizmo math helpers (Engine.GizmoMath)
     def("gizmoSnap", [](Interp&, const ValueList& a, const NamedArgs&, const SrcLoc& loc) {
         arity(a, 2, loc, "gizmoSnap(value, step)");
         return Value::number(gizmo::snap(asFloat(a[0], loc, "value"), asFloat(a[1], loc, "step")));
@@ -1041,4 +1013,4 @@ void extWorldBuiltins(Program& program) {
     });
 }
 
-}  // namespace bent
+}
