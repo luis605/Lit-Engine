@@ -144,7 +144,8 @@ inline constexpr int kMaxHiZMips = 32;
 inline constexpr int kMaxPortalViews = 24;
 inline constexpr size_t kMaxSurfaceShaders = 16;
 inline constexpr size_t kMaxDebugVertices = 1u << 17;
-inline constexpr size_t kInitialMaxObjects = 500000;
+inline constexpr size_t kInitialMaxObjects = 32768;
+inline constexpr size_t kMinInitialObjects = 1024;
 inline constexpr size_t kInstanceDrawCapacity = 1u << 19;
 inline constexpr uint32_t kInstanceVisibilityWords = (1u << 22) / 32;
 inline size_t VisibleEntryCapacity(size_t maxObjects) { return maxObjects + kInstanceDrawCapacity; }

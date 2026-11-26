@@ -240,7 +240,8 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     createScreenTargets();
     if (!pipelinesReady()) Lit::Log::Error("Renderer pipelines failed to build; nothing will be drawn until the shader errors above are fixed.");
 
-    reallocateBuffers(kInitialMaxObjects);
+    size_t initialObjects = kInitialMaxObjects;
+    while (!reallocateBuffers(initialObjects) && initialObjects > kMinInitialObjects) initialObjects = initialObjects / 2;
     createFences();
 
     Lit::Log::Phase("renderer buffers");

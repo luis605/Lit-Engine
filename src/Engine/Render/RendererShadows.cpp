@@ -93,6 +93,7 @@ void Renderer::renderCascade(int cascadeIndex) {
     viewport.Width = static_cast<float>(cascade.viewport[2]);
     viewport.Height = static_cast<float>(cascade.viewport[3]);
     Diligent::ITextureView* target = m_lighting.shadowTarget(layer);
+    if (!target) return;
     SetShadowTarget(context, target, viewport, resolution, cascade.clear);
     drawSurfaces(kPhaseShadow, cascadeIndex);
     UnbindRenderTargets(context);
@@ -200,7 +201,9 @@ void Renderer::drawLocalShadows(uint32_t objectCount) {
         buildVisibilityDraws(kPhaseShadow, static_cast<uint32_t>(count));
         for (int offset = 0; offset < count; ++offset) {
             if (!views[static_cast<size_t>(first + offset)].active) continue;
-            SetShadowTarget(context, m_lighting.localShadowTarget(first + offset), viewport, resolution, true);
+            Diligent::ITextureView* localTarget = m_lighting.localShadowTarget(first + offset);
+            if (!localTarget) continue;
+            SetShadowTarget(context, localTarget, viewport, resolution, true);
             drawSurfaces(kPhaseShadow, kCascadeShadowViews + first + offset, static_cast<uint32_t>(offset));
             UnbindRenderTargets(context);
         }

@@ -120,7 +120,7 @@ export struct RenderSettings {
     int localShadowResolution = 512;
     float localShadowSoftness = 1.0f;
     bool virtualShadows = true;
-    int vsmPoolSize = 8192;
+    int vsmPoolSize = 4096;
     float vsmResolutionScale = 1.0f;
     bool vsmAutoScale = true;
     int vsmMaxMip = 4;
