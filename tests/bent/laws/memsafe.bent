@@ -1,0 +1,18 @@
+# memory_safe: run the widest generated programs the suite has (ordinary and hostile) through every mutation path the engine has, then
+# observe the world. The property itself is trivial; its job is to be executed by a sanitizer build (`bent memsafe`, docs/Bent.md
+# "Memory safety"), where any ASan / UBSan (bounds, signed overflow, null) / libstdc++ assertion report aborts the case and fails this law.
+# In a normal build it is a cheap smoke test.
+include "../lib/prelude.bent"
+
+law memory_safe {
+    forall (p: programPlus, q: nastyProgram)
+    => after(p ++ [step(n: 3), snapshot(slot: 0), saveLoad(), restore(slot: 0), compact(), step(n: 2)] ++ q ++ [step(n: 3), compact()]) {
+        entityCount() == liveCount() and worldErrors() == []
+    }
+}
+
+# Regression (found by `bent memsafe`): audioTrace without a `config` field read a dangling temporary (stack-use-after-scope in Rec::get).
+law audio_trace_without_config_is_memory_safe {
+    forall (src: vec3(float(-30, 30), float(-3, 3), float(-30, 30)))
+    => let r = head(audioTrace({listener: vec3(0, 0, 0), boxes: [], sources: [src]})) in r.attenuation >= 0
+}

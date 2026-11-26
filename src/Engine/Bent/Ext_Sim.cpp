@@ -736,7 +736,8 @@ Value audioTrace(const Value& specValue, const SrcLoc& loc) {
     }
     prop.setScene(soup);
     AudioPropagationConfig& cfg = prop.config();
-    const Rec c = rec(s.has("config") ? *s.get("config") : Value::unit(), loc);
+    const Value configValue = s.has("config") ? *s.get("config") : Value::unit();  // Rec keeps a reference: a ternary temporary would dangle
+    const Rec c = rec(configValue, loc);
     cfg.maxHops = static_cast<int>(c.integer("maxHops", cfg.maxHops));
     cfg.maxDistance = c.f("maxDistance", cfg.maxDistance);
     cfg.occlusionRays = static_cast<int>(c.integer("occlusionRays", cfg.occlusionRays));

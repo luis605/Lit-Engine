@@ -341,7 +341,8 @@ Value pxChar(const Value& scene, const Value& specValue, const SrcLoc& loc) {
     PortalSystem& portals = px.portals;
     addPortals(portals, spec.list("portals"), loc);
     CharacterSettings cs;
-    const Rec set = rec(spec.has("settings") ? *spec.get("settings") : Value::unit(), loc);
+    const Value settingsValue = spec.has("settings") ? *spec.get("settings") : Value::unit();  // Rec keeps a reference
+    const Rec set = rec(settingsValue, loc);
     cs.radius = set.f("radius", cs.radius);
     cs.height = set.f("height", cs.height);
     cs.stepHeight = set.f("stepHeight", cs.stepHeight);

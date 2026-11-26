@@ -93,5 +93,7 @@ struct ExampleReport {
 
 // Installs SIGSEGV/SIGABRT/SIGFPE handlers that name the law and case being run on the crashing thread.
 void installCrashReporter();
+// Isolated cases that die: append the sanitizer log written to <prefix>.<child pid> to the failure message (memsafe mode).
+void setSanitizerLogPrefix(const std::string& prefix);
 
 }

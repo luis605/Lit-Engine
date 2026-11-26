@@ -440,3 +440,37 @@ below the float error of the turn, a finished relax can restart once with 0.03 d
 `byteBudget 0` is unlimited; byte-budget enforcement lags the wanted set by up to two updates; the terrain streamer settles over about four
 updates after a move; twisted rectangular pairs let an object enter A outside B's frame; ceiling portal one-frame GPU difference and one-hop
 light are not headless-observable. Gaps: save-version migrations (only version 1 exists), GPU portal parity, observation GPU ids.
+
+## Memory safety
+
+One check, `memory_safe`, asks whether any generated program can make the engine touch memory it does not own. Neither half below is
+a proof: "no loop can overflow, ever" is undecidable for C++ in general. What you get is a dynamic search plus a static pattern scan.
+
+**Dynamic (`bent memsafe`, law `memory_safe` in `tests/bent/laws/memsafe.bent`).** The whole law suite, with its fuzz generators (including
+the hostile `nastyProgram` ones), runs in a sanitizer build of `bent` (`-DLIT_SANITIZE=address,undefined`, which also enables
+`-fsanitize=bounds`, signed overflow and null checks, plus `_GLIBCXX_ASSERTIONS` / `_LIBCPP_HARDENING_MODE_EXTENSIVE` on the Engine
+target). `memsafe` forces `--isolate`, so every case is its own process: an ASan/UBSan abort or assertion kills one case, its sanitizer
+log (`log_path`, first 14 lines) becomes that case's failure message, and the run prints a `MEMSAFE` line with the exact
+`bent replay FILE --law L --seed S --case K --isolate` command. The verdict line is `memory_safe: ok|FAIL`; ordinary law violations are
+reported but are not memory-safety hits. MSan is not used (needs an instrumented libstdc++ and every dependency). `memsafe` exits 77
+when the binary is not sanitizer-instrumented.
+
+    cmake -S . -B build-san -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIT_SANITIZE=address,undefined
+    flock /tmp/claude-1001/lit-build.lock ninja -C build-san -j2 bent      # heavy: full sanitized engine
+    build-san/src/Bent/bent memsafe --laws tests/bent/laws --cases 10 --seed 1 --jobs 2
+    (cd build-san && ctest -R BentMemSafe)     # skips with 77 if build-san/src/Bent/bent is missing; never builds it
+
+It finds only what the generated programs reach. A bug behind an action nobody generates, or needing a size the generators never draw, is
+invisible. Raise `--cases`, change `--seed`, or add generators/laws to widen the search.
+
+**Static (`scripts/memsafe_scan.sh`, ctest `MemSafeStatic`).** Runs `clang++ --analyze` (core, cplusplus, security, unix, deadcode),
+clang warnings (`-Warray-bounds -Wstringop-overflow -Wsign-compare -Wconversion -Wdangling -Wuninitialized ...`) and, when installed,
+clang-tidy (bugprone-*, cert array/overflow checks, cppcoreguidelines-pro-bounds-*) over `src/Engine`. Findings are normalised to sorted
+`file:check` lines (no line numbers, one per occurrence) and compared with `scripts/memsafe_baseline.txt`; only NEW findings fail (ratchet).
+Clang cannot read GCC's module BMIs, so translation units that `import` a project module cannot be analysed: only the non-module ones are
+scanned and the rest are listed in `$MEMSAFE_OUT/skipped.txt`. Exit 77 without clang++. A clean scan means "no known bad patterns in the
+scanned files", nothing more.
+
+    scripts/memsafe_scan.sh                    # fail on new findings
+    scripts/memsafe_scan.sh --list             # current findings by check
+    scripts/memsafe_scan.sh --update-baseline  # accept the current findings (commit the baseline diff, review it first)

@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 #include "Engine/Bent/Check.hpp"
@@ -24,6 +25,7 @@ const char* kUsage = R"(usage:
   bent shrink FILE.bent --seed S --case K [--law NAME] [--regressions DIR] [--isolate]
   bent list FILE.bent | bent list --actions | bent list --observations | bent list --builtins
   bent suite --laws DIR [--regressions DIR] [--cases N] [--seed S] [--jobs J] [--isolate] [--gpu]
+  bent memsafe --laws DIR [--cases N] [--seed S] [--jobs J]   (needs a LIT_SANITIZE build; exit 77 otherwise)
   bent eval [FILE.bent] --expr "EXPRESSION" [--seed S]
 
 check runs every law declared in FILE (all loaded laws with --law) for N cases (default 100) in parallel,
@@ -48,6 +50,8 @@ struct Cli {
     std::string lawsDir;
     std::string expr;
     std::string listWhat;
+    bool memsafe = false;
+    std::vector<std::string> argvCopy;
 };
 
 [[noreturn]] void usage(const std::string& message) {
@@ -65,6 +69,7 @@ Cli parse(int argc, char** argv) {
         std::exit(0);
     }
     std::string commandLine = "bent";
+    for (int i = 0; i < argc; ++i) cli.argvCopy.push_back(argv[i]);
     for (int i = 1; i < argc; ++i) commandLine += std::string(" ") + argv[i];
     cli.options.commandLine = commandLine;
     for (int i = 2; i < argc; ++i) {
@@ -297,6 +302,37 @@ int runList(Cli& cli, bent::Host& host) {
     return 0;
 }
 
+// memsafe: the whole suite, one forked process per case, in a sanitizer build. Any sanitizer abort (ASan, UBSan incl. bounds, libstdc++
+// assertions) kills one case; its log is attached to the failure, and the single law `memory_safe` fails with seed/case to replay.
+int runSuite(Cli& cli, bent::Host& host);
+
+int runMemsafe(Cli& cli, bent::Host& host) {
+#if defined(__SANITIZE_ADDRESS__)
+    if (!cli.casesGiven) cli.options.cases = 6;
+    cli.options.isolate = true;
+    cli.memsafe = true;
+    const std::string prefix = "/tmp/bent-memsafe-" + std::to_string(::getpid());
+    if (!std::getenv("BENT_MEMSAFE_CHILD")) {
+        ::setenv("BENT_MEMSAFE_CHILD", "1", 1);
+        ::setenv("ASAN_OPTIONS", ("detect_stack_use_after_return=1:strict_string_checks=1:detect_leaks=0:abort_on_error=0:log_path=" + prefix).c_str(), 1);
+        ::setenv("UBSAN_OPTIONS", ("halt_on_error=1:print_stacktrace=1:log_path=" + prefix).c_str(), 1);
+        std::vector<std::string> keep(cli.argvCopy);
+        std::vector<char*> args;
+        for (std::string& a : keep) args.push_back(a.data());
+        args.push_back(nullptr);
+        ::execv("/proc/self/exe", args.data());
+        std::fprintf(stderr, "bent: re-exec failed\n");
+        return 2;
+    }
+    bent::setSanitizerLogPrefix(prefix);  // exec keeps the pid, so the prefix is the same before and after
+    return runSuite(cli, host);
+#else
+    (void)cli; (void)host;
+    std::fputs("bent memsafe: this binary is not sanitizer-instrumented (configure with -DLIT_SANITIZE=address,undefined); skipping\n", stderr);
+    return 77;
+#endif
+}
+
 int runSuite(Cli& cli, bent::Host& host) {
     if (cli.lawsDir.empty()) usage("suite needs --laws DIR");
     if (gpuFile(cli.lawsDir + "/")) {
@@ -319,6 +355,7 @@ int runSuite(Cli& cli, bent::Host& host) {
     // Regressions first: a law with a `known` regression is an expected failure (its fixed-seed run may fail too).
     std::vector<bent::ExampleReport> examples;
     int failures = 0;
+    int memsafeHits = 0;
     std::vector<std::string> knownLaws;
     if (!regressions.empty()) {
         for (const auto& file : bentFiles(regressions)) {
@@ -346,13 +383,26 @@ int runSuite(Cli& cli, bent::Host& host) {
                 std::fprintf(human(cli), "KNOWN    %-40s fails as recorded by its known regression (case %lld: %s)\n", law->name.c_str(), static_cast<long long>(reports.back().failingCase), bent::truncate(reports.back().original.message, 120).c_str());
             } else {
                 std::fputs(bent::formatReport(reports.back()).c_str(), human(cli));
-                if (failed) ++failures;
+                if (cli.memsafe) {
+                    const std::string& m = reports.back().original.message;
+                    const bool hit = failed && (m.find("memory-safety report") != std::string::npos || m.find("engine crashed") != std::string::npos || m.find("child exited") != std::string::npos);
+                    if (hit) {
+                        ++memsafeHits;
+                        std::fprintf(human(cli), "MEMSAFE  law %s case %lld seed %llu: replay with: bent replay %s --law %s --seed %llu --case %lld --isolate\n", law->name.c_str(), static_cast<long long>(reports.back().failingCase), static_cast<unsigned long long>(cli.options.seed), file.string().c_str(), law->name.c_str(), static_cast<unsigned long long>(cli.options.seed), static_cast<long long>(reports.back().failingCase));
+                    }
+                } else if (failed) {
+                    ++failures;
+                }
             }
             std::fflush(human(cli));
         }
     }
     std::fprintf(human(cli), "suite: %zu laws, %lld cases, %zu regressions (%zu known failures, %d laws failing as known), %d unexpected failures\n", reports.size(), static_cast<long long>(total), examples.size(), knownLaws.size(), expected, failures);
     emitJson(cli, reports, examples);
+    if (cli.memsafe) {
+        std::fprintf(human(cli), "memory_safe: %s (%d sanitizer/crash hits over %lld isolated cases; law violations that are not memory errors are not counted here)\n", memsafeHits ? "FAIL" : "ok", memsafeHits, static_cast<long long>(total));
+        return memsafeHits ? 1 : 0;
+    }
     return failures ? 1 : 0;
 }
 
@@ -382,6 +432,7 @@ int main(int argc, char** argv) {
         if (cli.command == "shrink") return runShrink(cli, host);
         if (cli.command == "list") return runList(cli, host);
         if (cli.command == "suite") return runSuite(cli, host);
+        if (cli.command == "memsafe") return runMemsafe(cli, host);
         if (cli.command == "eval") return runEval(cli, host);
         usage("unknown command " + cli.command);
     } catch (const bent::BentError& error) {

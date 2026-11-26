@@ -170,6 +170,27 @@ struct Reader {
     }
 };
 
+std::string gSanitizerLogPrefix;
+
+// Sanitizer reports of a dead child land in <prefix>.<pid> (ASAN_OPTIONS/UBSAN_OPTIONS log_path); the first lines name the bug.
+std::string sanitizerReport(pid_t pid) {
+    if (gSanitizerLogPrefix.empty()) return {};
+    const std::string path = gSanitizerLogPrefix + "." + std::to_string(pid);
+    std::ifstream in(path);
+    std::string text;
+    std::string line;
+    int lines = 0;
+    while (lines < 14 && std::getline(in, line)) {
+        if (line.empty() || line.find("====") != std::string::npos) continue;
+        text += "\n    " + line;
+        ++lines;
+    }
+    in.close();
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    return text.empty() ? text : "memory-safety report:" + text;
+}
+
 CaseOutcome decodeChild(const std::string& data, int waitStatus, bool timedOut, double timeout) {
     CaseOutcome outcome;
     Reader reader{data};
@@ -264,6 +285,10 @@ void runForked(size_t count, int parallel, double timeout, const std::function<C
             int status = 0;
             ::waitpid(child.pid, &status, 0);
             CaseOutcome outcome = decodeChild(child.data, status, timedOut, timeout);
+            if (outcome.status == CaseStatus::Error && !timedOut && !gSanitizerLogPrefix.empty()) {
+                const std::string report = sanitizerReport(child.pid);
+                if (!report.empty()) outcome.message = report;
+            }
             const size_t index = child.index;
             running.erase(running.begin() + static_cast<long>(i));
             polls.erase(polls.begin() + static_cast<long>(i));
@@ -630,7 +655,7 @@ void finishFailure(const Program& program, const LawDecl& law, const CheckOption
     if (options.isolate) {
         CaseOutcome crashed = report.shrunk;
         const std::vector<CaseOutcome> again = evaluateTapes(program, law, {report.shrunk.tape}, size, options);
-        if (again.front().status == CaseStatus::Error && again.front().message.find("crashed") != std::string::npos) {
+        if (again.front().status == CaseStatus::Error && (again.front().message.find("crashed") != std::string::npos || again.front().message.find("memory-safety report") != std::string::npos || again.front().message.find("child exited") != std::string::npos)) {
             // Recover the bindings without running the property: generate only.
             Interp in(program);
             Tape tape = Tape::replay(report.shrunk.tape, size);
@@ -1005,5 +1030,7 @@ void installCrashReporter() {
     std::signal(SIGBUS, crashHandler);
     std::signal(SIGILL, crashHandler);
 }
+
+void setSanitizerLogPrefix(const std::string& prefix) { gSanitizerLogPrefix = prefix; }
 
 }
