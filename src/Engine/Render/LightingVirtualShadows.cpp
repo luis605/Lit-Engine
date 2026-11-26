@@ -321,10 +321,15 @@ void assignVirtualShadowFaces(Lighting::Data& state, SceneUniforms& uniforms) {
         const uint32_t faceCount = spot ? 1u : static_cast<uint32_t>(kCubeFaces);
         const glm::vec3 position(light.positionRange);
         VsmLightSlot slot;
-        slot.exactKey = hashFloats({light.positionRange.x, light.positionRange.y, light.positionRange.z, light.positionRange.w, light.colorType.x, light.colorType.y, light.colorType.z, light.colorType.w, light.directionCos.x, light.directionCos.y, light.directionCos.z,
-                                    light.directionCos.w, light.params.x, light.params.y, light.params.z});
-        slot.identityKey = hashFloats({light.positionRange.w, light.colorType.x, light.colorType.y, light.colorType.z, light.colorType.w, light.directionCos.w, light.params.x, light.params.y, light.params.z});
+        const bool portalLight = index >= state.firstPortalLight && index - state.firstPortalLight < state.lightApertures.size();
+        const glm::vec4 clipPlane = portalLight ? state.lightApertures[index - state.firstPortalLight].plane : glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        const float cone = spot ? light.directionCos.w : 0.0f;
+        const glm::vec3 direction = spot ? glm::vec3(light.directionCos) : glm::vec3(0.0f);
+        slot.exactKey = hashFloats({light.positionRange.x, light.positionRange.y, light.positionRange.z, light.positionRange.w, light.colorType.w, direction.x, direction.y, direction.z, cone, clipPlane.x, clipPlane.y, clipPlane.z, clipPlane.w});
+        slot.identityKey = hashFloats({light.positionRange.w, light.colorType.w, cone});
         slot.position = position;
+        slot.direction = direction;
+        slot.clipPlane = clipPlane;
         slot.faceCount = faceCount;
         int match = -1;
         bool dirty = false;
@@ -363,10 +368,17 @@ void assignVirtualShadowFaces(Lighting::Data& state, SceneUniforms& uniforms) {
         } else if (!allocateSlots(vsm, faceCount, slot.faceBase)) {
             continue;
         }
+        if (dirty && match >= 0) {
+            const VsmLightSlot& previous = vsm.slots[static_cast<size_t>(match)];
+            if (previous.direction == direction && previous.clipPlane == clipPlane && glm::distance(previous.position, position) <= state.settings.vsmMoveTolerance) {
+                slot.position = previous.position;
+                dirty = false;
+            }
+        }
         if (!state.settings.vsmCache) dirty = true;
-        const bool portalLight = index >= state.firstPortalLight && index - state.firstPortalLight < state.lightApertures.size();
-        const glm::vec4 clipPlane = portalLight ? state.lightApertures[index - state.firstPortalLight].plane : glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-        writeLightFaces(vsm, light, index, slot.faceBase, dirty, clipPlane);
+        GpuLight rendered = light;
+        rendered.positionRange = glm::vec4(slot.position, light.positionRange.w);
+        writeLightFaces(vsm, rendered, index, slot.faceBase, dirty, clipPlane);
         light.params.w = -2.0f - static_cast<float>(slot.faceBase);
         const bool inFrustum = sphereVisible(uniforms.frustumPlanes, position, light.positionRange.w);
         visibleLights += inFrustum ? 1u : 0u;
@@ -466,7 +478,7 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
     constants.limits[3] = (vsm.allDirty || !state.settings.vsmCache) ? 1u : 0u;
     constants.misc[0] = inputs.opaqueShaderCount;
     constants.misc[1] = pool;
-    constants.tuning = glm::vec4(inputs.lodBias, 0.0f, 0.0f, 0.0f);
+    constants.tuning = glm::vec4(inputs.lodBias, state.settings.vsmMoveTolerance, 0.0f, 0.0f);
     LIT_UP(context)->UpdateBuffer(vsm.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     const uint32_t zeros[7] = {};
     LIT_UP(context)->UpdateBuffer(vsm.counters, sizeof(uint32_t), sizeof(zeros), zeros, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

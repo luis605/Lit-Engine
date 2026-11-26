@@ -57,8 +57,12 @@ void main() {
     WorldRows rows = worldRows[id];
     uvec4 content = uvec4(renderables[id], dynamicStamps[id], 0u, 0u);
     vec4 previousSphere = vsmPrevious[id * 5u];
-    bool moved = any(notEqual(sphere, previousSphere)) || any(notEqual(rows.r0, vsmPrevious[id * 5u + 1u])) || any(notEqual(rows.r1, vsmPrevious[id * 5u + 2u])) || any(notEqual(rows.r2, vsmPrevious[id * 5u + 3u])) ||
-                 any(notEqual(content, floatBitsToUint(vsmPrevious[id * 5u + 4u])));
+    vec4 previousRows[3] = vec4[](vsmPrevious[id * 5u + 1u], vsmPrevious[id * 5u + 2u], vsmPrevious[id * 5u + 3u]);
+    vec3 linearDelta = vec3(length(rows.r0.xyz - previousRows[0].xyz), length(rows.r1.xyz - previousRows[1].xyz), length(rows.r2.xyz - previousRows[2].xyz));
+    vec3 linearSize = vec3(length(rows.r0.xyz), length(rows.r1.xyz), length(rows.r2.xyz));
+    float turn = length(linearDelta) / max(length(linearSize), 1e-6);
+    float drift = distance(sphere.xyz, previousSphere.xyz) + abs(sphere.w - previousSphere.w) + 2.0 * turn * abs(sphere.w);
+    bool moved = drift > vsmTuning.y || any(notEqual(content, floatBitsToUint(vsmPrevious[id * 5u + 4u])));
     if (!moved) return;
     vsmPrevious[id * 5u] = sphere;
     vsmPrevious[id * 5u + 1u] = rows.r0;

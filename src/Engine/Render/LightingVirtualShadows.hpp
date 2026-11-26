@@ -34,6 +34,8 @@ struct VsmLightSlot {
     uint64_t exactKey = 0;
     uint64_t identityKey = 0;
     glm::vec3 position{0.0f};
+    glm::vec3 direction{0.0f};
+    glm::vec4 clipPlane{0.0f};
     uint32_t faceBase = 0;
     uint32_t faceCount = 0;
     bool matched = false;

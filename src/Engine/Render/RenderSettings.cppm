@@ -124,6 +124,7 @@ export struct RenderSettings {
     float vsmResolutionScale = 1.0f;
     bool vsmAutoScale = true;
     int vsmMaxMip = 4;
+    float vsmMoveTolerance = 0.02f;
     bool vsmCache = true;
 
     bool fog = true;
@@ -261,6 +262,7 @@ void visitRenderSettings(Settings& settings, Visitor&& visit) {
     visit("vsmResolutionScale", settings.vsmResolutionScale);
     visit("vsmAutoScale", settings.vsmAutoScale);
     visit("vsmMaxMip", settings.vsmMaxMip);
+    visit("vsmMoveTolerance", settings.vsmMoveTolerance);
     visit("vsmCache", settings.vsmCache);
     visit("fog", settings.fog);
     visit("fogDensity", settings.fogDensity);
@@ -404,6 +406,7 @@ export inline void clampQualitySettings(RenderSettings& settings) {
     settings.vsmPoolSize = settings.vsmPoolSize <= 2048 ? 2048 : settings.vsmPoolSize <= 4096 ? 4096 : 8192;
     settings.vsmResolutionScale = std::clamp(settings.vsmResolutionScale, 0.25f, 8.0f);
     settings.vsmMaxMip = std::clamp(settings.vsmMaxMip, 0, 4);
+    settings.vsmMoveTolerance = std::clamp(settings.vsmMoveTolerance, 0.0f, 0.25f);
 }
 
 export inline bool setRenderSetting(RenderSettings& settings, std::string_view key, std::string_view value) {
