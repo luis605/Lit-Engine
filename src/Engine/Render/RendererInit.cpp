@@ -166,6 +166,9 @@ void Renderer::createTimestampQueries() {
     auto& gpu = *m_diligent;
     Diligent::QueryDesc queryDesc;
     queryDesc.Type = Diligent::QUERY_TYPE_TIMESTAMP;
+    for (auto& pair : gpu.frameQueries) {
+        for (auto& query : pair) gpu.pDevice->CreateQuery(queryDesc, &query);
+    }
     for (size_t pass = 0; pass < kGpuPassCount; ++pass) {
         queryDesc.Name = kGpuPassNames[pass];
         for (auto& frameQueries : gpu.passQueries[pass]) {

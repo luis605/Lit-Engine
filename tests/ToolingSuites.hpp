@@ -4,3 +4,4 @@ void runRngJsonTests();
 void runReplayTests();
 void runDumpParamsTests();
 void runScenesTests();
+void runPacerTests();

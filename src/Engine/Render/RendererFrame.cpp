@@ -47,6 +47,8 @@ void Renderer::endPass(GpuPass pass) {
 
 void Renderer::signalFrameFence() {
     auto& gpu = *m_diligent;
+    gpu.pImmediateContext->EndQuery(gpu.frameQueries[m_currentFrame][1]);
+    gpu.frameQueryRecorded[m_currentFrame] = true;
     gpu.CurrentFenceValue++;
     gpu.pImmediateContext->EnqueueSignal(gpu.pFences[m_currentFrame], gpu.CurrentFenceValue);
     gpu.FenceValues[m_currentFrame] = gpu.CurrentFenceValue;
@@ -90,12 +92,29 @@ void Renderer::beginFrame(float deltaTime) {
     gpu.pFences[m_currentFrame]->Wait(gpu.FenceValues[m_currentFrame]);
     gpu.fenceWaitMilliseconds = (glfwGetTime() - fenceWaitStart) * 1000.0;
 
+    readFrameTime();
+    gpu.pImmediateContext->EndQuery(gpu.frameQueries[m_currentFrame][0]);
+
     pollObservation();
     collectTimings(deltaTime);
     readPortalStats();
     for (auto& snapshot : gpu.portalSnapshot[m_currentFrame]) snapshot.recorded = false;
     std::ranges::fill(gpu.passRecorded[m_currentFrame], false);
 }
+
+void Renderer::readFrameTime() {
+    auto& gpu = *m_diligent;
+    if (!gpu.frameQueryRecorded[m_currentFrame]) return;
+    gpu.frameQueryRecorded[m_currentFrame] = false;
+    Diligent::QueryDataTimestamp start{};
+    Diligent::QueryDataTimestamp end{};
+    if (!gpu.frameQueries[m_currentFrame][0]->GetData(&start, sizeof(start), false) || !gpu.frameQueries[m_currentFrame][1]->GetData(&end, sizeof(end), false)) return;
+    if (end.Counter > start.Counter && end.Frequency > 0) gpu.frameGpuMilliseconds = static_cast<double>(end.Counter - start.Counter) * 1000.0 / static_cast<double>(end.Frequency);
+}
+
+double Renderer::frameGpuMilliseconds() const { return m_diligent ? m_diligent->frameGpuMilliseconds : 0.0; }
+
+double Renderer::fenceWaitMilliseconds() const { return m_diligent ? m_diligent->fenceWaitMilliseconds : 0.0; }
 
 void Renderer::collectTimings(float deltaTime) {
     auto& gpu = *m_diligent;

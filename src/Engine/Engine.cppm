@@ -13,6 +13,8 @@ module;
 
 struct GLFWwindow;
 
+#include "FramePacer.hpp"
+
 export module Engine.engine;
 
 import Engine.renderer;
@@ -82,6 +84,9 @@ export class Engine {
 
     bool open(const WindowConfig& config = {});
     int run(const std::function<void(float)>& frame = {});
+    // Paces run() to a rate the machine can hold with headroom, up to LIT_MAX_FPS or the monitor refresh rate.
+    // LIT_MAX_FPS=0 turns pacing off. Off by default so tools and benchmarks run flat out.
+    void setFramePacing(bool enabled);
     bool openHeadless();
     [[nodiscard]] bool headless() const { return m_headless; }
     int runHeadless(uint64_t ticks = 0, float deltaTime = 0.0f, const std::function<void(uint64_t)>& beforeTick = {});
@@ -361,6 +366,7 @@ export class Engine {
     std::vector<System> m_systems;
     float m_fixedStep = 1.0f / 60.0f;
     float m_accumulator = 0.0f;
+    Lit::FramePacer m_pacer;
     std::unordered_map<std::string, uint32_t> m_meshIds;
     std::unordered_map<uint32_t, std::string> m_meshNames;
     struct InstanceMirror {

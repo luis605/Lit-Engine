@@ -37,9 +37,11 @@ add_executable(ToolingTests
     ToolingRngJsonTests.cpp
     ToolingReplayTests.cpp
     ToolingDumpParamsTests.cpp
-    ToolingScenesTests.cpp)
+    ToolingScenesTests.cpp
+    ToolingPacerTests.cpp)
 target_compile_features(ToolingTests PRIVATE cxx_std_23)
 target_link_libraries(ToolingTests PRIVATE Engine)
+target_include_directories(ToolingTests PRIVATE "${PROJECT_SOURCE_DIR}/src")
 add_test(NAME ToolingTests COMMAND ToolingTests)
 
 add_executable(JsonGoldenTests JsonGoldenTests.cpp)

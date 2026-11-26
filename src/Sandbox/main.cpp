@@ -108,6 +108,7 @@ void configureEngine(Engine& engine, bool playable) {
     if (!playable) engine.enableFlyCamera({.speed = 2.0f, .sprintMultiplier = 2.0f});
     engine.setShaderWatch(true);
     engine.enableImGui();
+    engine.setFramePacing(true);
     if (std::filesystem::exists("resources/data/params.json")) engine.params().loadFile("resources/data/params.json");
     if (std::filesystem::exists("resources/data/post_fx.json")) engine.loadPostFx("resources/data/post_fx.json");
     if (std::getenv("LIT_GPU_PROFILE")) engine.setFullProfiling(true);

@@ -1,3 +1,4 @@
+#include <thread>
 #include <format>
 #include <GLFW/glfw3.h>
 #include <fstream>
@@ -212,7 +213,10 @@ int Engine::run(const std::function<void(float)>& frame) {
     double last = glfwGetTime();
     const char* fixedStep = std::getenv("LIT_FIXED_DT");
     const float fixedDelta = fixedStep ? std::strtof(fixedStep, nullptr) : 0.0f;
+    auto deadline = std::chrono::steady_clock::now();
     while (m_window && !glfwWindowShouldClose(m_window)) {
+        if (m_pacer.enabled()) std::this_thread::sleep_until(deadline);
+        const auto workStart = std::chrono::steady_clock::now();
         const double now = glfwGetTime();
         const auto deltaTime = fixedDelta > 0.0f ? fixedDelta : static_cast<float>(now - last);
         last = now;
@@ -223,9 +227,24 @@ int Engine::run(const std::function<void(float)>& frame) {
         InputManager::Update();
         present();
         glfwPollEvents();
+        if (m_pacer.enabled()) {
+            const double busyMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - workStart).count() - m_renderer.fenceWaitMilliseconds();
+            const double intervalMs = m_pacer.addFrame(std::max(busyMs, m_renderer.frameGpuMilliseconds()));
+            deadline = std::max(deadline, workStart - std::chrono::milliseconds(1)) + std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::milli>(intervalMs));
+        }
     }
     cleanup();
     return 0;
+}
+
+void Engine::setFramePacing(bool enabled) {
+    double maxFps = 0.0;
+    if (enabled) {
+        const GLFWvidmode* mode = glfwGetPrimaryMonitor() ? glfwGetVideoMode(glfwGetPrimaryMonitor()) : nullptr;
+        maxFps = mode && mode->refreshRate > 0 ? static_cast<double>(mode->refreshRate) : 60.0;
+    }
+    if (const char* value = std::getenv("LIT_MAX_FPS"); value && enabled) maxFps = std::max(std::atof(value), 0.0);
+    m_pacer.setMaxFps(maxFps);
 }
 
 bool Engine::openHeadless() {

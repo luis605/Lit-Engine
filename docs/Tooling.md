@@ -100,6 +100,10 @@ Entities are ordered by slot index. `dumpWorld(world, DumpOptions)` dumps only t
 
 `scripts/lag_check.sh [outdir]` renders each scene for `FRAMES` frames (default 460) with `LitShot --perf` and prints `scripts/lag_report.py`: frame time p50, p99 and max, the number of hitches (frames over both 1.5 times the median and the median plus 4 ms) and, for the worst ones, the passes that grew.
 
+## Frame pacing
+
+`Engine::setFramePacing(true)` (Sandbox and Editor; off under `LIT_AUTOPILOT`) paces `run()` to a rate the machine holds with headroom: the interval is 1.15 times the 90th percentile of recent frame work (the longer of CPU time and whole-frame GPU time), never shorter than the monitor refresh interval and never longer than 1/30 s. Running flat out starved the compositor of GPU time and heated the GPU into throttling, which showed as bursts of long frames. `LIT_MAX_FPS=<n>` sets the upper rate, `LIT_MAX_FPS=0` turns pacing off. `LitShot` runs unpaced unless it is given `--paced`.
+
 ## Parameter bus
 
 `engine.params()` (`Engine.Params`) holds named floats. Gameplay writes targets with `set(name, value)`; each tick the `params` system moves values toward their targets with exponential smoothing (`value += (target - value) * (1 - exp(-dt / smooth))`) using unscaled time, then evaluates mappings. Read with `get(name)` on the CPU or `litParam(slot)` in shaders.

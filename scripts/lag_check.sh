@@ -12,7 +12,7 @@ cd "$build" || exit 1
 status=0
 for scene in $scenes; do
     rm -f "$out/$scene.csv"
-    if ! timeout 600 "$litshot" --deterministic --testscene "$scene" --frames "$frames" --size "${SIZE:-1280x720}" --perf "$out/$scene.csv" --screenshot "$out/$scene.png" >"$out/$scene.log" 2>&1; then
+    if ! timeout 600 "$litshot" --deterministic --testscene "$scene" --frames "$frames" --size "${SIZE:-1280x720}" --perf "$out/$scene.csv" ${PACED:+--paced} --screenshot "$out/$scene.png" >"$out/$scene.log" 2>&1; then
         echo "$scene: LitShot failed, see $out/$scene.log"
         status=1
         continue

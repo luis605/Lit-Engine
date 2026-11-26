@@ -97,6 +97,7 @@ int main(int argc, char** argv) {
         engine.world().camera().setOrientation(options.cameraValues[3], options.cameraValues[4], options.cameraValues[5]);
     }
     applySettings(engine, options);
+    engine.setFramePacing(options.paced);
     if (!options.perfFile.empty()) engine.enablePerfLog(options.perfFile);
 
     int frame = 0;

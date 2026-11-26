@@ -22,6 +22,7 @@ struct ShotOptions {
     bool hasCamera = false;
     float cameraValues[6] = {};
     bool noProbe = false;
+    bool paced = false;
     bool deterministic = false;
     int bakeFrame = 0;
     int lightCount = 4096;

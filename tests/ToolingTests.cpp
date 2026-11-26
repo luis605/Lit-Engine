@@ -6,5 +6,6 @@ int main() {
     runReplayTests();
     runDumpParamsTests();
     runScenesTests();
+    runPacerTests();
     return testsupport::finish();
 }

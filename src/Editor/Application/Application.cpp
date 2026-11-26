@@ -81,6 +81,7 @@ Application::Application() {
     if (!m_engine.open({kWindowTitle, kWindowWidth, kWindowHeight})) return;
     m_window = m_engine.window();
     m_engine.enableImGui();
+    m_engine.setFramePacing(std::getenv("LIT_AUTOPILOT") == nullptr);
     Lit::Log::Phase("imgui");
     float scaleX = 1.0f;
     float scaleY = 1.0f;
