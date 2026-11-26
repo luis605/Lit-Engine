@@ -170,6 +170,7 @@ target_sources(Engine
         Render/RendererMeshes.cpp
         Render/RendererSkinning.cpp
         Render/RendererUploads.cpp
+        Render/UploadStats.cpp
         Render/RendererTransforms.cpp
         Render/RendererCulling.cpp
         Render/RendererShadows.cpp

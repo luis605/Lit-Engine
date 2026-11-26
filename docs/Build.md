@@ -13,6 +13,14 @@ Build with `cmake --build <dir> -- -k 0`, test with `(cd <dir> && ctest -j8 --ou
 units are compiled without UBSan because GCC cannot yet instrument them.
 CI uses `g++-15` (`-DCMAKE_CXX_COMPILER=g++-15`). The default build type is Release.
 
+## Diligent patch
+
+Upload traffic counters (`docs/GpuTimings.md`) need a small DiligentCore change that lives outside the submodule:
+
+    git -C src/vendors/DiligentEngine/DiligentCore apply ../../../../patches/diligent-upload-counters.patch
+
+Without it the engine builds and the counters read zero.
+
 ## Stale directories
 
 `build` (Debug) and `build-asan` (RelWithDebInfo, `LIT_SANITIZE=address,undefined`) were configured when

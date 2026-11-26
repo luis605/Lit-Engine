@@ -1,0 +1,49 @@
+diff --git a/Graphics/GraphicsEngineVulkan/src/VulkanDynamicHeap.cpp b/Graphics/GraphicsEngineVulkan/src/VulkanDynamicHeap.cpp
+index c5ae2ec8d..81365bc75 100644
+--- a/Graphics/GraphicsEngineVulkan/src/VulkanDynamicHeap.cpp
++++ b/Graphics/GraphicsEngineVulkan/src/VulkanDynamicHeap.cpp
+@@ -34,6 +34,9 @@
+ 
+ #include "RenderDeviceVkImpl.hpp"
+ 
++#include <atomic>
++extern "C" std::atomic<unsigned long long> g_LitDynamicHeapBytes;
++
+ namespace Diligent
+ {
+ 
+@@ -224,6 +227,7 @@ VulkanDynamicAllocation VulkanDynamicHeap::Allocate(Uint32 SizeInBytes, Uint32 A
+ {
+     VERIFY_EXPR(Alignment > 0);
+     VERIFY(IsPowerOfTwo(Alignment), "Alignment (", Alignment, ") must be power of 2");
++    g_LitDynamicHeapBytes.fetch_add(SizeInBytes, std::memory_order_relaxed);
+ 
+     OffsetType AlignedOffset = InvalidOffset;
+     OffsetType AlignedSize   = 0;
+diff --git a/Graphics/GraphicsEngineVulkan/src/VulkanUploadHeap.cpp b/Graphics/GraphicsEngineVulkan/src/VulkanUploadHeap.cpp
+index af0680558..e10d962cb 100644
+--- a/Graphics/GraphicsEngineVulkan/src/VulkanUploadHeap.cpp
++++ b/Graphics/GraphicsEngineVulkan/src/VulkanUploadHeap.cpp
+@@ -29,6 +29,14 @@
+ #include "VulkanUploadHeap.hpp"
+ #include "RenderDeviceVkImpl.hpp"
+ 
++#include <atomic>
++
++// Upload traffic counters read by the engine (src/Engine/Render/UploadStats.hpp). Cheap relaxed atomics.
++extern "C" {
++std::atomic<unsigned long long> g_LitUploadHeapBytes{0};
++std::atomic<unsigned long long> g_LitDynamicHeapBytes{0};
++}
++
+ namespace Diligent
+ {
+ 
+@@ -128,6 +136,7 @@ VulkanUploadAllocation VulkanUploadHeap::Allocate(VkDeviceSize SizeInBytes, VkDe
+         Allocation.AlignedOffset = m_CurrPage.CurrOffset;
+         m_CurrPage.Advance(SizeInBytes);
+     }
++    g_LitUploadHeapBytes.fetch_add(SizeInBytes, std::memory_order_relaxed);
+     m_CurrFrameSize += SizeInBytes; // Count unaligned size
+     m_PeakFrameSize     = std::max(m_CurrFrameSize, m_PeakFrameSize);
+     m_PeakAllocatedSize = std::max(m_CurrAllocatedSize, m_PeakAllocatedSize);
