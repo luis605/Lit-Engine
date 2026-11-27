@@ -149,8 +149,8 @@ void Renderer::createDevice() {
         engineInfo.Features.BindlessResources = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
         engineInfo.Features.ShaderResourceRuntimeArrays = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     }
-    // Diligent's 8 MB default dynamic heap overflows with per-frame maps and forces a GPU idle.
-    engineInfo.DynamicHeapSize = 256u << 20;
+    constexpr Diligent::Uint32 kHeapThatPerFrameMapsCannotExhaust = 256u << 20;
+    engineInfo.DynamicHeapSize = kHeapThatPerFrameMapsCannotExhaust;
     engineInfo.DynamicHeapPageSize = 4u << 20;
     engineInfo.ppIgnoreDebugMessageNames = kIgnoredValidationMessages;
     engineInfo.IgnoreDebugMessageCount = static_cast<Diligent::Uint32>(std::size(kIgnoredValidationMessages));

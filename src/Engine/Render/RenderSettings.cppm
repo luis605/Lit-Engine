@@ -352,7 +352,8 @@ bool parseValue(std::string_view text, T& value) {
         } else if constexpr (std::is_same_v<T, float>) {
             value = number;
         } else {
-            value = static_cast<T>(static_cast<int>(std::clamp(number, -2.0e9f, 2.0e9f)));  // float -> int of a huge value is undefined
+            constexpr float kLargestSafeIntConversion = 2.0e9f;
+            value = static_cast<T>(static_cast<int>(std::clamp(number, -kLargestSafeIntConversion, kLargestSafeIntConversion)));
         }
         return true;
     }

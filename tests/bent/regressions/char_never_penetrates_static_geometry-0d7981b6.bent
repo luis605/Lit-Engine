@@ -1,10 +1,3 @@
-# Bent regression: shrunk counterexample for law `char_never_penetrates_static_geometry` (tests/bent/laws/ext_phys_character.bent)
-# Found by: bent check tests/bent/laws/ext_phys_character.bent --cases 200 --seed 3 (seed 3, case 154)
-# Shrunk 235 times in 1364 attempts; tape 79 -> 31 choices
-# Replay the random case: bent replay tests/bent/laws/ext_phys_character.bent --law char_never_penetrates_static_geometry --seed 3 --case 154
-# Failure: property is false
-#   tests/bent/laws/ext_phys_character.bent:18:32: 0.0800015926361084 <= 0.08 is false
-#   tests/bent/laws/ext_phys_character.bent:18:8: forall s fails for s = {cell: 0, crossings: 0, depth: 0.0800015926361084, grounded: true, normal: vec3(0.0, 1.0, 0.0), pos: vec3(1.9550493955612183, -7.566995918750763e-09, -1.95000159740448), up: vec3(0.0, 1.0, 0.0), vel: ...
 include "../laws/ext_phys_character.bent"
 
 example char_never_penetrates_static_geometry {

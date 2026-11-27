@@ -249,10 +249,6 @@ nothing improves or the attempt / time budget runs out. Finally the minimal tape
 printed with the canonical printer (`print(v)` parses back to an equal value), and the regression file is written:
 
 ```
-# Bent regression: shrunk counterexample for law `...` (tests/bent/laws/....bent)
-# Found by: bent check ... (seed 1, case 37)
-# Failure: property is false
-#   tests/bent/laws/...: 0.0 == 1.0 is false
 include "../laws/physics.bent"
 
 example the_law_name {

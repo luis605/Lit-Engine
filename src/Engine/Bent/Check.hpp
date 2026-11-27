@@ -42,7 +42,6 @@ struct CheckOptions {
     bool coverage = false;
     double caseTimeout = 120.0;
     std::string regressionDir;
-    std::string commandLine;
     std::function<void(const std::string&)> progress;
 };
 
@@ -81,7 +80,7 @@ struct ExampleReport {
 [[nodiscard]] LawReport shrinkCase(const Program& program, const LawDecl& law, const CheckOptions& options, int64_t caseIndex);
 [[nodiscard]] std::vector<ExampleReport> runExamples(const Program& program, const CheckOptions& options);
 
-[[nodiscard]] std::string counterexampleProgram(const LawDecl& law, const NamedArgs& bindings, const std::string& includePath, const std::vector<std::string>& header);
+[[nodiscard]] std::string counterexampleProgram(const LawDecl& law, const NamedArgs& bindings, const std::string& includePath);
 [[nodiscard]] std::string prettyValue(const Value& value, int indent);
 [[nodiscard]] std::string formatReport(const LawReport& report);
 [[nodiscard]] std::string reportsJson(const std::vector<LawReport>& laws, const std::vector<ExampleReport>& examples, const CheckOptions& options);

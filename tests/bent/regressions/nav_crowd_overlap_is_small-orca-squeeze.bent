@@ -1,6 +1,3 @@
-# Bent regression (known): ORCA agents squeeze into each other. Three agents (two crossing at ~3.3 m/s, one parked) end up overlapping by
-# about 0.25 m (half the radius of the smaller one); the soft ORCA constraint (horizon 2.5 s, acceleration limited) cannot always keep
-# fast crossings apart. nav_crowd_agents_never_pass_through_each_other keeps the weaker guarantee (centres >= 35% of the summed radii).
 include "../laws/ext_phys_nav.bent"
 
 example nav_crowd_overlap_is_small known "ORCA is a soft constraint: overlaps up to ~0.25-0.5 of a radius happen with fast crossing agents" {

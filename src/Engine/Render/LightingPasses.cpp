@@ -366,7 +366,7 @@ void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms
     }
 }
 
-void Lighting::setViewRect(const glm::ivec4& rect, const glm::ivec4& depthRegion) {
+void Lighting::restrictScreenPassesTo(const glm::ivec4& rect, const glm::ivec4& depthRegion) {
     m_data->viewRect = rect;
     m_data->depthRegion = depthRegion;
 }

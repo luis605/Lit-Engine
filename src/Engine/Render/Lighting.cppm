@@ -233,8 +233,7 @@ export class Lighting {
     void shiftOrigin(const glm::vec3& delta);
     void beginFrame(const FrameInput& input, SceneUniforms& uniforms);
     void fitShadows(const FrameInput& input, SceneUniforms& uniforms);
-    // Restricts the screen-space passes of shade() to a pixel rectangle (x, y, width, height); an empty size means the whole view. SceneUniforms::viewRect must hold the same value.
-    void setViewRect(const glm::ivec4& rect, const glm::ivec4& depthRegion = glm::ivec4(0));
+    void restrictScreenPassesTo(const glm::ivec4& rect, const glm::ivec4& depthRegion = glm::ivec4(0));
     void useCascades(const std::array<Cascade, 4>& cascades, SceneUniforms& uniforms);
     [[nodiscard]] const std::array<Cascade, 4>& cascades() const;
     [[nodiscard]] int cascadeCount() const;

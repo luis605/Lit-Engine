@@ -1,11 +1,3 @@
-# Bent regression: shrunk counterexample for law `no_body_escapes_arena` (tests/bent/laws/physics.bent)
-# Found by: bent check tests/bent/laws/physics.bent --cases 10000 --jobs 7 --seed 3 --shrink-limit 4000 --no-regressions (seed 3, case 846)
-# Shrunk 876 times in 4000 attempts; tape 470 -> 288 choices
-# Replay the random case: bent replay tests/bent/laws/physics.bent --law no_body_escapes_arena --seed 3 --case 846
-# Failure: property is false
-#   tests/bent/laws/../lib/prelude.bent:25:43: -0.2500694990158081 >= -0.25 is false
-#   tests/bent/laws/physics.bent:12:9: forall e fails for e = entity(6)
-#   tests/bent/laws/physics.bent:11:8: always failed at tick 70 during action #22 step(n: 240)
 include "../laws/physics.bent"
 
 example no_body_escapes_arena known "bodies sink deep into a static floor under load: a 0.75 m box driven down at 15 m/s by a pile ends with its centre 0.25 m below the floor surface (1 m penetration) at tick 70; discrete solver with 2 iterations" {

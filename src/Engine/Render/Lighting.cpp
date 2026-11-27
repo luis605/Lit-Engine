@@ -244,16 +244,15 @@ void loadHdri(Lighting::Data& state) {
 }
 
 MaterialGpu packMaterial(const Material& material) {
-    // std::clamp passes NaN through, so NaN packs as the lower bound.
-    const auto clamp = [](float value, float lo, float hi) { return std::isnan(value) ? lo : std::clamp(value, lo, hi); };
+    const auto clampNanToLowest = [](float value, float lo, float hi) { return std::isnan(value) ? lo : std::clamp(value, lo, hi); };
     MaterialGpu packed{};
-    packed.baseColorOpacity = glm::vec4(material.baseColor, clamp(material.opacity, 0.0f, 1.0f));
+    packed.baseColorOpacity = glm::vec4(material.baseColor, clampNanToLowest(material.opacity, 0.0f, 1.0f));
     packed.emissive = glm::vec4(material.emissive * std::max(material.emissiveIntensity, 0.0f), material.normalStrength);
-    packed.pbr = glm::vec4(clamp(material.metallic, 0.0f, 1.0f), clamp(material.roughness, 0.0f, 1.0f), clamp(material.reflectance, 0.0f, 1.0f), clamp(material.occlusion, 0.0f, 1.0f));
-    packed.coat = glm::vec4(clamp(material.clearcoat, 0.0f, 1.0f), clamp(material.clearcoatRoughness, 0.0f, 1.0f), clamp(material.anisotropy, -1.0f, 1.0f), material.anisotropyRotation);
+    packed.pbr = glm::vec4(clampNanToLowest(material.metallic, 0.0f, 1.0f), clampNanToLowest(material.roughness, 0.0f, 1.0f), clampNanToLowest(material.reflectance, 0.0f, 1.0f), clampNanToLowest(material.occlusion, 0.0f, 1.0f));
+    packed.coat = glm::vec4(clampNanToLowest(material.clearcoat, 0.0f, 1.0f), clampNanToLowest(material.clearcoatRoughness, 0.0f, 1.0f), clampNanToLowest(material.anisotropy, -1.0f, 1.0f), material.anisotropyRotation);
     packed.sheen = glm::vec4(material.sheenColor, material.sheenRoughness);
-    packed.subsurface = glm::vec4(material.subsurfaceColor, clamp(material.subsurface, 0.0f, 1.0f));
-    packed.transmission = glm::vec4(clamp(material.transmission, 0.0f, 1.0f), material.ior, clamp(material.thickness, 0.0f, 1.0f), std::max(material.uvScale, 1e-4f));
+    packed.subsurface = glm::vec4(material.subsurfaceColor, clampNanToLowest(material.subsurface, 0.0f, 1.0f));
+    packed.transmission = glm::vec4(clampNanToLowest(material.transmission, 0.0f, 1.0f), material.ior, clampNanToLowest(material.thickness, 0.0f, 1.0f), std::max(material.uvScale, 1e-4f));
     packed.textures[0] = material.baseColorTexture;
     packed.textures[1] = material.normalTexture;
     packed.textures[2] = material.ormTexture;

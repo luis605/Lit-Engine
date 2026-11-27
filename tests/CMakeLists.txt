@@ -267,8 +267,6 @@ target_link_libraries(EditorQualityTests PRIVATE Engine)
 target_include_directories(EditorQualityTests PRIVATE "${PROJECT_SOURCE_DIR}/src")
 add_test(NAME EditorQualityTests COMMAND EditorQualityTests)
 
-# Bent (docs/Bent.md): language unit tests, then every law in tests/bent/laws with a fixed seed and a small budget plus every
-# regression in tests/bent/regressions (examples marked `known` are expected failures).
 add_executable(BentTests BentTests.cpp)
 target_compile_features(BentTests PRIVATE cxx_std_23)
 target_link_libraries(BentTests PRIVATE BentLang)
@@ -277,19 +275,13 @@ add_test(NAME BentTests COMMAND BentTests)
 add_test(NAME BentLaws COMMAND bent suite --laws ${CMAKE_CURRENT_SOURCE_DIR}/bent/laws --regressions ${CMAKE_CURRENT_SOURCE_DIR}/bent/regressions --cases 25 --seed 1
          WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(BentLaws PROPERTIES TIMEOUT 1200)
-# Memory safety (docs/Bent.md): the whole suite under a sanitizer build of bent (build-san by default, BENT_MEMSAFE_BIN overrides). Never builds it;
-# skipped with 77 when that binary is missing.
 add_test(NAME BentMemSafe COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/bent/memsafe_ctest.sh ${CMAKE_SOURCE_DIR}
          WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(BentMemSafe PROPERTIES TIMEOUT 1800 SKIP_RETURN_CODE 77)
-# GPU mode (docs/Bent.md, "GPU mode"): laws that render real frames through LitShot (320x180, deterministic). Skipped with code 77 when
-# LitShot is not built or no device works; the default BentLaws suite never runs them (they live in tests/bent/laws/gpu).
 add_test(NAME BentGpuLaws COMMAND bent suite --gpu --laws ${CMAKE_CURRENT_SOURCE_DIR}/bent/laws/gpu --cases 4 --seed 1 --jobs 1
          WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(BentGpuLaws PROPERTIES TIMEOUT 1800 SKIP_RETURN_CODE 77)
 
-# Bindless texture table (docs/RenderGraph.md): the slot allocator is tested headless; the GPU parity test renders the `textures`
-# scene with the table on and off and requires identical pixels (skipped, exit 77, without LitShot or a usable GPU).
 add_executable(TextureTableTests TextureTableTests.cpp)
 target_compile_features(TextureTableTests PRIVATE cxx_std_23)
 target_include_directories(TextureTableTests PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -297,7 +289,6 @@ add_test(NAME TextureTableTests COMMAND TextureTableTests)
 add_test(NAME BindlessTextureParity COMMAND ${PROJECT_SOURCE_DIR}/scripts/bindless_check.sh --assert)
 set_tests_properties(BindlessTextureParity PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900 ENVIRONMENT "BUILD_DIR=${CMAKE_BINARY_DIR};SCENES=textures")
 
-# Static memory-safety scan (scripts/memsafe_scan.sh): clang-tidy ratchet against scripts/memsafe_baseline.txt; skipped with 77 without clang-tidy.
 add_test(NAME MemSafeStatic COMMAND ${CMAKE_SOURCE_DIR}/scripts/memsafe_scan.sh WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 set_tests_properties(MemSafeStatic PROPERTIES TIMEOUT 3600 SKIP_RETURN_CODE 77 ENVIRONMENT "MEMSAFE_BUILD_DIR=${CMAKE_BINARY_DIR}")
 

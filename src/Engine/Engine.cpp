@@ -229,7 +229,7 @@ int Engine::run(const std::function<void(float)>& frame) {
         glfwPollEvents();
         if (m_pacer.enabled()) {
             const double busyMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - workStart).count() - m_renderer.fenceWaitMilliseconds();
-            const double intervalMs = m_pacer.addFrame(std::max(busyMs, m_renderer.frameGpuMilliseconds()));
+            const double intervalMs = m_pacer.addFrame(std::max(busyMs, m_renderer.wholeFrameGpuMilliseconds()));
             deadline = std::max(deadline, workStart - std::chrono::milliseconds(1)) + std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::milli>(intervalMs));
         }
     }
@@ -411,8 +411,8 @@ void Engine::tick(float deltaTime) {
             extras.push_back({std::format("portal:{} depth {}", view.label, view.depth), view.gpuMilliseconds});
         }
         if (hasPortalViews) extras.push_back({"portal_gpu_ms", portalMs});
-        if (m_renderer.frameGpuMilliseconds() > 0.0) {
-            extras.push_back({"frame_gpu_ms", m_renderer.frameGpuMilliseconds()});
+        if (m_renderer.wholeFrameGpuMilliseconds() > 0.0) {
+            extras.push_back({"frame_gpu_ms", m_renderer.wholeFrameGpuMilliseconds()});
             extras.push_back({"fence_wait_ms", m_renderer.fenceWaitMilliseconds()});
         }
         m_perf.record(m_world.time().frame, frameMs, m_lastSimMs, m_renderer.gpuTotalMilliseconds(), passes, extras);

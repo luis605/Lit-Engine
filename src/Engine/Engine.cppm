@@ -84,8 +84,6 @@ export class Engine {
 
     bool open(const WindowConfig& config = {});
     int run(const std::function<void(float)>& frame = {});
-    // Paces run() to a rate the machine can hold with headroom, up to LIT_MAX_FPS or the monitor refresh rate.
-    // LIT_MAX_FPS=0 turns pacing off. Off by default so tools and benchmarks run flat out.
     void setFramePacing(bool enabled);
     bool openHeadless();
     [[nodiscard]] bool headless() const { return m_headless; }

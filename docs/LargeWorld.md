@@ -45,7 +45,7 @@ Tests: `tests/LargeWorldRenderTests.cpp` (GPU, hidden window, skips without one;
 | Clouds | wind offset carries `fmod(origin.xz, 1.26e6)`: `local + offset` is unchanged by a rebase (period of the cumulus noise); altitude uses world y |
 | Fog | `fogHeight` is a world height: the shader sees `fogHeight - origin.y` |
 | Observation GPU grid | per-request grid of entity ids (no world positions); in-flight readbacks stay valid |
-| Procedural patterns (checker, triplanar) | `SurfaceInput.patternPosition = worldPosition + originPhase()`, `originPhase` = origin mod 4096 (float). Continuous across rebases when the pattern period divides 4096 (snap <= 1024 is fine). `worldPosition` stays the local position (camera-relative maths, derivatives). In shaders, GLSL `originPhase()` / `skyViewPos()` (scene.glsl) and `SceneUniforms::originParams` |
+| Procedural patterns (checker, triplanar) | `SurfaceInput.patternPosition = worldPosition + originModulo4096()`, `originModulo4096` = origin mod 4096 (float). Continuous across rebases when the pattern period divides 4096 (snap <= 1024 is fine). `worldPosition` stays the local position (camera-relative maths, derivatives). In shaders, GLSL `originModulo4096()` / `skyViewPos()` (scene.glsl) and `SceneUniforms::originParams` |
 
 Not handled by the renderer: user buffers that persist positions (custom compute passes such as the particle example). They must listen to `engine.originEpoch()` and subtract `engine.lastOriginShift()`.
 

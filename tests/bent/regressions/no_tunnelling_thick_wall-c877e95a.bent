@@ -1,10 +1,3 @@
-# Bent regression: shrunk counterexample for law `no_tunnelling_thick_wall` (tests/bent/laws/physics.bent)
-# Found by: bent check tests/bent/laws/physics.bent --cases 3000 --jobs 6 --seed 1 --shrink-limit 3000 (seed 1, case 49)
-# Shrunk 33 times in 159 attempts; tape 13 -> 6 choices
-# Replay the random case: bent replay tests/bent/laws/physics.bent --law no_tunnelling_thick_wall --seed 1 --case 49
-# Failure: property is false
-#   tests/bent/laws/physics.bent:24:58: 11.050000190734863 < 9.0 is false
-#   tests/bent/laws/physics.bent:20:8: always failed at tick 8 during action #3 step(n: 120)
 include "../laws/physics.bent"
 
 example no_tunnelling_thick_wall {

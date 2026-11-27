@@ -384,14 +384,14 @@ void Renderer::shadePortalView(int index) {
     Diligent::ITexture* const gbuffer[3] = {m_lighting.gbuffer(0), m_lighting.gbuffer(1), m_lighting.gbuffer(2)};
     CapturePortalGBuffer(gpu, index, gbuffer, portalViewRect(index));
 
-    m_lighting.setViewRect(portalViewRect(index), portalDepthRegion(index));
+    m_lighting.restrictScreenPassesTo(portalViewRect(index), portalDepthRegion(index));
     for (int stage = 0; stage < kShadeStageCount - 1; ++stage) m_lighting.shade(gpu.pSceneDepth, gpu.pSceneUBO[m_currentFrame], stage);
     gpu.portalCompositeWritesDepth = false;
     compositePortals(index);
     gpu.portalCompositeWritesDepth = true;
     UnbindRenderTargets(context);
     m_lighting.shade(gpu.pSceneDepth, gpu.pSceneUBO[m_currentFrame], kShadeStageCount - 1);
-    m_lighting.setViewRect(glm::ivec4(0));
+    m_lighting.restrictScreenPassesTo(glm::ivec4(0));
     compositePortals(index);
     if (gpu.sceneHasTranslucent) m_lighting.captureSceneColor();
     drawTransparency();

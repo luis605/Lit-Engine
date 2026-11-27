@@ -1,4 +1,3 @@
-# Run on the stress scene with LIT_SEED=1: a plain click selects one entity, new objects land in view, shader.new creates its file.
 frames 30
 run create.cube
 frames 2

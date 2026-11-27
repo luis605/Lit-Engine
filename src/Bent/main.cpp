@@ -66,10 +66,7 @@ Cli parse(int argc, char** argv) {
         std::fputs(kUsage, stdout);
         std::exit(0);
     }
-    std::string commandLine = "bent";
     for (int i = 0; i < argc; ++i) cli.argvCopy.push_back(argv[i]);
-    for (int i = 1; i < argc; ++i) commandLine += std::string(" ") + argv[i];
-    cli.options.commandLine = commandLine;
     for (int i = 2; i < argc; ++i) {
         const std::string arg = argv[i];
         const auto value = [&]() -> std::string {

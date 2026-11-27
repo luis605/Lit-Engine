@@ -134,8 +134,7 @@ export class Renderer {
     [[nodiscard]] std::vector<GpuEntityState> readGpuEntityStates(size_t count);
     [[nodiscard]] std::vector<GpuPassTiming> gpuTimings() const;
     [[nodiscard]] double gpuTotalMilliseconds() const;
-    // GPU time of a whole frame (portal views included), measured even without full profiling.
-    [[nodiscard]] double frameGpuMilliseconds() const;
+    [[nodiscard]] double wholeFrameGpuMilliseconds() const;
     [[nodiscard]] double fenceWaitMilliseconds() const;
     [[nodiscard]] RenderGraphInfo renderGraphInfo() const;
     void requestGraphDump(std::string path);

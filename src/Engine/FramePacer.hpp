@@ -6,8 +6,6 @@
 
 namespace Lit {
 
-// Picks a frame interval the machine can hold with headroom to spare. A renderer that runs flat out leaves the compositor
-// no GPU time and heats the chip into throttling, which shows up as bursts of long frames.
 class FramePacer {
 public:
     static constexpr double kHeadroom = 1.15;

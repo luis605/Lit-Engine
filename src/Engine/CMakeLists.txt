@@ -341,7 +341,6 @@ target_compile_features(Engine PUBLIC cxx_std_23)
 if(LIT_SANITIZE)
     target_compile_options(Engine PUBLIC -fsanitize=${LIT_SANITIZE} -fno-omit-frame-pointer)
     target_link_options(Engine PUBLIC -fsanitize=${LIT_SANITIZE})
-    # Standard library hardening: checked operator[]/front/back/iterators (libstdc++ and libc++), so container misuse aborts in `bent memsafe`.
     target_compile_definitions(Engine PUBLIC _GLIBCXX_ASSERTIONS _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE)
     if(LIT_SANITIZE MATCHES "undefined" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         get_target_property(moduleInterfaces Engine CXX_MODULE_SET_cxx_modules)
@@ -374,5 +373,4 @@ target_link_libraries(Engine PUBLIC
     $<$<BOOL:${WIN32}>:Diligent-GraphicsEngineD3D11-static>
     $<$<BOOL:${WIN32}>:Diligent-GraphicsEngineD3D12-static>
 )
-# Bent law language and engine fuzzer (docs/Bent.md).
 add_subdirectory(Bent)

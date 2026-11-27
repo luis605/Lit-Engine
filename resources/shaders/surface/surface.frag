@@ -164,7 +164,7 @@ void main() {
     MaterialData m = materials[in_material & 0x7FFFu];
     SurfaceInput i;
     i.worldPosition = in_worldPos;
-    i.patternPosition = in_worldPos + originPhase();
+    i.patternPosition = in_worldPos + originModulo4096();
     i.objectPosition = in_objectPos;
     i.viewDirection = normalize(viewPos - in_worldPos);
     i.geometricNormal = N;

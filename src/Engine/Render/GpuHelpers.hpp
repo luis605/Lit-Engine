@@ -123,7 +123,6 @@ inline bool& vertexViewportIndexEnabled() {
 
 inline bool bindlessTexturesActive(Diligent::IRenderDevice* device) { return bindlessTexturesRequested() && bindlessTexturesSupported(device); }
 
-// Diligent cannot declare an unsized array in an implicit layout, and a PSO cannot mix implicit layouts with signatures.
 inline RefCntAutoPtr<Diligent::IPipelineResourceSignature> makeBindlessSignature(Diligent::IRenderDevice* device, const std::string& name, std::initializer_list<Diligent::IShader*> shaders, const std::vector<NamedSampler>& samplers, uint32_t tableSize) {
     std::vector<Diligent::PipelineResourceDesc> resources;
     for (Diligent::IShader* shader : shaders) {

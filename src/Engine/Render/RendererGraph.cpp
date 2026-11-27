@@ -428,7 +428,7 @@ void Renderer::addShadePasses(rg::RenderGraph& graph, FrameGraphData& frame, int
     };
     auto shade = [this, viewIndex](int stage) {
         auto& state = *m_diligent;
-        m_lighting.setViewRect(portalViewRect(viewIndex), portalDepthRegion(viewIndex));
+        m_lighting.restrictScreenPassesTo(portalViewRect(viewIndex), portalDepthRegion(viewIndex));
         m_lighting.shade(state.pSceneDepth, state.pSceneUBO[m_currentFrame], stage);
     };
 

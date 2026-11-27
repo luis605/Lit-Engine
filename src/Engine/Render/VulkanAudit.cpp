@@ -1,4 +1,3 @@
-// Vulkan headers must precede Diligent's Vulkan interface header.
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 

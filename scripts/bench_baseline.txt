@@ -1,4 +1,3 @@
-# view metric milliseconds, written by BENCH_UPDATE=1 scripts/bench.sh
 top frame 16.46
 top p95 18.48
 top GPU_Total 16.44

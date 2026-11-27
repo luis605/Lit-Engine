@@ -64,11 +64,10 @@ size_t normalizeSkinWeights(std::vector<SkinVertex>& skin, uint32_t jointCount) 
             sum += weight;
         }
         if (!std::isfinite(sum)) {
-            // huge finite weights overflow the sum to inf, so scale by the largest weight first.
-            const float largest = std::max(std::max(vertex.weights[0], vertex.weights[1]), std::max(vertex.weights[2], vertex.weights[3]));
+            const float largestWeight = std::max(std::max(vertex.weights[0], vertex.weights[1]), std::max(vertex.weights[2], vertex.weights[3]));
             sum = 0.0f;
             for (float& weight : vertex.weights) {
-                weight /= largest;
+                weight /= largestWeight;
                 sum += weight;
             }
             changed = true;

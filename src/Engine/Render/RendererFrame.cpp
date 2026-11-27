@@ -109,10 +109,10 @@ void Renderer::readFrameTime() {
     Diligent::QueryDataTimestamp start{};
     Diligent::QueryDataTimestamp end{};
     if (!gpu.frameQueries[m_currentFrame][0]->GetData(&start, sizeof(start), false) || !gpu.frameQueries[m_currentFrame][1]->GetData(&end, sizeof(end), false)) return;
-    if (end.Counter > start.Counter && end.Frequency > 0) gpu.frameGpuMilliseconds = static_cast<double>(end.Counter - start.Counter) * 1000.0 / static_cast<double>(end.Frequency);
+    if (end.Counter > start.Counter && end.Frequency > 0) gpu.wholeFrameGpuMilliseconds = static_cast<double>(end.Counter - start.Counter) * 1000.0 / static_cast<double>(end.Frequency);
 }
 
-double Renderer::frameGpuMilliseconds() const { return m_diligent ? m_diligent->frameGpuMilliseconds : 0.0; }
+double Renderer::wholeFrameGpuMilliseconds() const { return m_diligent ? m_diligent->wholeFrameGpuMilliseconds : 0.0; }
 
 double Renderer::fenceWaitMilliseconds() const { return m_diligent ? m_diligent->fenceWaitMilliseconds : 0.0; }
 

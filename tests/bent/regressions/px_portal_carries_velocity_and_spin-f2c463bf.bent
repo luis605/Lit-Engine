@@ -1,9 +1,3 @@
-# Bent regression: shrunk counterexample for law `px_portal_carries_velocity_and_spin` (tests/bent/laws/ext_phys_portal.bent)
-# Found by: bent check tests/bent/laws/ext_phys_portal.bent --cases 1000 --seed 1 (seed 1, case 0)
-# Shrunk 104 times in 874 attempts; tape 59 -> 28 choices
-# Replay the random case: bent replay tests/bent/laws/ext_phys_portal.bent --law px_portal_carries_velocity_and_spin --seed 1 --case 0
-# Failure: property is false
-#   tests/bent/laws/../lib/ext_phys.bent:16:38: 0.0025698855167089443 <= 0.002569885432720185 is false
 include "../laws/ext_phys_portal.bent"
 
 example px_portal_carries_velocity_and_spin {

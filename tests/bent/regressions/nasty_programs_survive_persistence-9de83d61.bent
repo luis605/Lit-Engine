@@ -1,8 +1,3 @@
-# Bent regression: shrunk counterexample for law `nasty_programs_survive_persistence` (tests/bent/laws/robustness.bent)
-# Found by: bent check tests/bent/laws/robustness.bent --cases 3000 --jobs 6 --seed 1 --shrink-limit 3000 (seed 1, case 1)
-# Shrunk 27 times in 625 attempts; tape 53 -> 32 choices
-# Replay the random case: bent replay tests/bent/laws/robustness.bent --law nasty_programs_survive_persistence --seed 1 --case 1
-# Failure: tests/bent/laws/robustness.bent:17:8: loadScene rejected the scene it just saved
 include "../laws/robustness.bent"
 
 example nasty_programs_survive_persistence {

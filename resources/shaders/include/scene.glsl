@@ -75,8 +75,7 @@ float projectedDiameterPx(float radius, float dist) {
 float sceneTime() { return timeParams.x; }
 float frameIndex() { return timeParams.z; }
 float farPlane() { return timeParams.w; }
-// originPhase() is the origin modulo 4096, so float precision holds and rebases do not move patterns whose period divides 4096.
-vec3 originPhase() { return originParams.xyz; }
+vec3 originModulo4096() { return originParams.xyz; }
 vec3 skyViewPos() { return viewPos + vec3(0.0, originParams.w, 0.0); }
 int debugViewMode() { return int(exposureParams.w + 0.5); }
 

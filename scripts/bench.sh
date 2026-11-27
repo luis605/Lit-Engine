@@ -68,7 +68,6 @@ for view in views:
         print(f"  {key:16s} {value:7.2f} ms{delta}")
 if update and results:
     with open(baseline_path, "w") as out:
-        out.write("# view metric milliseconds, written by BENCH_UPDATE=1 scripts/bench.sh\n")
         for (view, key), value in results.items():
             out.write(f"{view} {key} {value:.2f}\n")
     print(f"baseline written to {baseline_path}")

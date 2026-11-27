@@ -70,7 +70,7 @@ struct DiligentData {
     bool QueryReady[NumFrames] = {false};
     Diligent::RefCntAutoPtr<Diligent::IQuery> frameQueries[NumFrames][2];
     bool frameQueryRecorded[NumFrames] = {false};
-    double frameGpuMilliseconds = 0.0;
+    double wholeFrameGpuMilliseconds = 0.0;
 
     struct VisibilityPhase {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> cullingUniforms;

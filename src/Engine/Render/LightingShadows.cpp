@@ -164,12 +164,12 @@ void fitCascade(Lighting::Data& state, int cascadeIndex, int cascadeCount, const
     const glm::vec3 up = std::abs(toSun.y) > 0.99f ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
     const float texelWorld = 2.0f * radius / static_cast<float>(state.shadowResolution);
     glm::mat4 lightView = glm::lookAt(glm::vec3(0.0f), -toSun, up);
-    const glm::vec3 originPhase(static_cast<float>(std::fmod(state.worldOrigin.x, kOriginPatternPeriod)), static_cast<float>(std::fmod(state.worldOrigin.y, kOriginPatternPeriod)), static_cast<float>(std::fmod(state.worldOrigin.z, kOriginPatternPeriod)));
-    glm::vec3 lightSpace = glm::vec3(lightView * glm::vec4(center + originPhase, 1.0f));
+    const glm::vec3 originModulo4096(static_cast<float>(std::fmod(state.worldOrigin.x, kOriginPatternPeriod)), static_cast<float>(std::fmod(state.worldOrigin.y, kOriginPatternPeriod)), static_cast<float>(std::fmod(state.worldOrigin.z, kOriginPatternPeriod)));
+    glm::vec3 lightSpace = glm::vec3(lightView * glm::vec4(center + originModulo4096, 1.0f));
     lightSpace.x = std::floor(lightSpace.x / texelWorld) * texelWorld;
     lightSpace.y = std::floor(lightSpace.y / texelWorld) * texelWorld;
     lightSpace.z = std::floor(lightSpace.z / texelWorld) * texelWorld;
-    center = glm::vec3(glm::inverse(lightView) * glm::vec4(lightSpace, 1.0f)) - originPhase;
+    center = glm::vec3(glm::inverse(lightView) * glm::vec4(lightSpace, 1.0f)) - originModulo4096;
     const glm::vec3 eye = center + toSun * (radius + kCasterExtension);
     lightView = glm::lookAt(eye, center, up);
     const float depthRange = 2.0f * radius + kCasterExtension;

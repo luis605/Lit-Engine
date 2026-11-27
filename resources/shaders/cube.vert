@@ -41,14 +41,13 @@ void main() {
     out_alpha = entityAlpha(objectId);
 #endif
     mat4 model = loadWorld(worldRows[objectId]);
-    // the cofactor matrix is the inverse-transpose up to a scale; the determinant sign keeps mirrored transforms correct.
     mat3 m3 = mat3(model);
     mat3 cofactor = mat3(cross(m3[1], m3[2]), cross(m3[2], m3[0]), cross(m3[0], m3[1]));
-    float detSign = dot(m3[0], cofactor[0]) < 0.0 ? -1.0 : 1.0;
+    float mirrorSign = dot(m3[0], cofactor[0]) < 0.0 ? -1.0 : 1.0;
 
     vec4 worldPos = model * vec4(in_position, 1.0);
     out_fragPos = worldPos.xyz;
-    out_normal = normalize(cofactor * in_normal) * detSign;
+    out_normal = normalize(cofactor * in_normal) * mirrorSign;
 
     gl_Position = projection * view * worldPos;
 }

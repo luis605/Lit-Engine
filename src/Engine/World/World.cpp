@@ -351,11 +351,10 @@ void World::setParent(EntityHandle entity, EntityHandle parent, bool keepWorldTr
     markSpatialSubtree(entity.index);
     if (keepWorldTransform) {
         const glm::mat4 parentWorld = parent.isNull() ? glm::mat4(1.0f) : getWorldMatrix(parent);
-        // a singular parent (zero scale) inverts to NaN, so the previous local matrix is kept.
         const glm::mat4 local = glm::inverse(parentWorld) * world;
-        bool finite = true;
-        for (int column = 0; finite && column < 4; ++column) finite = std::isfinite(local[column].x + local[column].y + local[column].z + local[column].w);
-        if (finite) m_db.transforms[entity.index].localMatrix = local;
+        bool parentWasInvertible = true;
+        for (int column = 0; parentWasInvertible && column < 4; ++column) parentWasInvertible = std::isfinite(local[column].x + local[column].y + local[column].z + local[column].w);
+        if (parentWasInvertible) m_db.transforms[entity.index].localMatrix = local;
         syncPosition(entity.index);
     }
     m_events.emit(EntityReparented{entity, oldParent, parent});

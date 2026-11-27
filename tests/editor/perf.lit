@@ -1,4 +1,3 @@
-# Frame-time budgets for the default stress scene (8M entities) on the reference GPU; run with LIT_SEED=1.
 frames 30
 measure 180 idle 16.7
 move 50% 50%

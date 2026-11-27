@@ -1,8 +1,3 @@
-# Bent regression: shrunk counterexample for law `render_setting_rejects_nonfinite` (tests/bent/laws/render.bent)
-# Found by: bent check tests/bent/laws/render.bent --cases 3000 --jobs 6 --seed 1 --shrink-limit 3000 (seed 1, case 4)
-# Shrunk 4 times in 31 attempts; tape 4 -> 3 choices
-# Replay the random case: bent replay tests/bent/laws/render.bent --law render_setting_rejects_nonfinite --seed 1 --case 4
-# Failure: property is false
 include "../laws/render.bent"
 
 example render_setting_rejects_nonfinite {

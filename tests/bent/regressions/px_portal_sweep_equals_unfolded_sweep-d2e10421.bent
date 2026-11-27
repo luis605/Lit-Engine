@@ -1,9 +1,3 @@
-# Bent regression: shrunk counterexample for law `px_portal_sweep_equals_unfolded_sweep` (tests/bent/laws/ext_phys_portal.bent)
-# Found by: bent check tests/bent/laws/ext_phys_portal.bent --cases 1000 --seed 1 (seed 1, case 2)
-# Shrunk 177 times in 1193 attempts; tape 61 -> 29 choices
-# Replay the random case: bent replay tests/bent/laws/ext_phys_portal.bent --law px_portal_sweep_equals_unfolded_sweep --seed 1 --case 2
-# Failure: property is false
-#   tests/bent/laws/ext_phys_portal.bent:62:106: 0.0050008296966552734 < 0.005 is false
 include "../laws/ext_phys_portal.bent"
 
 example px_portal_sweep_equals_unfolded_sweep {

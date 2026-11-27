@@ -169,8 +169,7 @@ struct Reader {
 
 std::string gSanitizerLogPrefix;
 
-// sanitizer reports of a dead child land in <prefix>.<pid> (ASAN_OPTIONS/UBSAN_OPTIONS log_path).
-std::string sanitizerReport(pid_t pid) {
+std::string readDeadChildSanitizerLog(pid_t pid) {
     if (gSanitizerLogPrefix.empty()) return {};
     const std::string path = gSanitizerLogPrefix + "." + std::to_string(pid);
     std::ifstream in(path);
@@ -282,7 +281,7 @@ void runForked(size_t count, int parallel, double timeout, const std::function<C
             ::waitpid(child.pid, &status, 0);
             CaseOutcome outcome = decodeChild(child.data, status, timedOut, timeout);
             if (outcome.status == CaseStatus::Error && !timedOut && !gSanitizerLogPrefix.empty()) {
-                const std::string report = sanitizerReport(child.pid);
+                const std::string report = readDeadChildSanitizerLog(child.pid);
                 if (!report.empty()) outcome.message = report;
             }
             const size_t index = child.index;
@@ -670,16 +669,9 @@ void finishFailure(const Program& program, const LawDecl& law, const CheckOption
         if (sameFailure(report.shrunk, explained)) report.shrunk = std::move(explained);
     }
     report.status = report.shrunk.status == CaseStatus::Error ? "error" : "fail";
-    std::vector<std::string> header;
-    header.push_back("Bent regression: shrunk counterexample for law `" + law.name + "` (" + law.file + ")");
-    header.push_back("Found by: " + (options.commandLine.empty() ? std::string("bent check") : options.commandLine) + " (seed " + std::to_string(options.seed) + ", case " + std::to_string(report.failingCase) + ")");
-    header.push_back("Shrunk " + std::to_string(report.shrinkAccepted) + " times in " + std::to_string(report.shrinkAttempts) + " attempts; tape " + std::to_string(report.original.tape.size()) + " -> " + std::to_string(report.shrunk.tape.size()) + " choices");
-    header.push_back("Replay the random case: bent replay " + law.file + " --law " + law.name + " --seed " + std::to_string(options.seed) + " --case " + std::to_string(report.failingCase));
-    header.push_back("Failure: " + report.shrunk.message);
-    for (const std::string& note : report.shrunk.notes) header.push_back("  " + note);
     std::string include = law.file;
     if (!options.regressionDir.empty()) include = relativeInclude(law.file, options.regressionDir);
-    report.counterexample = counterexampleProgram(law, report.shrunk.bindings, include, header);
+    report.counterexample = counterexampleProgram(law, report.shrunk.bindings, include);
     if (!options.regressionDir.empty()) {
         std::error_code ec;
         std::filesystem::create_directories(options.regressionDir, ec);
@@ -881,15 +873,8 @@ std::string prettyValue(const Value& value, int indent) {
     return out;
 }
 
-std::string counterexampleProgram(const LawDecl& law, const NamedArgs& bindings, const std::string& includePath, const std::vector<std::string>& header) {
+std::string counterexampleProgram(const LawDecl& law, const NamedArgs& bindings, const std::string& includePath) {
     std::string out;
-    for (const std::string& line : header) {
-        std::string text = line;
-        for (char& c : text) {
-            if (c == '\n') c = ' ';
-        }
-        out += "# " + text + "\n";
-    }
     out += "include " + quoteString(includePath) + "\n\n";
     out += "example " + law.name + " {\n";
     for (size_t index = 0; index < bindings.size(); ++index) {
