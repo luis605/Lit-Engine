@@ -29,7 +29,7 @@ void printUsage() {
         "  --bake-frame N        request a reflection probe bake on frame N\n"
         "  --size WxH            window size (default 1280x720)\n"
         "  --deterministic       fixed 1/60 s clock and a fixed-size (floating) window, for pixel comparisons between runs\n"
-        "  --set KEY=VALUE       render setting, repeatable (reflectionMode=2, renderScale=0.5, ...)\n"
+        "  --set KEY=VALUE       render setting, repeatable (preset=performance, reflectionMode=2, renderScale=0.5, ...)\n"
         "  --screenshot FILE     output PNG (default shot.png)\n"
         "  --paced               pace frames like the interactive apps do\n"
         "  --perf FILE           write one CSV row per frame (CPU, simulation, GPU total and passes) for scripts/lag_report.py\n"

@@ -43,7 +43,7 @@ bool Renderer::applyRenderSize() {
 void Renderer::updateQualityScale(float deltaTime) {
     if (!m_diligent || !m_initialized) return;
     RenderSettings& settings = m_lighting.settings();
-    const double gpuMilliseconds = m_diligent->gpuTotalMilliseconds;
+    const double gpuMilliseconds = m_diligent->frameGpuMilliseconds > 0.0 ? m_diligent->frameGpuMilliseconds : m_diligent->gpuTotalMilliseconds;
     const float frameMilliseconds = gpuMilliseconds > 0.0 ? static_cast<float>(gpuMilliseconds) : deltaTime * kMillisecondsPerSecond;
     updateGovernor(m_governor, settings, frameMilliseconds, deltaTime);
     const float scale = quantizeRenderScale(settings.renderScale);

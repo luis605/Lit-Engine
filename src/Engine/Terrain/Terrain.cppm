@@ -105,6 +105,11 @@ export [[nodiscard]] float tileWorldSize(const TerrainConfig& config, const Tile
 export [[nodiscard]] glm::vec3 tileOrigin(const TerrainConfig& config, const TileKey& key);
 export [[nodiscard]] std::string tileName(const TileKey& key);
 
+export struct TerrainViewpoint {
+    glm::vec3 position{0.0f};
+    std::array<glm::vec4, 6> planes{};
+};
+
 export struct LodParams {
     int maxLevel = 5;
     float splitFactor = 2.0f;
@@ -115,6 +120,7 @@ export struct LodParams {
     std::array<glm::vec4, 6> planes{};
     float frustumMargin = 192.0f;
     float keepRadius = 192.0f;
+    std::vector<TerrainViewpoint> extraViews;
 };
 
 export [[nodiscard]] std::array<glm::vec4, 6> frustumPlanes(const glm::mat4& viewProjection);
@@ -316,8 +322,8 @@ export class TerrainStreamer {
     TerrainStreamer(const TerrainStreamer&) = delete;
     TerrainStreamer& operator=(const TerrainStreamer&) = delete;
 
-    void update(const glm::vec3& cameraWorld, const glm::vec3& cameraForward, const std::array<glm::vec4, 6>* planes);
-    void prime(const glm::vec3& cameraWorld, const glm::vec3& cameraForward, const std::array<glm::vec4, 6>* planes);
+    void update(const glm::vec3& cameraWorld, const glm::vec3& cameraForward, const std::array<glm::vec4, 6>* planes, std::vector<TerrainViewpoint> extraViews = {});
+    void prime(const glm::vec3& cameraWorld, const glm::vec3& cameraForward, const std::array<glm::vec4, 6>* planes, std::vector<TerrainViewpoint> extraViews = {});
     [[nodiscard]] const TerrainStats& stats() const;
     [[nodiscard]] std::vector<TileKey> residentTiles() const;
     [[nodiscard]] std::vector<TileKey> visibleTiles() const;

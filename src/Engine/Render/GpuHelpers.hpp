@@ -116,6 +116,11 @@ inline bool bindlessTexturesSupported(Diligent::IRenderDevice* device) {
     return features.BindlessResources == Diligent::DEVICE_FEATURE_STATE_ENABLED && features.ShaderResourceRuntimeArrays == Diligent::DEVICE_FEATURE_STATE_ENABLED;
 }
 
+inline bool& vertexViewportIndexEnabled() {
+    static bool enabled = false;
+    return enabled;
+}
+
 inline bool bindlessTexturesActive(Diligent::IRenderDevice* device) { return bindlessTexturesRequested() && bindlessTexturesSupported(device); }
 
 // Diligent cannot declare an unsized array in an implicit layout, and a PSO cannot mix implicit layouts with signatures.
@@ -345,6 +350,41 @@ inline void dispatch(Diligent::IDeviceContext* context, Diligent::IPipelineState
     context->SetPipelineState(pso);
     context->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchCompute(Diligent::DispatchComputeAttribs(std::max<Diligent::Uint32>(x, 1), std::max<Diligent::Uint32>(y, 1), std::max<Diligent::Uint32>(z, 1)));
+}
+
+inline void dispatchPretransitioned(Diligent::IDeviceContext* context, Diligent::IPipelineState* pso, Diligent::IShaderResourceBinding* srb, Diligent::Uint32 x, Diligent::Uint32 y) {
+    if (!pso || !srb) return;
+    context->SetPipelineState(pso);
+    context->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_VERIFY);
+    context->DispatchCompute(Diligent::DispatchComputeAttribs(std::max<Diligent::Uint32>(x, 1), std::max<Diligent::Uint32>(y, 1), 1));
+}
+
+struct ScreenRegion {
+    int32_t low[2];
+    int32_t high[2];
+    int32_t size[2];
+    int32_t unused[2];
+
+    [[nodiscard]] Diligent::Uint32 groups(int axis, Diligent::Uint32 mip, Diligent::Uint32 groupSize) const {
+        const int levelSize = std::max(size[axis] >> mip, 1);
+        const int first = std::min(low[axis] >> mip, levelSize - 1);
+        const int last = high[axis] >= size[axis] ? levelSize : std::min((high[axis] + (1 << mip) - 1) >> mip, levelSize);
+        return (static_cast<Diligent::Uint32>(std::max(last - first, 1)) + groupSize - 1) / groupSize;
+    }
+};
+
+inline ScreenRegion screenRegion(int x0, int y0, int x1, int y1, int width, int height) {
+    if (x1 <= x0 || y1 <= y0) return ScreenRegion{{0, 0}, {width, height}, {width, height}, {0, 0}};
+    return ScreenRegion{{x0, y0}, {x1, y1}, {width, height}, {0, 0}};
+}
+
+inline ScreenRegion expandedScreenRegion(const ScreenRegion& region, int amount) {
+    ScreenRegion expanded = region;
+    for (int axis = 0; axis < 2; ++axis) {
+        expanded.low[axis] = std::max(region.low[axis] - amount, 0);
+        expanded.high[axis] = region.high[axis] + 2 * amount > region.size[axis] ? region.size[axis] : region.high[axis] + amount;
+    }
+    return expanded;
 }
 
 inline void setVar(Diligent::IShaderResourceBinding* srb, const char* name, Diligent::IDeviceObject* object) {

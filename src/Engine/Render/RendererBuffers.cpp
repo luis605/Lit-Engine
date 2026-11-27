@@ -28,7 +28,7 @@ constexpr uint32_t kShaderBoundsCount = 16;
 constexpr uint32_t kCascadeCullHeaderVectors = 25;
 constexpr uint32_t kLocalCullVectorsPerLight = 3;
 constexpr uint32_t kObjectDispatchWorkgroupSize = 256;
-constexpr size_t kShadowCullUniformBytes = sizeof(glm::vec4) * 8 + sizeof(glm::mat4);
+constexpr size_t kShadowCullUniformBytes = sizeof(glm::vec4) * (8 + kCascadeReceiverPlanes) + sizeof(glm::mat4);
 constexpr size_t kShadowPassUniformBytes = sizeof(glm::mat4) + sizeof(glm::vec4);
 
 struct PerFrameBufferSpec {

@@ -266,7 +266,8 @@ void Renderer::resolveOverlayDepth() {
     auto* overlayView = gpu.pOverlayDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
     context->SetRenderTargets(0, nullptr, overlayView, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->SetPipelineState(gpu.pDepthUpscalePSO);
-    if (auto* variable = gpu.pDepthUpscaleSRB->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_depthTexture")) variable->Set(gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+    auto* depthView = gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    if (auto* variable = gpu.pDepthUpscaleSRB->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_depthTexture"); variable && variable->Get() != depthView) variable->Set(depthView, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
     context->CommitShaderResources(gpu.pDepthUpscaleSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     DrawFullscreenTriangle(context);
 }

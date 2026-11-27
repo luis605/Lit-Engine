@@ -6,6 +6,10 @@ layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 
 layout(r8) writeonly uniform image3D u_skyVolume;
 
+layout(std140) uniform SkyVolumeConstants {
+    ivec4 skySlice;
+};
+
 const int SKY_RAY_COUNT = 9;
 const float SKY_RING_INNER_TILT = 0.6;
 const float SKY_RING_OUTER_TILT = 1.6;
@@ -29,7 +33,7 @@ float skyRayWeight(int index) {
 }
 
 void main() {
-    ivec3 cell = ivec3(gl_GlobalInvocationID);
+    ivec3 cell = ivec3(gl_GlobalInvocationID) + ivec3(0, 0, skySlice.x);
     ivec3 size = imageSize(u_skyVolume);
     if (any(greaterThanEqual(cell, size))) return;
     vec3 position = voxelMin.xyz + (vec3(cell) + 0.5) / vec3(size) * voxelSize.xyz;

@@ -6,6 +6,7 @@ module;
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -22,11 +23,24 @@ float boxDistance(const glm::vec3& low, const glm::vec3& high, const glm::vec3& 
     return glm::length(glm::max(glm::max(low - camera, camera - high), glm::vec3(0.0f)));
 }
 
+float viewDistanceTo(const glm::vec3& low, const glm::vec3& high, const glm::vec3& camera, const LodParams& lod) {
+    float distance = boxDistance(low, high, camera);
+    for (const TerrainViewpoint& view : lod.extraViews) distance = std::min(distance, boxDistance(low, high, view.position));
+    return distance;
+}
+
+bool seenByAnyView(const glm::vec3& low, const glm::vec3& high, const glm::vec3& camera, const LodParams& lod) {
+    const auto sees = [&](const glm::vec3& position, const std::array<glm::vec4, 6>& planes) {
+        return boxDistance(low, high, position) <= lod.keepRadius || boxInFrustum(planes, low, high, lod.frustumMargin);
+    };
+    return sees(camera, lod.planes) || std::ranges::any_of(lod.extraViews, [&](const TerrainViewpoint& view) { return sees(view.position, view.planes); });
+}
+
 void collectTiles(const TerrainConfig& config, const glm::vec3& camera, const LodParams& lod, const TileKey& key, std::vector<TileKey>& out) {
     const float size = tileWorldSize(config, key);
     const glm::vec3 low(static_cast<float>(key.x) * size, config.minHeight, static_cast<float>(key.z) * size);
     const glm::vec3 high(low.x + size, config.maxHeight, low.z + size);
-    const float distance = boxDistance(low, high, camera);
+    const float distance = viewDistanceTo(low, high, camera, lod);
     if (distance > lod.viewDistance) return;
     if (key.level > 0 && distance < lod.splitFactor * size) {
         for (int dz = 0; dz < 2; ++dz) {
@@ -127,13 +141,19 @@ std::vector<SelectedTile> selectTerrainTiles(const TerrainConfig& config, const 
     lod.maxLevel = std::clamp(lod.maxLevel, 0, 20);
     std::vector<TileKey> leaves;
     const float rootSize = config.tileSize * static_cast<float>(1u << static_cast<unsigned>(lod.maxLevel));
-    const int x0 = static_cast<int>(std::floor((camera.x - lod.viewDistance) / rootSize));
-    const int x1 = static_cast<int>(std::floor((camera.x + lod.viewDistance) / rootSize));
-    const int z0 = static_cast<int>(std::floor((camera.z - lod.viewDistance) / rootSize));
-    const int z1 = static_cast<int>(std::floor((camera.z + lod.viewDistance) / rootSize));
-    for (int z = z0; z <= z1; ++z) {
-        for (int x = x0; x <= x1; ++x) collectTiles(config, camera, lod, TileKey{x, z, lod.maxLevel}, leaves);
-    }
+    std::set<std::pair<int, int>> roots;
+    const auto addRoots = [&](const glm::vec3& position) {
+        const int x0 = static_cast<int>(std::floor((position.x - lod.viewDistance) / rootSize));
+        const int x1 = static_cast<int>(std::floor((position.x + lod.viewDistance) / rootSize));
+        const int z0 = static_cast<int>(std::floor((position.z - lod.viewDistance) / rootSize));
+        const int z1 = static_cast<int>(std::floor((position.z + lod.viewDistance) / rootSize));
+        for (int z = z0; z <= z1; ++z) {
+            for (int x = x0; x <= x1; ++x) roots.insert({z, x});
+        }
+    };
+    addRoots(camera);
+    for (const TerrainViewpoint& view : lod.extraViews) addRoots(view.position);
+    for (const auto& [z, x] : roots) collectTiles(config, camera, lod, TileKey{x, z, lod.maxLevel}, leaves);
     if (lod.balance) balanceLeaves(leaves, lod.maxLevel);
 
     std::vector<SelectedTile> out;
@@ -142,8 +162,8 @@ std::vector<SelectedTile> selectTerrainTiles(const TerrainConfig& config, const 
         const float size = tileWorldSize(config, key);
         const glm::vec3 low(static_cast<float>(key.x) * size, config.minHeight, static_cast<float>(key.z) * size);
         const glm::vec3 high(low.x + size, config.maxHeight, low.z + size);
-        const float distance = boxDistance(low, high, camera);
-        if (lod.frustumCull && distance > lod.keepRadius && !boxInFrustum(lod.planes, low, high, lod.frustumMargin)) continue;
+        const float distance = viewDistanceTo(low, high, camera, lod);
+        if (lod.frustumCull && !seenByAnyView(low, high, camera, lod)) continue;
         float morph = 0.0f;
         if (key.level < lod.maxLevel) {
             const float range = 2.0f * lod.splitFactor * size;

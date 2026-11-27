@@ -2,6 +2,8 @@ module;
 
 #include "GpuHelpers.hpp"
 #include "DiligentCore/Graphics/GraphicsEngine/interface/TextureView.h"
+#include "DiligentCore/Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include "Engine/Log/Log.hpp"
 
 #include <algorithm>
 #include <array>
@@ -22,6 +24,12 @@ import Engine.Render.graph;
 
 using namespace lighting_detail;
 
+namespace lighting_detail {
+
+bool screenGiActive(const Lighting::Data& state) { return state.settings.ssao && ((state.settings.ssgi && state.settings.ssgiIntensity > 0.0f) || colorBleedActive(state.settings)) && state.giPso && state.giApplyPso; }
+
+}
+
 namespace {
 
 constexpr uint32_t kDfgGroups = 16;
@@ -34,6 +42,7 @@ constexpr uint32_t kCloudNoiseResolution = 128;
 constexpr uint32_t kCloudNoiseDownsampleThreads = 4;
 constexpr uint32_t kCubeFaceCount = 6;
 constexpr uint32_t kLightCullGroupSize = 64;
+constexpr int kPyramidRegionMargin = 64;
 constexpr float kAtmosphereHashScale = 100000.0f;
 constexpr uint64_t kAtmosphereHashMultiplier = 1315423911ull;
 
@@ -84,7 +93,7 @@ void generateCloudNoise(Lighting::Data& state) {
 }
 
 void createEnvironmentBindings(Lighting::Data& state, Diligent::IBuffer* scene) {
-    state.envCaptureSrb = litgpu::makeBinding(state.envCapturePso, {{"SceneData", scene}, {"u_output", state.envCaptureMips[0]}, {"u_transmittanceLut", litgpu::srv(state.transmittanceLut)}, {"u_skyViewLut", litgpu::srv(state.skyViewLut)}, {"u_hdri", litgpu::srv(state.hdri)}, {"u_cloudNoise", litgpu::srv(state.cloudNoise)}});
+    state.envCaptureSrb = litgpu::makeBinding(state.envCapturePso, {{"SceneData", scene}, {"PrefilterConstants", state.prefilterConstants}, {"u_output", state.envCaptureMips[0]}, {"u_transmittanceLut", litgpu::srv(state.transmittanceLut)}, {"u_skyViewLut", litgpu::srv(state.skyViewLut)}, {"u_hdri", litgpu::srv(state.hdri)}, {"u_cloudNoise", litgpu::srv(state.cloudNoise)}});
     state.envDownsampleSrbs.clear();
     for (uint32_t mip = 1; mip < kEnvMips + 2; ++mip) state.envDownsampleSrbs.push_back(litgpu::makeBinding(state.envDownsamplePso, {{"u_source", state.envCaptureMips[mip - 1]}, {"u_dest", state.envCaptureMips[mip]}}));
     state.envPrefilterSrbs.clear();
@@ -92,33 +101,69 @@ void createEnvironmentBindings(Lighting::Data& state, Diligent::IBuffer* scene) 
     state.envShSrb = litgpu::makeBinding(state.envShPso, {{"u_environment", litgpu::srv(state.envCapture)}, {"IrradianceBuffer", state.irradiance}});
 }
 
-void rebuildEnvironment(Lighting::Data& state, Diligent::IBuffer* scene) {
-    if (!state.envDirty) return;
-    state.envDirty = false;
-    state.cloudTravelSinceCapture = 0.0f;
-    ++state.envVersion;
-    if (!state.envCaptureSrb || state.envDownsampleSrbs.empty()) createEnvironmentBindings(state, scene);
-    Diligent::IDeviceContext* context = state.context;
-    litgpu::dispatch(context, state.envCapturePso, state.envCaptureSrb, kEnvSize / kThreadGroupSize, kEnvSize / kThreadGroupSize, kCubeFaceCount);
+void setEnvironmentParams(Diligent::IDeviceContext* context, Diligent::IBuffer* constants, const glm::vec4& params) { LIT_UP(context)->UpdateBuffer(constants, 0, sizeof(params), &params, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION); }
+
+void captureEnvironmentFaces(Lighting::Data& state, uint32_t firstFace, uint32_t faceCount) {
+    setEnvironmentParams(state.context, state.prefilterConstants, glm::vec4(0.0f, 0.0f, 0.0f, static_cast<float>(firstFace)));
+    litgpu::dispatch(state.context, state.envCapturePso, state.envCaptureSrb, kEnvSize / kThreadGroupSize, kEnvSize / kThreadGroupSize, faceCount);
+}
+
+void downsampleEnvironment(Lighting::Data& state) {
     for (uint32_t mip = 1; mip < kEnvMips + 2; ++mip) {
-        litgpu::uavBarrier(context, state.envCapture);
+        litgpu::uavBarrier(state.context, state.envCapture);
         const uint32_t groups = groupCount(std::max(kEnvSize >> mip, 1u));
-        litgpu::dispatch(context, state.envDownsamplePso, state.envDownsampleSrbs[mip - 1], groups, groups, kCubeFaceCount);
+        litgpu::dispatch(state.context, state.envDownsamplePso, state.envDownsampleSrbs[mip - 1], groups, groups, kCubeFaceCount);
     }
-    for (uint32_t mip = 0; mip < kEnvMips; ++mip) {
-        const glm::vec4 params(static_cast<float>(mip) / static_cast<float>(kEnvMips - 1), static_cast<float>(kEnvSize), static_cast<float>(kEnvMips + 2), 0.0f);
-        LIT_UP(context)->UpdateBuffer(state.prefilterConstants, 0, sizeof(params), &params, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        const uint32_t groups = groupCount(std::max(kEnvSize >> mip, 1u));
-        litgpu::dispatch(context, state.envPrefilterPso, state.envPrefilterSrbs[mip], groups, groups, kCubeFaceCount);
+}
+
+void prefilterEnvironment(Lighting::Data& state, uint32_t mip) {
+    setEnvironmentParams(state.context, state.prefilterConstants, glm::vec4(static_cast<float>(mip) / static_cast<float>(kEnvMips - 1), static_cast<float>(kEnvSize), static_cast<float>(kEnvMips + 2), 0.0f));
+    const uint32_t groups = groupCount(std::max(kEnvSize >> mip, 1u));
+    litgpu::dispatch(state.context, state.envPrefilterPso, state.envPrefilterSrbs[mip], groups, groups, kCubeFaceCount);
+}
+
+void finishEnvironment(Lighting::Data& state) {
+    litgpu::dispatch(state.context, state.envShPso, state.envShSrb, 1);
+    ++state.envVersion;
+}
+
+void rebuildEnvironment(Lighting::Data& state, Diligent::IBuffer* scene) {
+    if (!state.envDirty && !state.envRefreshPending && state.envRefreshFace < 0) return;
+    if (!state.envCaptureSrb || state.envDownsampleSrbs.empty()) createEnvironmentBindings(state, scene);
+    if (state.envDirty) {
+        state.envDirty = false;
+        state.envRefreshPending = false;
+        state.envRefreshFace = -1;
+        state.cloudTravelSinceCapture = 0.0f;
+        captureEnvironmentFaces(state, 0, kCubeFaceCount);
+        downsampleEnvironment(state);
+        for (uint32_t mip = 0; mip < kEnvMips; ++mip) prefilterEnvironment(state, mip);
+        finishEnvironment(state);
+        return;
     }
-    litgpu::dispatch(context, state.envShPso, state.envShSrb, 1);
+    if (state.envRefreshFace < 0) {
+        state.envRefreshPending = false;
+        state.envRefreshFace = 0;
+        state.cloudTravelSinceCapture = 0.0f;
+    }
+    const auto step = static_cast<uint32_t>(state.envRefreshFace++);
+    if (step < kCubeFaceCount) {
+        captureEnvironmentFaces(state, step, 1);
+        return;
+    }
+    const uint32_t mip = step - kCubeFaceCount;
+    if (mip == 0) downsampleEnvironment(state);
+    prefilterEnvironment(state, mip);
+    if (mip + 1 < kEnvMips) return;
+    finishEnvironment(state);
+    state.envRefreshFace = -1;
 }
 
 Diligent::ITextureView* srvOf(const RefCntAutoPtr<Diligent::ITexture>& texture) { return litgpu::srv(texture); }
 Diligent::IDeviceObject* uavOf(const RefCntAutoPtr<Diligent::ITexture>& texture) { return litgpu::uav(texture); }
 
 void createScreenSpaceBindings(Lighting::Data& state, Diligent::IBuffer* scene, Diligent::ITextureView* depthView) {
-    state.cloudsSrb = litgpu::makeBinding(state.cloudsPso, {{"SceneData", scene}, {"u_output", uavOf(state.clouds)}, {"u_transmittanceLut", srvOf(state.transmittanceLut)}, {"u_skyViewLut", srvOf(state.skyViewLut)}, {"u_hdri", srvOf(state.hdri)}, {"u_cloudNoise", srvOf(state.cloudNoise)}});
+    state.cloudsSrb = litgpu::makeBinding(state.cloudsPso, {{"SceneData", scene}, {"u_output", uavOf(state.clouds)}, {"u_transmittanceLut", srvOf(state.transmittanceLut)}, {"u_skyViewLut", srvOf(state.skyViewLut)}, {"u_hdri", srvOf(state.hdri)}, {"u_cloudNoise", srvOf(state.cloudNoise)}, {"u_depth", depthView}});
     state.gtaoDepthSrb = litgpu::makeBinding(state.gtaoDepthPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_output", uavOf(state.aoDepth)}});
     state.gtaoSrb = litgpu::makeBinding(state.gtaoPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_gbuffer1", srvOf(state.gbuffer[1])}, {"u_output", uavOf(state.aoRaw)}, {"u_bent", uavOf(state.aoBentRaw)}});
     state.giSrb = litgpu::makeBinding(state.giPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_gbuffer1", srvOf(state.gbuffer[1])}, {"u_sceneColor", srvOf(state.sceneColor)}, {"u_output", uavOf(state.aoRaw)}});
@@ -127,43 +172,53 @@ void createScreenSpaceBindings(Lighting::Data& state, Diligent::IBuffer* scene, 
     for (int parity = 0; parity < 2; ++parity) state.giApplySrb[parity] = litgpu::makeBinding(state.giApplyPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_gbuffer0", srvOf(state.gbuffer[0])}, {"u_gbuffer1", srvOf(state.gbuffer[1])}, {"u_gbuffer2", srvOf(state.gbuffer[2])}, {"u_gi", srvOf(state.giFiltered)}, {"u_aoDepth", srvOf(state.aoDepth)}, {"u_hdr", uavOf(state.hdrTargets[parity])}});
     state.gtaoBlurSrb = litgpu::makeBinding(state.gtaoBlurPso, {{"SceneData", scene}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_input", srvOf(state.aoRaw)}, {"u_bentInput", srvOf(state.aoBentRaw)}, {"u_output", uavOf(state.aoTemp)}, {"u_bentOutput", uavOf(state.aoBentTemp)}});
     state.gtaoBlurVerticalSrb = litgpu::makeBinding(state.gtaoBlurVerticalPso, {{"SceneData", scene}, {"u_linearDepth", srvOf(state.aoDepth)}, {"u_input", srvOf(state.aoTemp)}, {"u_bentInput", srvOf(state.aoBentTemp)}, {"u_output", uavOf(state.aoFiltered)}, {"u_bentOutput", uavOf(state.aoBent)}});
-    state.ssrHizFirstSrb = litgpu::makeBinding(state.ssrHizFirstPso, {{"u_depth", depthView}, {"u_dest", state.ssrHizMips[0]}});
+    state.ssrHizFirstSrb = litgpu::makeBinding(state.ssrHizFirstPso, {{"ScreenRegion", state.ssrRegionConstants}, {"u_depth", depthView}, {"u_dest", state.ssrHizMips[0]}});
     state.ssrHizSrbs.clear();
-    for (size_t mip = 1; mip < state.ssrHizMips.size(); ++mip) state.ssrHizSrbs.push_back(litgpu::makeBinding(state.ssrHizPso, {{"u_sourceMip", state.ssrHizMips[mip - 1]}, {"u_dest", state.ssrHizMips[mip]}}));
+    for (size_t mip = 1; mip < state.ssrHizMips.size(); ++mip) state.ssrHizSrbs.push_back(litgpu::makeBinding(state.ssrHizPso, {{"ScreenRegion", state.ssrRegionConstants}, {"u_sourceMip", state.ssrHizMips[mip - 1]}, {"u_dest", state.ssrHizMips[mip]}}));
 }
 
 void createParityBindings(Lighting::Data& state, Diligent::IBuffer* scene, Diligent::ITextureView* depthView, int parity) {
     state.ssrSrb[parity] = litgpu::makeBinding(state.ssrPso, {{"SceneData", scene}, {"u_depth", depthView}, {"u_gbuffer1", srvOf(state.gbuffer[1])}, {"u_sceneColor", srvOf(state.sceneColor)}, {"u_hiz", srvOf(state.ssrHiz)}, {"u_output", uavOf(state.ssr)}});
-    state.lightingSrb[parity] = litgpu::makeBinding(state.lightingPso, {{"SceneData", scene},
-                                                                        {"u_depth", depthView},
-                                                                        {"u_gbuffer0", srvOf(state.gbuffer[0])},
-                                                                        {"u_gbuffer1", srvOf(state.gbuffer[1])},
-                                                                        {"u_gbuffer2", srvOf(state.gbuffer[2])},
-                                                                        {"u_ao", srvOf(state.aoFiltered)},
-                                                                        {"u_aoDepth", srvOf(state.aoDepth)},
-                                                                        {"u_bent", srvOf(state.aoBent)},
-                                                                        {"u_clouds", srvOf(state.clouds)},
-                                                                        {"u_aerial", srvOf(state.aerialLut)},
-                                                                        {"u_transmittanceLut", srvOf(state.transmittanceLut)},
-                                                                        {"u_skyViewLut", srvOf(state.skyViewLut)},
-                                                                        {"u_hdri", srvOf(state.hdri)},
-                                                                        {"u_prefilteredEnv", srvOf(state.envPrefiltered)},
-                                                                        {"u_dfgLut", srvOf(state.dfg)},
-                                                                        {"u_shadowMap", srvOf(state.shadowMap)},
-                                                                        {"u_shadowDepth", srvOf(state.shadowMap)},
-                                                                        {"u_localShadowMap", srvOf(state.localShadowMap)},
-                                                                        {"u_hdr", uavOf(state.hdrTargets[parity])},
-                                                                        {"MaterialBuffer", state.materials},
-                                                                        {"LightBuffer", state.lights},
-                                                                        {"ClusterBuffer", state.clusters},
-                                                                        {"VsmFaceBuffer", state.vsm.faces},
-                                                                        {"VsmPageTable", state.vsm.pageTable},
-                                                                        {"u_vsmAtlas", srvOf(state.vsm.atlas)},
-                                                                        {"ReflectionData", state.reflections.constants},
-                                                                        {"u_skyVolume", srvOf(state.reflections.skyVolume)},
-                                                                        {"IrradianceBuffer", state.irradiance},
-                                                                        {"ExposureBuffer", state.exposure}});
+    const std::initializer_list<litgpu::Named> shading = {{"SceneData", scene},
+        {"u_depth", depthView},
+        {"u_gbuffer0", srvOf(state.gbuffer[0])},
+        {"u_gbuffer1", srvOf(state.gbuffer[1])},
+        {"u_gbuffer2", srvOf(state.gbuffer[2])},
+        {"u_ao", srvOf(state.aoFiltered)},
+        {"u_aoDepth", srvOf(state.aoDepth)},
+        {"u_bent", srvOf(state.aoBent)},
+        {"u_clouds", srvOf(state.clouds)},
+        {"u_aerial", srvOf(state.aerialLut)},
+        {"u_transmittanceLut", srvOf(state.transmittanceLut)},
+        {"u_skyViewLut", srvOf(state.skyViewLut)},
+        {"u_hdri", srvOf(state.hdri)},
+        {"u_prefilteredEnv", srvOf(state.envPrefiltered)},
+        {"u_dfgLut", srvOf(state.dfg)},
+        {"u_shadowMap", srvOf(state.shadowMap)},
+        {"u_shadowDepth", srvOf(state.shadowMap)},
+        {"u_localShadowMap", srvOf(state.localShadowMap)},
+        {"u_hdr", uavOf(state.hdrTargets[parity])},
+        {"u_skyOpen", uavOf(state.skyOpen)},
+        {"MaterialBuffer", state.materials},
+        {"LightBuffer", state.lights},
+        {"ClusterBuffer", state.clusters},
+        {"VsmFaceBuffer", state.vsm.faces},
+        {"VsmPageTable", state.vsm.pageTable},
+        {"u_vsmAtlas", srvOf(state.vsm.atlas)},
+        {"ReflectionData", state.reflections.constants},
+        {"u_skyVolume", srvOf(state.reflections.skyVolume)},
+        {"IrradianceBuffer", state.irradiance},
+        {"ExposureBuffer", state.exposure},
+        {"u_localLight", srvOf(state.localLight)},
+        {"u_localLightOutput", uavOf(state.localLight)}};
+    state.lightingSrb[parity] = litgpu::makeBinding(state.lightingPso, shading);
+    if (!state.localLight) return;
+    state.simpleLocalLightsSrb[parity] = litgpu::makeBinding(state.simpleLocalLightsPso, shading);
+    state.splitLightingSrb[parity] = litgpu::makeBinding(state.splitLightingPso, shading);
+    state.localLightsSrb[parity] = litgpu::makeBinding(state.localLightsPso, shading);
 }
+
+constexpr uint32_t kSplitLightingThreshold = 64;
 
 uint32_t rectGroups(int rectSize, uint32_t viewSize, uint32_t divisor) {
     const uint32_t size = rectSize > 0 ? (static_cast<uint32_t>(rectSize) + divisor - 1) / divisor : viewSize;
@@ -180,29 +235,60 @@ void dispatchAmbientOcclusion(Lighting::Data& state) {
     litgpu::dispatch(state.context, state.gtaoBlurVerticalPso, state.gtaoBlurVerticalSrb, groupsX, groupsY);
 }
 
-bool screenGiActive(const Lighting::Data& state) { return state.settings.ssao && ((state.settings.ssgi && state.settings.ssgiIntensity > 0.0f) || colorBleedActive(state.settings)) && state.giPso && state.giApplyPso; }
-
-void dispatchScreenGi(Lighting::Data& state, uint32_t groupsX, uint32_t groupsY) {
+void filterScreenGi(Lighting::Data& state, uint32_t groupsX, uint32_t groupsY, bool appliedByComposite) {
     const auto& desc = state.aoRaw->GetDesc();
     const uint32_t halfX = rectGroups(state.viewRect.z, desc.Width, 2);
     const uint32_t halfY = rectGroups(state.viewRect.w, desc.Height, 2);
-    litgpu::dispatch(state.context, state.giPso, state.giSrb, halfX, halfY);
     litgpu::dispatch(state.context, state.giBlurPso, state.giBlurSrb, halfX, halfY);
     litgpu::dispatch(state.context, state.giBlurVerticalPso, state.giBlurVerticalSrb, halfX, halfY);
-    litgpu::dispatch(state.context, state.giApplyPso, state.giApplySrb[state.hdrIndex], groupsX, groupsY);
+    if (!appliedByComposite) litgpu::dispatch(state.context, state.giApplyPso, state.giApplySrb[state.hdrIndex], groupsX, groupsY);
 }
 
-void dispatchScreenSpaceReflections(Lighting::Data& state) {
+litgpu::ScreenRegion screenRegionOf(const Lighting::Data& state, int width, int height) {
+    const glm::ivec4& region = state.depthRegion;
+    return litgpu::screenRegion(region.x, region.y, region.z, region.w, width, height);
+}
+
+void buildReflectionDepthPyramid(Lighting::Data& state) {
     const auto& hizDesc = state.ssrHiz->GetDesc();
-    litgpu::dispatch(state.context, state.ssrHizFirstPso, state.ssrHizFirstSrb, groupCount(hizDesc.Width), groupCount(hizDesc.Height));
+    const litgpu::ScreenRegion region = screenRegionOf(state, static_cast<int>(hizDesc.Width), static_cast<int>(hizDesc.Height));
+    LIT_UP(state.context)->UpdateBuffer(state.ssrRegionConstants, 0, sizeof(region), &region, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    litgpu::dispatch(state.context, state.ssrHizFirstPso, state.ssrHizFirstSrb, region.groups(0, 0, kThreadGroupSize), region.groups(1, 0, kThreadGroupSize));
     for (size_t mip = 1; mip < state.ssrHizMips.size(); ++mip) {
         litgpu::uavBarrier(state.context, state.ssrHiz);
-        const uint32_t mipWidth = std::max(hizDesc.Width >> mip, 1u);
-        const uint32_t mipHeight = std::max(hizDesc.Height >> mip, 1u);
-        litgpu::dispatch(state.context, state.ssrHizPso, state.ssrHizSrbs[mip - 1], groupCount(mipWidth), groupCount(mipHeight));
+        const auto level = static_cast<Diligent::Uint32>(mip);
+        litgpu::dispatch(state.context, state.ssrHizPso, state.ssrHizSrbs[mip - 1], region.groups(0, level, kThreadGroupSize), region.groups(1, level, kThreadGroupSize));
     }
-    const auto& ssrDesc = state.ssr->GetDesc();
-    litgpu::dispatch(state.context, state.ssrPso, state.ssrSrb[state.hdrIndex], rectGroups(state.viewRect.z, ssrDesc.Width, 2), rectGroups(state.viewRect.w, ssrDesc.Height, 2));
+}
+
+void trackClusterTrimming(Lighting::Data& state) {
+    if (state.clusterTrimReported || state.lightCount <= kClusterMaxLights) return;
+    const uint32_t ring = state.frame % kClusterReadbackRing;
+    if (!state.clusterReadback[ring]) return;
+    const uint32_t written = state.clusterReadbackFrame[ring];
+    if (written != 0 && state.frame + 1 - written >= kClusterReadbackRing) {
+        Diligent::MapHelper<uint32_t> mapped(state.context, state.clusterReadback[ring], Diligent::MAP_READ, Diligent::MAP_FLAG_DO_NOT_WAIT);
+        if (const uint32_t* values = mapped; values && values[0] > 0) {
+            Lit::Log::Warn("Light cluster limit exceeded ({} lights touch one cluster, limit {}); the weakest lights are skipped there. Reduce light ranges or density.", values[1], kClusterMaxLights);
+            state.clusterTrimReported = true;
+            return;
+        }
+    }
+    LIT_UP(state.context)->CopyBuffer(state.clusters, static_cast<Diligent::Uint64>(kClusterCount * 2 + 2) * sizeof(uint32_t), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, state.clusterReadback[ring], 0, sizeof(uint32_t) * 2, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    state.clusterReadbackFrame[ring] = state.frame + 1;
+}
+
+void dispatchOverlappedScreenTraces(Lighting::Data& state, bool giOn, bool reflectionsOn) {
+    if (giOn) state.context->TransitionShaderResources(state.giSrb);
+    if (reflectionsOn && state.ssrSrb[state.hdrIndex]) state.context->TransitionShaderResources(state.ssrSrb[state.hdrIndex]);
+    if (giOn) {
+        const auto& desc = state.aoRaw->GetDesc();
+        litgpu::dispatchPretransitioned(state.context, state.giPso, state.giSrb, rectGroups(state.viewRect.z, desc.Width, 2), rectGroups(state.viewRect.w, desc.Height, 2));
+    }
+    if (reflectionsOn) {
+        const auto& desc = state.ssr->GetDesc();
+        litgpu::dispatchPretransitioned(state.context, state.ssrPso, state.ssrSrb[state.hdrIndex], rectGroups(state.viewRect.z, desc.Width, 2), rectGroups(state.viewRect.w, desc.Height, 2));
+    }
 }
 
 }
@@ -235,11 +321,17 @@ void Lighting::cullLights(Diligent::IBuffer* sceneUniforms) {
     const uint32_t zeros[2] = {0u, 0u};
     LIT_UP(state.context)->UpdateBuffer(state.clusters, static_cast<Diligent::Uint64>(kClusterCount) * 2 * sizeof(uint32_t), sizeof(zeros), zeros, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     litgpu::dispatch(state.context, state.lightVisiblePso, state.lightVisibleSrb, (std::max(state.lightCount, 1u) + kLightCullGroupSize - 1) / kLightCullGroupSize);
-    litgpu::dispatch(state.context, state.lightCullPso, state.lightCullSrb, kClusterCount);
+    litgpu::dispatch(state.context, state.lightCullPso, state.lightCullSrb, kClusterX * kClusterY);
+    trackClusterTrimming(state);
 }
 
 void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms, int stage) {
     Data& state = *m_data;
+    const bool splitWanted = state.lightCount >= kSplitLightingThreshold && state.localLightsPso && state.splitLightingPso;
+    if (splitWanted && !state.localLight) {
+        state.localLight = litgpu::texture(state.device, litgpu::TextureSpec{"Local Light", Diligent::RESOURCE_DIM_TEX_2D, static_cast<uint32_t>(state.width), static_cast<uint32_t>(state.height), 1, 1, Diligent::TEX_FORMAT_RGBA32_FLOAT});
+        state.shadeDepth = nullptr;
+    }
     if (state.shadeVersion != state.bindingVersion || state.shadeDepth != depth || !state.lightingSrb[0]) {
         state.shadeVersion = state.bindingVersion;
         state.shadeDepth = depth;
@@ -255,37 +347,46 @@ void Lighting::shade(Diligent::ITexture* depth, Diligent::IBuffer* sceneUniforms
     if (runAll || stage == 1) {
         const auto& cloudDesc = state.clouds->GetDesc();
         litgpu::dispatch(state.context, state.cloudsPso, state.cloudsSrb, groupCount(cloudDesc.Width), groupCount(cloudDesc.Height));
-        litgpu::dispatch(state.context, state.lightingPso, state.lightingSrb[state.hdrIndex], groupsX, groupsY);
+        if (splitWanted && state.localLight) {
+            const bool simple = state.simpleLocalLightsPso && !state.hasAreaLights && state.layeredMaterialCount == 0 && state.localCasterCount == 0;
+            litgpu::dispatch(state.context, simple ? state.simpleLocalLightsPso : state.localLightsPso, (simple ? state.simpleLocalLightsSrb : state.localLightsSrb)[state.hdrIndex], groupsX, groupsY);
+            litgpu::dispatch(state.context, state.splitLightingPso, state.splitLightingSrb[state.hdrIndex], groupsX, groupsY);
+        } else {
+            litgpu::dispatch(state.context, state.lightingPso, state.lightingSrb[state.hdrIndex], groupsX, groupsY);
+        }
     }
     const bool giOn = screenGiActive(state);
     if ((reflectionsOn || giOn) && (runAll || stage == 2)) {
         captureSceneColor();
-        if (giOn) dispatchScreenGi(state, groupsX, groupsY);
-        if (reflectionsOn) {
-            dispatchScreenSpaceReflections(state);
-            runReflectionComposite(state, sceneUniforms, groupsX, groupsY);
-        }
+        if (giOn) state.context->TransitionShaderResources(state.giSrb);
+        if (reflectionsOn) buildReflectionDepthPyramid(state);
+        dispatchOverlappedScreenTraces(state, giOn, reflectionsOn);
+        if (giOn) filterScreenGi(state, groupsX, groupsY, reflectionsOn);
+        if (reflectionsOn) runReflectionComposite(state, sceneUniforms, groupsX, groupsY);
     }
 }
 
-void Lighting::setViewRect(const glm::ivec4& rect) { m_data->viewRect = rect; }
+void Lighting::setViewRect(const glm::ivec4& rect, const glm::ivec4& depthRegion) {
+    m_data->viewRect = rect;
+    m_data->depthRegion = depthRegion;
+}
 
 void Lighting::captureSceneColor() {
     Data& state = *m_data;
     if (!state.pyramidFirstPso || !state.pyramidPso || state.sceneColorMips.size() < kPyramidMips) return;
     if (state.pyramidVersion != state.bindingVersion || !state.pyramidFirstSrb[0]) {
         state.pyramidVersion = state.bindingVersion;
-        for (int parity = 0; parity < 2; ++parity) state.pyramidFirstSrb[parity] = litgpu::makeBinding(state.pyramidFirstPso, {{"u_source", litgpu::srv(state.hdrTargets[parity])}, {"u_dest", state.sceneColorMips[0]}});
+        for (int parity = 0; parity < 2; ++parity) state.pyramidFirstSrb[parity] = litgpu::makeBinding(state.pyramidFirstPso, {{"ScreenRegion", state.pyramidRegionConstants}, {"u_source", litgpu::srv(state.hdrTargets[parity])}, {"u_dest", state.sceneColorMips[0]}});
         state.pyramidSrbs.clear();
-        for (uint32_t mip = 1; mip < kPyramidMips; ++mip) state.pyramidSrbs.push_back(litgpu::makeBinding(state.pyramidPso, {{"u_sourceMip", state.sceneColorMips[mip - 1]}, {"u_dest", state.sceneColorMips[mip]}}));
+        for (uint32_t mip = 1; mip < kPyramidMips; ++mip) state.pyramidSrbs.push_back(litgpu::makeBinding(state.pyramidPso, {{"ScreenRegion", state.pyramidRegionConstants}, {"u_sourceMip", state.sceneColorMips[mip - 1]}, {"u_dest", state.sceneColorMips[mip]}}));
     }
     const auto& desc = state.sceneColor->GetDesc();
-    litgpu::dispatch(state.context, state.pyramidFirstPso, state.pyramidFirstSrb[state.hdrIndex], groupCount(desc.Width), groupCount(desc.Height));
+    const litgpu::ScreenRegion region = litgpu::expandedScreenRegion(screenRegionOf(state, static_cast<int>(desc.Width), static_cast<int>(desc.Height)), kPyramidRegionMargin);
+    LIT_UP(state.context)->UpdateBuffer(state.pyramidRegionConstants, 0, sizeof(region), &region, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    litgpu::dispatch(state.context, state.pyramidFirstPso, state.pyramidFirstSrb[state.hdrIndex], region.groups(0, 0, kThreadGroupSize), region.groups(1, 0, kThreadGroupSize));
     for (uint32_t mip = 1; mip < kPyramidMips; ++mip) {
         litgpu::uavBarrier(state.context, state.sceneColor);
-        const uint32_t mipWidth = std::max(desc.Width >> mip, 1u);
-        const uint32_t mipHeight = std::max(desc.Height >> mip, 1u);
-        litgpu::dispatch(state.context, state.pyramidPso, state.pyramidSrbs[mip - 1], groupCount(mipWidth), groupCount(mipHeight));
+        litgpu::dispatch(state.context, state.pyramidPso, state.pyramidSrbs[mip - 1], region.groups(0, mip, kThreadGroupSize), region.groups(1, mip, kThreadGroupSize));
     }
     state.pyramidValid = true;
 }
@@ -324,6 +425,8 @@ void Lighting::graphResources(LightingStage stage, std::vector<rg::ExternalAcces
             break;
         case LightingStage::Lighting:
             texture("lighting/clouds", state.clouds, Usage::UnorderedAccess, true);
+            texture("lighting/skyOpen", state.skyOpen, Usage::UnorderedAccess, true);
+            texture("lighting/localLight", state.localLight, Usage::UnorderedAccess, true);
             texture("lighting/aoFiltered", state.aoFiltered, Usage::ShaderResource, false);
             texture("lighting/aoDepth", state.aoDepth, Usage::ShaderResource, false);
             texture("lighting/aoBent", state.aoBent, Usage::ShaderResource, false);
@@ -341,6 +444,7 @@ void Lighting::graphResources(LightingStage stage, std::vector<rg::ExternalAcces
             break;
         case LightingStage::Reflections:
             texture("lighting/sceneColor", state.sceneColor, Usage::None, true);
+            texture("lighting/skyOpen", state.skyOpen, Usage::ShaderResource, false);
             texture("lighting/aoDepth", state.aoDepth, Usage::ShaderResource, false);
             texture("lighting/aoRaw", state.aoRaw, Usage::UnorderedAccess, true);
             texture("lighting/aoTemp", state.aoTemp, Usage::UnorderedAccess, true);
@@ -359,6 +463,7 @@ void Lighting::graphResources(LightingStage stage, std::vector<rg::ExternalAcces
                 texture(kUp[level], state.bloomUp[level], Usage::None, true);
             }
             texture("lighting/ldr", state.ldr, Usage::RenderTarget, true);
+            texture("lighting/upscaleSource", state.upscaleSource, Usage::None, true);
             texture("lighting/upscaled0", state.upscaled[0], Usage::None, true);
             texture("lighting/upscaled1", state.upscaled[1], Usage::None, true);
             buffer("lighting/exposure", state.exposure, Usage::None, true);

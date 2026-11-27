@@ -411,6 +411,10 @@ void Engine::tick(float deltaTime) {
             extras.push_back({std::format("portal:{} depth {}", view.label, view.depth), view.gpuMilliseconds});
         }
         if (hasPortalViews) extras.push_back({"portal_gpu_ms", portalMs});
+        if (m_renderer.frameGpuMilliseconds() > 0.0) {
+            extras.push_back({"frame_gpu_ms", m_renderer.frameGpuMilliseconds()});
+            extras.push_back({"fence_wait_ms", m_renderer.fenceWaitMilliseconds()});
+        }
         m_perf.record(m_world.time().frame, frameMs, m_lastSimMs, m_renderer.gpuTotalMilliseconds(), passes, extras);
     }
     m_lastTickStart = tickStart;

@@ -86,26 +86,27 @@ bool CreateHiZSet(DiligentData& gpu, HiZSet& set, int width, int height, int mip
     return true;
 }
 
-void BuildHiZ(DiligentData& gpu, Diligent::ITexture* hiz, Diligent::RefCntAutoPtr<Diligent::ITextureView>* source, Diligent::RefCntAutoPtr<Diligent::ITextureView>* dest, int width, int height, int mips) {
+void BuildHiZ(DiligentData& gpu, Diligent::ITexture* hiz, Diligent::RefCntAutoPtr<Diligent::ITextureView>* source, Diligent::RefCntAutoPtr<Diligent::ITextureView>* dest, int width, int height, int mips, const glm::ivec4& depthRegion) {
     auto* context = gpu.pImmediateContext.RawPtr();
-    if (!gpu.pHiZFromDepthPSO || !gpu.pHiZSceneMipmapPSO || !hiz) return;
+    if (!gpu.pHiZFromDepthPSO || !gpu.pHiZSceneMipmapPSO || !gpu.pHiZRegionUBO || !hiz) return;
+    const litgpu::ScreenRegion region = litgpu::screenRegion(depthRegion.x, depthRegion.y, depthRegion.z, depthRegion.w, width, height);
+    context->UpdateBuffer(gpu.pHiZRegionUBO, 0, sizeof(region), &region, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     auto hizBarrier = [&](Diligent::RESOURCE_STATE newState) {
         Diligent::StateTransitionDesc barrier{hiz, Diligent::RESOURCE_STATE_UNKNOWN, newState, Diligent::STATE_TRANSITION_FLAG_UPDATE_STATE};
         context->TransitionResourceStates(1, &barrier);
     };
-    const auto groupCount = [](int extent) { return (static_cast<Diligent::Uint32>(std::max(1, extent)) + kHiZGroupSize - 1) / kHiZGroupSize; };
     SetDynamicVariable(gpu.pHiZFromDepthSRB, "u_depth", gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
     SetDynamicVariable(gpu.pHiZFromDepthSRB, "u_destMip", dest[0]);
     context->SetPipelineState(gpu.pHiZFromDepthPSO);
     context->CommitShaderResources(gpu.pHiZFromDepthSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->DispatchCompute(Diligent::DispatchComputeAttribs(groupCount(width), groupCount(height), 1));
+    context->DispatchCompute(Diligent::DispatchComputeAttribs(region.groups(0, 0, kHiZGroupSize), region.groups(1, 0, kHiZGroupSize), 1));
     hizBarrier(Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
     context->SetPipelineState(gpu.pHiZSceneMipmapPSO);
     for (int mip = 1; mip < mips && mip < kMaxHiZMips; ++mip) {
         SetDynamicVariable(gpu.pHiZSceneMipmapSRB, "u_sourceMip", source[mip]);
         SetDynamicVariable(gpu.pHiZSceneMipmapSRB, "u_destMip", dest[mip]);
         context->CommitShaderResources(gpu.pHiZSceneMipmapSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        context->DispatchCompute(Diligent::DispatchComputeAttribs(groupCount(width >> mip), groupCount(height >> mip), 1));
+        context->DispatchCompute(Diligent::DispatchComputeAttribs(region.groups(0, static_cast<Diligent::Uint32>(mip), kHiZGroupSize), region.groups(1, static_cast<Diligent::Uint32>(mip), kHiZGroupSize), 1));
         hizBarrier(Diligent::RESOURCE_STATE_UNORDERED_ACCESS);
     }
     hizBarrier(Diligent::RESOURCE_STATE_SHADER_RESOURCE);
@@ -161,7 +162,7 @@ void Renderer::createScreenTargets() {
 
 void Renderer::buildHiZ() {
     auto& gpu = *m_diligent;
-    BuildHiZ(gpu, gpu.pHiZTextures[m_currentFrame].RawPtr(), gpu.pHiZMipViewsSource[m_currentFrame], gpu.pHiZMipViewsDest[m_currentFrame], m_renderWidth, m_renderHeight, m_maxMipLevel);
+    BuildHiZ(gpu, gpu.pHiZTextures[m_currentFrame].RawPtr(), gpu.pHiZMipViewsSource[m_currentFrame], gpu.pHiZMipViewsDest[m_currentFrame], m_renderWidth, m_renderHeight, m_maxMipLevel, glm::ivec4(0));
 }
 
 void Renderer::createHiZPSO() {
@@ -170,9 +171,12 @@ void Renderer::createHiZPSO() {
     CreateBindings(gpu.pHiZMipmapPSO, std::span(std::addressof(gpu.pHiZMipmapSRB), 1));
     const Diligent::ShaderMacro sceneMacros[] = {{"HIZ_KEEP_MIN", "1"}};
     gpu.pHiZSceneMipmapPSO = CreateComputePipeline(gpu.pDevice, "Hi-Z Scene Mipmap PSO", "resources/shaders/hiz_mipmap.comp", {"u_sourceMip", "u_destMip"}, Diligent::ShaderMacroArray{sceneMacros, 1});
-    CreateBindings(gpu.pHiZSceneMipmapPSO, std::span(std::addressof(gpu.pHiZSceneMipmapSRB), 1));
+    if (!gpu.pHiZRegionUBO) gpu.pHiZRegionUBO = CreateUniformBuffer(gpu.pDevice, "Hi-Z Screen Region", sizeof(litgpu::ScreenRegion), Diligent::USAGE_DEFAULT);
+    gpu.pHiZSceneMipmapSRB.Release();
+    CreateBoundSRB(gpu.pHiZSceneMipmapPSO, gpu.pHiZSceneMipmapSRB, {{"ScreenRegion", gpu.pHiZRegionUBO}});
     gpu.pHiZFromDepthPSO = CreateComputePipeline(gpu.pDevice, "Hi-Z From Depth PSO", "resources/shaders/hiz_from_depth.comp", {"u_depth", "u_destMip"});
-    CreateBindings(gpu.pHiZFromDepthPSO, std::span(std::addressof(gpu.pHiZFromDepthSRB), 1));
+    gpu.pHiZFromDepthSRB.Release();
+    CreateBoundSRB(gpu.pHiZFromDepthPSO, gpu.pHiZFromDepthSRB, {{"ScreenRegion", gpu.pHiZRegionUBO}});
     gpu.pShadowHiZPSO = CreateComputePipeline(gpu.pDevice, "Shadow Hi-Z PSO", "resources/shaders/hiz_from_shadow.comp", {"u_shadowDepth", "u_destMip"});
     CreateBindings(gpu.pShadowHiZPSO, std::span(std::addressof(gpu.pShadowHiZSRB), 1));
     gpu.pShadowHiZArgsPSO = CreateComputePipeline(gpu.pDevice, "Shadow Hi-Z Args PSO", "resources/shaders/shadow_hiz_args.comp");

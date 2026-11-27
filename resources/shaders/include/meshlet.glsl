@@ -8,6 +8,9 @@ const uint MESHLET_FLAG_CONE = 4u;
 const uint MESHLET_FLAG_RETEST_OUTPUT = 8u;
 const uint MESHLET_FLAG_VIEW_LOD = 16u;
 const uint MESHLET_FLAG_HIERARCHY = 32u;
+const uint MESHLET_FLAG_CASTER_CULL = 64u;
+const float MESHLET_CASTER_UNIFORM_SCALE = 0.999;
+const int MESHLET_CASTER_PLANES = 12;
 const uint MESHLET_STAT_INSTANCES = 0u;
 const uint MESHLET_STAT_WORK_ITEMS = 1u;
 const uint MESHLET_STAT_TESTED = 2u;
@@ -78,10 +81,23 @@ layout(std140) uniform MeshletConstants {
     uint u_retestCapacity;
     uint u_queueCapacity;
     uint u_orthoMask;
-    uint u_lodPad0;
-    uint u_lodPad1;
+    uint u_casterExemptMask;
+    uint u_lodPad;
     vec4 u_lodViews[MESHLET_MAX_LOD_VIEWS];
+    vec4 u_casterPlanes[MESHLET_CASTER_PLANES];
+    vec4 u_casterDirection;
 };
+
+bool meshletCasterCulled(uint shader) {
+    return (u_flags & MESHLET_FLAG_CASTER_CULL) != 0u && ((u_casterExemptMask >> shader) & 1u) == 0u;
+}
+
+bool meshletCasterInside(vec3 center, float radius) {
+    for (int i = 0; i < MESHLET_CASTER_PLANES; ++i) {
+        if (dot(u_casterPlanes[i].xyz, center) + u_casterPlanes[i].w < -radius) return false;
+    }
+    return true;
+}
 
 float meshletErrorScale() { return projection[1][1] * screenParams.y * 0.5; }
 

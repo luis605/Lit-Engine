@@ -28,6 +28,7 @@ uniform usampler2D u_childGBuffer2;
 layout(location = 0) out vec4 out_gbuffer0;
 layout(location = 1) out vec4 out_gbuffer1;
 layout(location = 2) out uvec4 out_gbuffer2;
+layout(location = 3) out vec4 out_marker;
 
 vec2 octWrap(vec2 v) { return (1.0 - abs(v.yx)) * vec2(v.x >= 0.0 ? 1.0 : -1.0, v.y >= 0.0 ? 1.0 : -1.0); }
 
@@ -58,7 +59,8 @@ void main() {
     float sd;
     float distancePixels;
     vec2 outward;
-    if (portalCoverage(gl_FragCoord.xy, camera.xyz, invView, params, center, axisU, axisV, normal, shape, edge, p, sd, distancePixels, outward) < 0.999) discard;
+    float coverage = portalCoverage(gl_FragCoord.xy, camera.xyz, invView, params, center, axisU, axisV, normal, shape, edge, p, sd, distancePixels, outward);
+    if (coverage < 0.999) discard;
     float planeDepth = 1.0;
     if (mode == 1) {
         vec4 clip = viewProjection * vec4(camera.xyz + dir * t, 1.0);
@@ -73,6 +75,7 @@ void main() {
     out_gbuffer0 = g0;
     out_gbuffer1 = vec4(encodeNormal(n), g1.ba);
     out_gbuffer2 = g2;
+    out_marker = vec4(0.0, 0.0, 0.0, coverage >= 1.0 ? -1.0 : 60000.0);
 
     float childDepth = texelFetch(u_childDepth, pixel, 0).r;
     if (childDepth <= 0.0) {

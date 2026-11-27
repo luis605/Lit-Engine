@@ -1,6 +1,6 @@
 # Cluster LOD (dense geometry)
 
-Import-time meshlets plus a simplification DAG (`Engine.meshlet`, `MeshletBuild.cpp`, stored in `.litmesh`), drawn through a GPU per-cluster cut, frustum, cone and two-pass Hi-Z cull into a compute-expanded index buffer (`RendererMeshlets.cpp`, `resources/shaders/meshlet_*.comp`). Every phase (G-buffer early and retest, transparency, cascades, local shadow maps, portal views) draws clusters with its normal surface pipelines.
+Import-time meshlets plus a simplification DAG (`Engine.meshlet`, `MeshletBuild.cpp`, stored in `.litmesh`), drawn through a GPU per-cluster cut, frustum, cone and two-pass Hi-Z cull into indirect draws over a static index buffer that holds every cluster's triangles in cluster order (one draw per run of consecutive drawn clusters in a leaf; `RendererMeshlets.cpp`, `resources/shaders/meshlet_*.comp`). Every phase (G-buffer early and retest, transparency, cascades, local shadow maps, portal views) draws clusters with its normal surface pipelines.
 
 Settings: `clusterLod` (on), `clusterErrorPixels` (1), `clusterHierarchy` (on), `clusterShadowTexelLod` (on), `clusterShadowErrorTexels` (2). LitShot: `--testscene dense --dense-grid N --stats FILE`.
 
@@ -17,7 +17,7 @@ Built on the CPU when a cluster mesh is uploaded (`buildClusterHierarchy`, `Mesh
 GPU traversal per visibility phase, inside the existing `Meshlet Cull` / `Meshlet Retest Cull` / `Meshlet Trans Cull` / shadow builds (no new render-graph passes; the node queue, counters and arguments are internal buffers that live only inside `buildMeshletDraws`, like the work items before):
 
 1. `meshlet_instances`: one thread per visible cluster-mesh instance queues (entry slot, root node).
-2. `meshlet_node_args` + `meshlet_nodes`, once per tree level (level-synchronous, indirect dispatch sized by the level's queue counter, two queue halves of 2^18 items): LOD bound on the LOD sphere, frustum and Hi-Z on the culling sphere. Accepted internal nodes queue their children, accepted leaves become work items. In the early opaque phase a node rejected only by the previous-frame Hi-Z is recorded in the retest list (`tail.w = 1`); `meshlet_retest` turns those records into queue items of the retest phase, which resumes the traversal from that node against the new Hi-Z (cluster-mask records work as before).
+2. `meshlet_node_args` + `meshlet_nodes`, once per tree level (level-synchronous, indirect dispatch sized by the level's queue counter, two queue halves of 2^21 items): LOD bound on the LOD sphere, frustum and Hi-Z on the culling sphere. Accepted internal nodes queue their children, accepted leaves become work items. In the early opaque phase a node rejected only by the previous-frame Hi-Z is recorded in the retest list (`tail.w = 1`); `meshlet_retest` turns those records into queue items of the retest phase, which resumes the traversal from that node against the new Hi-Z (cluster-mask records work as before).
 3. `meshlet_args` + `meshlet_cull`: unchanged per-cluster cut, frustum, cone and Hi-Z per leaf.
 
 The Hi-Z test on a sphere that contains a smaller sphere is at least as conservative as on the smaller one (coarser or equal mip, superset footprint, nearer nearest depth), so node-level Hi-Z rejects nothing the per-cluster test would draw.
@@ -39,7 +39,7 @@ Shadow phases select the cut in shadow texels of the view being rendered, not wi
 ## Interactions
 
 - Skinning / morph / deform: dynamic meshes get their own mesh slots without a cluster DAG, so they never take the cluster path; unchanged.
-- Terrain scatter (`scatterClusters`): batches go through `uploadClusterMesh` like any mesh and get a hierarchy; release clears the mesh slot (root included). The cluster store, now including nodes, stays append-only (leaks while streaming, as documented in Terrain.md). No test scene enables `scatterClusters`, so this path was not run on the GPU.
+- Terrain scatter (`scatterClusters`): batches go through `uploadClusterMesh` like any mesh and get a hierarchy; release clears the mesh slot (root included). Releasing a mesh removes its clusters, indices, chunks and nodes from the cluster store and moves the later offsets down, so release and re-upload cycles do not grow it. No test scene enables `scatterClusters`, so this path was not run on the GPU.
 - Portal views: every view runs the same builds with its own scene uniforms and Hi-Z history, so the traversal uses the view's camera, clipped frustum and Hi-Z.
 
 ## Verification (2026-11-23, GTX 1650, 1280x720, `LitShot --deterministic`)
@@ -80,5 +80,5 @@ Other scenes (`autoExposure=0`, flat/old twice vs hierarchy + texel LOD): skinni
 
 - Leaf fill: error bands leave partially filled leaves, so the hierarchy emits more cull workgroups than the flat chunks at grid 48. Packing several small leaves into one cull workgroup (or a mesh-shader path) would remove that.
 - Level-synchronous traversal: one indirect dispatch pair per tree level and build (about 12 builds per frame in the dense scene); a persistent-thread queue would need one dispatch.
-- Queue capacity 2^18 (instance, node) items per level: overflows are counted (`Overflows`) and lose geometry; enough for about 10k visible dense instances.
+- Fixed capacities: node queue 2^21 per level, 2^19 work items per build, 2^19 retest records, draw commands 2^21 (opaque), 2^20 (retest), 2^18 (transparent), 2^22 (shadow), each split evenly over surface shaders times views (about 170 MB of queue and command buffers). Anything beyond is not drawn; the engine logs a warning (at most once per 600 frames) and `Overflows` counts it. A grid 256 dense scene fits once Hi-Z history exists; its first frames, and `clusterErrorPixels` far below 1, exceed the work items.
 - Shadow phases have no cluster frustum culling (the cascade frusta do not include the caster extrusion); VSM pages draw the triangle LOD chain, not clusters.

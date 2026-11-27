@@ -47,7 +47,7 @@ void SetSceneViewport(DiligentData& gpu);
 void DispatchSingleGroup(Diligent::IDeviceContext* context, Diligent::IPipelineState* pipeline, Diligent::IShaderResourceBinding* binding);
 void DrawFullscreenTriangle(Diligent::IDeviceContext* context);
 bool CreateHiZSet(DiligentData& gpu, HiZSet& set, int width, int height, int mips);
-void BuildHiZ(DiligentData& gpu, Diligent::ITexture* hiz, Diligent::RefCntAutoPtr<Diligent::ITextureView>* source, Diligent::RefCntAutoPtr<Diligent::ITextureView>* dest, int width, int height, int mips);
+void BuildHiZ(DiligentData& gpu, Diligent::ITexture* hiz, Diligent::RefCntAutoPtr<Diligent::ITextureView>* source, Diligent::RefCntAutoPtr<Diligent::ITextureView>* dest, int width, int height, int mips, const glm::ivec4& depthRegion);
 Diligent::IPipelineState* SurfacePipeline(const DiligentData::SurfaceProgram& surface, int phaseIndex, bool points);
 std::vector<Diligent::IPipelineState*> SurfacePipelines(const DiligentData& gpu, int phaseIndex, bool points);
 void ReadGpuTimings(DiligentData& gpu, int frame);

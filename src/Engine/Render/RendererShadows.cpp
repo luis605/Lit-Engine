@@ -22,12 +22,15 @@ import Engine.Render.observation;
 namespace {
 
 constexpr int kShadowPlaneCount = 6;
+constexpr int kShadowSidePlanes = 4;
+constexpr int kShadowCasterPlanes = kShadowSidePlanes + kCascadeReceiverPlanes;
 
 struct ShadowCullConstants {
     glm::vec4 planes[kShadowPlaneCount];
     glm::vec4 lod;
     glm::mat4 hizViewProjection;
     glm::vec4 origin;
+    glm::vec4 receiverPlanes[kCascadeReceiverPlanes];
 };
 
 struct ShadowPassConstants {
@@ -58,6 +61,13 @@ void Renderer::dispatchCascadeCull(int cascadeIndex, int hizLayer, Diligent::IPi
     for (int planeIndex = 0; planeIndex < kShadowPlaneCount; ++planeIndex) constants.planes[planeIndex] = cascade.planes[planeIndex];
     constants.lod = glm::vec4(cascade.texelsPerUnit, static_cast<float>(cascadeIndex), hizValid && gpu.shadowHiZ[hizLayer] ? 1.0f : 0.0f, 0.0f);
     constants.hizViewProjection = hizViewProjection;
+    const bool receiversBoundedByView = m_portalFrame.nodes.empty() && !m_custom.hasSceneShaderPasses();
+    std::array<glm::vec4, kShadowCasterPlanes> casterPlanes{};
+    for (int planeIndex = 0; planeIndex < kCascadeReceiverPlanes; ++planeIndex) {
+        constants.receiverPlanes[planeIndex] = receiversBoundedByView ? cascade.receiverPlanes[planeIndex] : glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        casterPlanes[kShadowSidePlanes + planeIndex] = constants.receiverPlanes[planeIndex];
+    }
+    std::copy_n(cascade.planes, kShadowSidePlanes, casterPlanes.begin());
     LIT_UP(context)->UpdateBuffer(gpu.pShadowCullUBO[cascadeIndex], 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     ClearCounter(context, phase.visibleCounter);
     litgpu::zeroFill(context, gpu.pZeroBuffer, phase.bucketCounts, 0, sizeof(unsigned int) * ActiveBucketCount(m_numDrawingShaders), m_bucketZeros.data());
@@ -71,6 +81,7 @@ void Renderer::dispatchCascadeCull(int cascadeIndex, int hizLayer, Diligent::IPi
     if (pipeline == gpu.pShadowCullPSO.RawPtr()) cullInstanceCascade(cascadeIndex);
     const glm::vec4 lodView(0.0f, 0.0f, 0.0f, cascade.texelsPerUnit);
     setMeshletShadowLod(std::span<const glm::vec4>(&lodView, 1), 1u);
+    setMeshletCasterCull(casterPlanes, glm::vec3(cascade.planes[4]));
     buildVisibilityDraws(kPhaseShadow);
 }
 
@@ -98,7 +109,7 @@ void Renderer::renderCascade(int cascadeIndex) {
     drawSurfaces(kPhaseShadow, cascadeIndex);
     UnbindRenderTargets(context);
 
-    if (!gpu.shadowHiZ[layer]) {
+    if (!m_lighting.settings().shadowOcclusionCulling || !gpu.shadowHiZ[layer]) {
         gpu.shadowHiZValid[layer] = false;
         return;
     }
@@ -141,8 +152,8 @@ void Renderer::drawCascadeShadows(uint32_t objectCount) {
     auto& gpu = *m_diligent;
     auto* context = gpu.pImmediateContext.RawPtr();
     const int cascadeCount = gpu.pShadowCullPSO && gpu.pShadowLateCullPSO ? std::min<int>(m_lighting.cascadeCount(), kCascadeShadowViews) : 0;
-    if (cascadeCount <= 0 || !m_viewSunShadows || m_cascadeReuse) return;
-    ensureShadowHiZ();
+    if (cascadeCount <= 0 || !m_viewSunShadows || !m_lighting.sunCastsShadows() || m_cascadeReuse) return;
+    if (m_lighting.settings().shadowOcclusionCulling) ensureShadowHiZ();
     const CullingUniforms uniforms = MakeCullingUniforms(objectCount, m_maxObjects, 0.0f, m_lodBias, m_forcedLod, m_numDrawingShaders);
     LIT_UP(context)->UpdateBuffer(gpu.visibility[kPhaseShadow].cullingUniforms, 0, sizeof(uniforms), &uniforms, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     DispatchSingleGroup(context, gpu.pDispatchArgsPSO, gpu.pCasterDispatchArgsSRB[m_currentFrame]);

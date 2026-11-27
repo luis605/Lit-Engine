@@ -6,8 +6,37 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(rgba16f) writeonly uniform image2D u_output;
+uniform sampler2D u_depth;
+
+const int SKY_REACH = 5;
+const int GROUP_PIXELS = 16;
+const int REGION = GROUP_PIXELS + 2 * SKY_REACH;
+
+shared bool s_needed;
+
+bool groupSeesSky() {
+    if (gl_LocalInvocationIndex == 0u) s_needed = false;
+    barrier();
+    ivec2 screen = ivec2(screenParams.xy);
+    ivec2 low = ivec2(gl_WorkGroupID.xy) * GROUP_PIXELS - SKY_REACH;
+    ivec2 high = low + REGION;
+    if (viewRect.z > 0) {
+        low = max(low, viewRect.xy);
+        high = min(high, viewRect.xy + viewRect.zw);
+    }
+    low = max(low, ivec2(0));
+    high = min(high, screen);
+    ivec2 extent = high - low;
+    int count = extent.x > 0 && extent.y > 0 ? extent.x * extent.y : 0;
+    for (int i = int(gl_LocalInvocationIndex); i < count; i += 64) {
+        if (isSkyDepth(texelFetch(u_depth, low + ivec2(i % extent.x, i / extent.x), 0).r)) s_needed = true;
+    }
+    barrier();
+    return s_needed;
+}
 
 void main() {
+    if (!groupSeesSky()) return;
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     ivec2 size = imageSize(u_output);
     if (any(greaterThanEqual(pixel, size))) return;

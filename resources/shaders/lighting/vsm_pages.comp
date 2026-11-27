@@ -86,40 +86,62 @@ layout(std430) readonly buffer VsmMoved {
 };
 
 layout(std430) writeonly buffer VsmFaceDirty {
-    uint vsmFaceDirty[];
+    uvec4 vsmFaceDirty[];
 };
+
+vec2 projectedRange(float center, float spread, float wNear, float wFar) {
+    float low = center - spread;
+    float high = center + spread;
+    return vec2(low < 0.0 ? low / wNear : low / wFar, high > 0.0 ? high / wNear : high / wFar);
+}
 
 void main() {
     uint face = gl_GlobalInvocationID.x;
     if (face >= vsmCounts.x) return;
     VsmFace f = vsmFaces[face];
-    bool dirty = f.info.z > 0.5 || vsmLimits.w != 0u || vsmCounters[VSM_COUNTER_MOVE_OVERFLOW] != 0u;
+    bool whole = f.info.z > 0.5 || vsmLimits.w != 0u || vsmCounters[VSM_COUNTER_MOVE_OVERFLOW] != 0u;
+    vec2 dirtyLow = vec2(1.0);
+    vec2 dirtyHigh = vec2(0.0);
     uint moved = min(vsmCounters[VSM_COUNTER_MOVED], vsmLimits.z);
-    for (uint i = 0u; i < moved && !dirty && f.info.w > 0.5; ++i) {
+    mat4 m = f.viewProjection;
+    vec4 rows[4] = vec4[](vec4(m[0][0], m[1][0], m[2][0], m[3][0]), vec4(m[0][1], m[1][1], m[2][1], m[3][1]), vec4(m[0][2], m[1][2], m[2][2], m[3][2]), vec4(m[0][3], m[1][3], m[2][3], m[3][3]));
+    vec4 planes[4] = vec4[](rows[3] + rows[0], rows[3] - rows[0], rows[3] + rows[1], rows[3] - rows[1]);
+    for (uint i = 0u; i < moved && !whole && f.info.w > 0.5; ++i) {
         vec4 sphere = vsmMoved[i];
         vec3 d = sphere.xyz - f.sphere.xyz;
         float reach = sphere.w + f.sphere.w;
         if (dot(d, d) > reach * reach) continue;
-        mat4 m = f.viewProjection;
-        vec4 rows[4] = vec4[](vec4(m[0][0], m[1][0], m[2][0], m[3][0]), vec4(m[0][1], m[1][1], m[2][1], m[3][1]), vec4(m[0][2], m[1][2], m[2][2], m[3][2]), vec4(m[0][3], m[1][3], m[2][3], m[3][3]));
-        vec4 planes[4] = vec4[](rows[3] + rows[0], rows[3] - rows[0], rows[3] + rows[1], rows[3] - rows[1]);
         bool inside = true;
         for (int p = 0; p < 4; ++p) {
             if (dot(planes[p].xyz, sphere.xyz) + planes[p].w < -sphere.w * length(planes[p].xyz)) inside = false;
         }
-        dirty = inside;
+        if (!inside) continue;
+        vec4 clip = m * vec4(sphere.xyz, 1.0);
+        float wSpread = sphere.w * length(rows[3].xyz);
+        float wNear = clip.w - wSpread;
+        if (wNear <= 1e-3) {
+            whole = true;
+            break;
+        }
+        vec2 xRange = projectedRange(clip.x, sphere.w * length(rows[0].xyz), wNear, clip.w + wSpread);
+        vec2 yRange = projectedRange(clip.y, sphere.w * length(rows[1].xyz), wNear, clip.w + wSpread);
+        dirtyLow = min(dirtyLow, vec2(xRange.x * 0.5 + 0.5, 0.5 - yRange.y * 0.5));
+        dirtyHigh = max(dirtyHigh, vec2(xRange.y * 0.5 + 0.5, 0.5 - yRange.x * 0.5));
     }
-    vsmFaceDirty[face] = dirty ? 1u : 0u;
+    float grid = float(1u << (VSM_MIPS - 1u));
+    uvec2 low = uvec2(clamp(floor(dirtyLow * grid), vec2(0.0), vec2(grid)));
+    uvec2 high = uvec2(clamp(floor(dirtyHigh * grid) + 1.0, vec2(0.0), vec2(grid)));
+    vsmFaceDirty[face] = whole ? uvec4(0u, 0u, uvec2(grid)) : uvec4(low, high);
 }
 
 #elif defined(CLEAR_DIRTY)
 layout(std430) writeonly buffer VsmFaceDirty {
-    uint vsmFaceDirty[];
+    uvec4 vsmFaceDirty[];
 };
 
 void main() {
     uint face = gl_GlobalInvocationID.x;
-    if (face < vsmCounts.x) vsmFaceDirty[face] = 0u;
+    if (face < vsmCounts.x) vsmFaceDirty[face] = uvec4(0u);
 }
 
 #elif defined(RELEASE)
@@ -136,8 +158,16 @@ layout(std430) buffer VsmPhysical {
 };
 
 layout(std430) readonly buffer VsmFaceDirty {
-    uint vsmFaceDirty[];
+    uvec4 vsmFaceDirty[];
 };
+
+bool pageDirty(uint owner, uvec4 dirty) {
+    if (any(greaterThanEqual(dirty.xy, dirty.zw))) return false;
+    VsmPage page = vsmDecodePage(owner);
+    uint span = 1u << (VSM_MIPS - 1u - page.mip);
+    uvec2 low = page.page * span;
+    return all(lessThan(low, dirty.zw)) && all(greaterThan(low + span, dirty.xy));
+}
 
 void main() {
     uint physical = gl_GlobalInvocationID.x;
@@ -154,7 +184,7 @@ void main() {
         vsmPhysical[pool + slot] = physical;
         return;
     }
-    if (vsmFaceDirty[face] != 0u) vsmPageTable[owner] &= ~VSM_VALID;
+    if (pageDirty(owner, vsmFaceDirty[face])) vsmPageTable[owner] &= ~VSM_VALID;
 }
 
 #elif defined(HIST) || defined(PLAN)

@@ -19,9 +19,16 @@ import Engine.Render.material;
 import Engine.Terrain;
 import Engine.Streaming;
 import Engine.Render.component;
+import Engine.Portal;
+import Engine.Portal.view;
 
 namespace {
 constexpr uint32_t kNoLayer = 63;
+
+std::array<glm::vec4, 6> worldPlanes(std::array<glm::vec4, 6> planes, const glm::vec3& origin) {
+    for (glm::vec4& plane : planes) plane.w -= glm::dot(glm::vec3(plane), origin);
+    return planes;
+}
 }
 
 uint32_t Engine::uploadTerrainMesh(const Mesh& mesh) { return m_renderer.initialized() ? m_renderer.uploadTerrainMesh(mesh) : 0u; }
@@ -106,14 +113,19 @@ TerrainStreamer& Engine::enableTerrain(const TerrainSetup& setup) {
         m_world.syncCamera();
         const glm::mat4 view = camera.getViewMatrix();
         const glm::mat4 viewProjection = camera.getProjectionMatrix() * view;
-        auto planes = frustumPlanes(viewProjection);
         const glm::vec3 origin(m_world.origin());
-        for (glm::vec4& plane : planes) plane.w -= glm::dot(glm::vec3(plane), origin);
+        auto planes = worldPlanes(frustumPlanes(viewProjection), origin);
         planes[5] = glm::vec4(0.0f, 1.0f, 0.0f, 1.0e9f);
+        std::vector<TerrainViewpoint> portalViews;
+        const PortalFrame portalFrame = m_portals.buildFrame(camera, static_cast<float>(std::max(m_windowHeight, 1)));
+        for (size_t node = 1; node < portalFrame.nodes.size(); ++node) {
+            const PortalViewNode& view = portalFrame.nodes[node];
+            portalViews.push_back({glm::vec3(m_world.toWorld(view.position)), worldPlanes(view.planes, origin)});
+        }
         const glm::vec3 forward(-view[0][2], -view[1][2], -view[2][2]);
         const glm::vec3 cameraWorld(m_world.toWorld(camera.getPosition()));
-        if (prime) m_terrain->prime(cameraWorld, forward, &planes);
-        else m_terrain->update(cameraWorld, forward, &planes);
+        if (prime) m_terrain->prime(cameraWorld, forward, &planes, std::move(portalViews));
+        else m_terrain->update(cameraWorld, forward, &planes, std::move(portalViews));
     };
     if (setup.prime) frame(true);
     addSystem(Phase::PostUpdate, "terrain", [frame](World&, float) { frame(false); }, true);

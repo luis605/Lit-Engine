@@ -53,7 +53,15 @@ layout(std140) uniform ShadowCull {
     vec4 shadowLod;
     mat4 shadowHizViewProj;
     vec4 shadowOrigin;
+    vec4 shadowReceivers[8];
 };
+
+bool shadowReceived(vec3 center, float radius) {
+    for (int i = 0; i < 8; ++i) {
+        if (dot(shadowReceivers[i].xyz, center) + shadowReceivers[i].w < -radius) return false;
+    }
+    return true;
+}
 
 uniform sampler2D u_shadowHiz;
 
@@ -240,6 +248,7 @@ uint cullObject(uint id, out uvec2 entry, out uint cascades, out uint localMask)
     if (cascadeCullInfo.y != 0u) localMask = localMaskFor(worldCenter, radius);
 #endif
 #ifdef SHADOW
+    if (!shadowReceived(worldCenter, radius)) return CULLED;
     if (shadowOccluded(worldCenter, radius)) return OCCLUDED;
 #endif
 #ifndef SHADOW

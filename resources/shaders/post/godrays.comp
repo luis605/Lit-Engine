@@ -87,6 +87,7 @@ void main() {
     if (!sunScreen(sunUv, fade)) return;
     vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
     float shafts = textureLod(u_shafts, uv, 0.0).r;
+    if (shafts <= 0.0) return;
     vec3 light = sunIlluminance.rgb * (skyParams3.z * fade * 0.05);
     vec4 hdr = imageLoad(u_hdr, pixel);
     imageStore(u_hdr, pixel, vec4(hdr.rgb + light * shafts * exposureData.x, hdr.a));

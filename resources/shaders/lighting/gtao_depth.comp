@@ -13,5 +13,5 @@ void main() {
     if (any(greaterThanEqual(pixel, size))) return;
     ivec2 full = min(pixel * 2, ivec2(screenParams.xy) - 1);
     float depth = texelFetch(u_depth, full, 0).r;
-    imageStore(u_output, pixel, vec4(isSkyDepth(depth) ? 1e6 : linearViewDepth(depth)));
+    imageStore(u_output, pixel, vec4(isSkyDepth(depth) ? 1e6 : linearViewDepth((vec2(full) + 0.5) * screenParams.zw, depth)));
 }

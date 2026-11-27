@@ -43,7 +43,7 @@ void loadSkyPipelines(Lighting::Data& state) {
     state.dfgPso = litgpu::computePipeline(device, "resources/shaders/lighting/dfg_lut.comp");
     state.lightCullPso = litgpu::computePipeline(device, "resources/shaders/lighting/light_cull.comp");
     state.lightVisiblePso = litgpu::computePipeline(device, "resources/shaders/lighting/light_cull.comp", {}, {{"VISIBLE_PASS", "1"}});
-    state.cloudsPso = litgpu::computePipeline(device, "resources/shaders/lighting/clouds.comp", {transmittanceSampler, linearSampler("u_skyViewLut"), wrapHdri, wrapCloudNoise});
+    state.cloudsPso = litgpu::computePipeline(device, "resources/shaders/lighting/clouds.comp", {transmittanceSampler, linearSampler("u_skyViewLut"), wrapHdri, wrapCloudNoise, pointSampler("u_depth")});
 }
 
 void loadGodRayPipelines(Lighting::Data& state) {
@@ -72,26 +72,34 @@ void loadScreenSpacePipelines(Lighting::Data& state) {
 }
 
 void loadShadingPipeline(Lighting::Data& state) {
-    state.lightingPso = litgpu::computePipeline(state.device, "resources/shaders/lighting/lighting.comp",
-                                                {pointSampler("u_depth"),
-                                                 pointSampler("u_gbuffer0"),
-                                                 pointSampler("u_gbuffer1"),
-                                                 pointSampler("u_gbuffer2"),
-                                                 pointSampler("u_ao"),
-                                                 linearSampler("u_aerial"),
-                                                 linearSampler("u_transmittanceLut"),
-                                                 linearSampler("u_skyViewLut"),
-                                                 {"u_hdri", litgpu::linearWrap()},
-                                                 linearSampler("u_prefilteredEnv"),
-                                                 linearSampler("u_dfgLut"),
-                                                 {"u_shadowMap", litgpu::shadowCompare()},
-                                                 pointSampler("u_shadowDepth"),
-                                                 {"u_localShadowMap", litgpu::shadowCompare()},
-                                                 {"u_vsmAtlas", litgpu::shadowCompare()},
-                                                 pointSampler("u_aoDepth"),
-                                                 pointSampler("u_bent"),
-                                                 linearSampler("u_clouds"),
-                                                 linearSampler("u_skyVolume")});
+    const auto shadingPipeline = [&state](const char* path, const litgpu::ShaderMacros& macros) {
+        return litgpu::computePipeline(state.device, path,
+                                       {pointSampler("u_depth"),
+                                        pointSampler("u_gbuffer0"),
+                                        pointSampler("u_gbuffer1"),
+                                        pointSampler("u_gbuffer2"),
+                                        pointSampler("u_ao"),
+                                        linearSampler("u_aerial"),
+                                        linearSampler("u_transmittanceLut"),
+                                        linearSampler("u_skyViewLut"),
+                                        {"u_hdri", litgpu::linearWrap()},
+                                        linearSampler("u_prefilteredEnv"),
+                                        linearSampler("u_dfgLut"),
+                                        {"u_shadowMap", litgpu::shadowCompare()},
+                                        pointSampler("u_shadowDepth"),
+                                        {"u_localShadowMap", litgpu::shadowCompare()},
+                                        {"u_vsmAtlas", litgpu::shadowCompare()},
+                                        pointSampler("u_aoDepth"),
+                                        pointSampler("u_bent"),
+                                        linearSampler("u_clouds"),
+                                        linearSampler("u_skyVolume"),
+                                        pointSampler("u_localLight")},
+                                       macros);
+    };
+    state.lightingPso = shadingPipeline("resources/shaders/lighting/lighting.comp", {});
+    state.splitLightingPso = shadingPipeline("resources/shaders/lighting/lighting.comp", {{"LOCAL_LIGHT_INPUT", "1"}});
+    state.localLightsPso = shadingPipeline("resources/shaders/lighting/local_lights.comp", {});
+    state.simpleLocalLightsPso = shadingPipeline("resources/shaders/lighting/local_lights.comp", {{"LIT_PUNCTUAL_ONLY", "1"}, {"LIT_NO_LOCAL_SHADOW_MAP", "1"}, {"LIT_BASE_LOBES_ONLY", "1"}});
 }
 
 void loadPostPipelines(Lighting::Data& state) {
@@ -105,6 +113,8 @@ void loadPostPipelines(Lighting::Data& state) {
     state.easuPso = litgpu::computePipeline(device, "resources/shaders/post/easu.comp", {pointSampler("u_source")});
     state.rcasPso = litgpu::computePipeline(device, "resources/shaders/post/rcas.comp", {pointSampler("u_source")});
     state.fxaaPso = litgpu::fullscreenPipeline(device, "FXAA", "resources/shaders/post/fxaa.frag", state.backBufferFormat, {linearSampler("u_ldr")});
+    state.upscaleFxaaPso = litgpu::fullscreenPipeline(device, "Upscale FXAA", "resources/shaders/post/fxaa.frag", kLdrFormat, {linearSampler("u_ldr")});
+    state.presentPso = litgpu::fullscreenPipeline(device, "Present", "resources/shaders/post/present.frag", state.backBufferFormat, {pointSampler("u_ldr")});
 }
 
 void releaseStaleBindings(Lighting::Data& state) {

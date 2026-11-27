@@ -33,6 +33,11 @@ void runPacerTests() {
     CHECK(afterOneUpdate > 1000.0 / 60.0);
     CHECK(std::abs(settle(pacer, 5.0, 3000) - 1000.0 / 60.0) < 1e-9);
 
+    Lit::FramePacer starting;
+    starting.setMaxFps(60.0);
+    CHECK(settle(starting, 500.0, static_cast<int>(Lit::FramePacer::kWarmup)) == 1000.0 / 60.0);
+    CHECK(settle(starting, 5.0, 600) == 1000.0 / 60.0);
+
     Lit::FramePacer spiky;
     spiky.setMaxFps(60.0);
     for (int i = 0; i < 600; ++i) spiky.addFrame(i % 40 == 0 ? 90.0 : 5.0);

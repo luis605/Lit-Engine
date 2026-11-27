@@ -26,6 +26,13 @@ namespace {
 constexpr float kCascadeSplitLambda = 0.82f;
 constexpr float kCascadeRadiusQuantum = 16.0f;
 constexpr float kCasterExtension = 1200.0f;
+constexpr float kReceiverFrustumSlack = 1.01f;
+constexpr float kReceiverDepthSlack = 0.99f;
+constexpr float kMaxNormalOffsetPerBias = 5.4f;
+constexpr float kMaxPcssReachTexels = 24.0f;
+constexpr float kPcfRadiusPerSoftness = 1.5f;
+constexpr float kReceiverSlackTexels = 4.0f;
+constexpr int kSliceCorners = 8;
 constexpr float kMinNearPlane = 1e-4f;
 constexpr int kMinShadowResolution = 512;
 constexpr int kMaxShadowResolution = 4096;
@@ -87,6 +94,57 @@ float sliceRadius(const FrameInput& input, float nearDistance, float farDistance
     return std::max(std::ceil(radius * kCascadeRadiusQuantum) / kCascadeRadiusQuantum, 1.0f / kCascadeRadiusQuantum);
 }
 
+std::array<glm::vec2, kSliceCorners> projectSliceCorners(const Cascade& cascade, const FrameInput& input, const glm::mat4& invView, float nearDistance, float farDistance) {
+    const glm::mat4& projection = input.projection;
+    const bool orthographic = projection[3][3] > 0.5f;
+    std::array<glm::vec2, kSliceCorners> corners{};
+    int corner = 0;
+    for (float distance : {nearDistance, farDistance}) {
+        for (float signX : {-kReceiverFrustumSlack, kReceiverFrustumSlack}) {
+            for (float signY : {-kReceiverFrustumSlack, kReceiverFrustumSlack}) {
+                const float viewX = orthographic ? (signX - projection[3][0]) / projection[0][0] : (signX + projection[2][0]) * distance / projection[0][0];
+                const float viewY = orthographic ? (signY - projection[3][1]) / projection[1][1] : (signY + projection[2][1]) * distance / projection[1][1];
+                const glm::vec4 world = invView * glm::vec4(viewX, viewY, -distance, 1.0f);
+                corners[corner++] = glm::vec2(cascade.viewProjection * world);
+            }
+        }
+    }
+    return corners;
+}
+
+std::vector<glm::vec2> convexHull(std::array<glm::vec2, kSliceCorners> points) {
+    std::sort(points.begin(), points.end(), [](const glm::vec2& a, const glm::vec2& b) { return a.x != b.x ? a.x < b.x : a.y < b.y; });
+    const auto turnsRight = [](const glm::vec2& origin, const glm::vec2& a, const glm::vec2& b) { return (a.x - origin.x) * (b.y - origin.y) - (a.y - origin.y) * (b.x - origin.x) <= 0.0f; };
+    std::vector<glm::vec2> hull;
+    const auto extend = [&](const glm::vec2& point, size_t chainStart) {
+        while (hull.size() >= chainStart + 2 && turnsRight(hull[hull.size() - 2], hull.back(), point)) hull.pop_back();
+        hull.push_back(point);
+    };
+    for (const glm::vec2& point : points) extend(point, 0);
+    hull.pop_back();
+    const size_t upperStart = hull.size();
+    for (auto point = points.rbegin(); point != points.rend(); ++point) extend(*point, upperStart);
+    hull.pop_back();
+    return hull;
+}
+
+void fitReceiverPlanes(Cascade& cascade, const FrameInput& input, const glm::mat4& invView, float nearDistance, float farDistance, float marginNdc) {
+    for (glm::vec4& plane : cascade.receiverPlanes) plane = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    const std::vector<glm::vec2> hull = convexHull(projectSliceCorners(cascade, input, invView, nearDistance, farDistance));
+    if (hull.size() < 3 || hull.size() > static_cast<size_t>(kCascadeReceiverPlanes)) return;
+    const glm::mat4 rows = glm::transpose(cascade.viewProjection);
+    for (size_t edge = 0; edge < hull.size(); ++edge) {
+        const glm::vec2 from = hull[edge];
+        const glm::vec2 along = hull[(edge + 1) % hull.size()] - from;
+        const float length = glm::length(along);
+        if (length < 1e-6f) continue;
+        const glm::vec2 inward = glm::vec2(-along.y, along.x) / length;
+        glm::vec4 plane = rows[0] * inward.x + rows[1] * inward.y;
+        plane.w += marginNdc - glm::dot(inward, from);
+        cascade.receiverPlanes[edge] = plane / std::max(glm::length(glm::vec3(plane)), 1e-8f);
+    }
+}
+
 void fitCascade(Lighting::Data& state, int cascadeIndex, int cascadeCount, const FrameInput& input, const glm::mat4& invView, const glm::vec3& toSun) {
     Cascade& cascade = state.cascades[cascadeIndex];
     const float nearZ = std::max(input.nearPlane, kMinNearPlane);
@@ -128,6 +186,13 @@ void fitCascade(Lighting::Data& state, int cascadeIndex, int cascadeCount, const
     cascade.viewport[3] = state.shadowResolution;
     cascade.clear = true;
     cascade.valid = true;
+    const float previousStart = cascadeIndex >= 2 ? state.cascades[cascadeIndex - 2].split : 0.0f;
+    const float previousEnd = cascadeIndex >= 1 ? state.cascades[cascadeIndex - 1].split : 0.0f;
+    const float blendFraction = std::max(state.settings.shadowCascadeBlend, 1e-3f);
+    const float receiverStart = cascadeIndex == 0 ? nearZ * 0.5f : glm::mix(previousStart, previousEnd, 1.0f - blendFraction) * kReceiverDepthSlack;
+    const float filterReach = std::max(kMaxPcssReachTexels, kPcfRadiusPerSoftness * state.settings.shadowSoftness);
+    const float marginTexels = std::abs(state.settings.shadowNormalBias) * kMaxNormalOffsetPerBias + filterReach + kReceiverSlackTexels;
+    fitReceiverPlanes(cascade, input, invView, receiverStart, farDistance / kReceiverDepthSlack, 2.0f * marginTexels / static_cast<float>(state.shadowResolution));
 }
 
 void writeCascadeUniforms(const Lighting::Data& state, SceneUniforms& uniforms) {

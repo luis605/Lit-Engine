@@ -1,4 +1,8 @@
 #version 460 core
+#ifdef HIZ_KEEP_MIN
+#extension GL_GOOGLE_include_directive : require
+#include "screen_region.glsl"
+#endif
 
 layout (binding = 0, r32f) readonly uniform image2D u_sourceMip;
 layout (binding = 1, r32f) writeonly uniform image2D u_destMip;
@@ -11,20 +15,40 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 #define HIZ_COMBINE(a, b) max(a, b)
 #endif
 
+#ifdef HIZ_KEEP_MIN
+ivec2 sourceFirst;
+ivec2 sourceEnd;
+
+float sourceDepth(ivec2 coord) { return imageLoad(u_sourceMip, clamp(coord, sourceFirst, sourceEnd - 1)).r; }
+#else
+float sourceDepth(ivec2 coord) { return imageLoad(u_sourceMip, coord).r; }
+#endif
+
 void main() {
     ivec2 destCoord = ivec2(gl_GlobalInvocationID.xy);
     ivec2 destSize = imageSize(u_destMip);
 
+#ifdef HIZ_KEEP_MIN
+    ivec2 destFirst;
+    ivec2 destEnd;
+    screenRegionAtSize(destSize, destFirst, destEnd);
+    screenRegionAtSize(imageSize(u_sourceMip), sourceFirst, sourceEnd);
+    destCoord += destFirst;
+    if (any(greaterThanEqual(destCoord, destEnd))) {
+        return;
+    }
+#else
     if (destCoord.x >= destSize.x || destCoord.y >= destSize.y) {
         return;
     }
+#endif
 
     ivec2 sourceCoord = destCoord * 2;
 
-    float d0 = imageLoad(u_sourceMip, sourceCoord + ivec2(0, 0)).r;
-    float d1 = imageLoad(u_sourceMip, sourceCoord + ivec2(1, 0)).r;
-    float d2 = imageLoad(u_sourceMip, sourceCoord + ivec2(0, 1)).r;
-    float d3 = imageLoad(u_sourceMip, sourceCoord + ivec2(1, 1)).r;
+    float d0 = sourceDepth(sourceCoord + ivec2(0, 0));
+    float d1 = sourceDepth(sourceCoord + ivec2(1, 0));
+    float d2 = sourceDepth(sourceCoord + ivec2(0, 1));
+    float d3 = sourceDepth(sourceCoord + ivec2(1, 1));
 
     float maxDepth = HIZ_COMBINE(HIZ_COMBINE(d0, d1), HIZ_COMBINE(d2, d3));
 
@@ -40,15 +64,15 @@ void main() {
     }
 
     if (oddX) {
-        maxDepth = HIZ_COMBINE(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 0)).r);
-        maxDepth = HIZ_COMBINE(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 1)).r);
+        maxDepth = HIZ_COMBINE(maxDepth, sourceDepth(sourceCoord + ivec2(2, 0)));
+        maxDepth = HIZ_COMBINE(maxDepth, sourceDepth(sourceCoord + ivec2(2, 1)));
     }
     if (oddY) {
-        maxDepth = HIZ_COMBINE(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(0, 2)).r);
-        maxDepth = HIZ_COMBINE(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(1, 2)).r);
+        maxDepth = HIZ_COMBINE(maxDepth, sourceDepth(sourceCoord + ivec2(0, 2)));
+        maxDepth = HIZ_COMBINE(maxDepth, sourceDepth(sourceCoord + ivec2(1, 2)));
     }
     if (oddX && oddY) {
-        maxDepth = HIZ_COMBINE(maxDepth, imageLoad(u_sourceMip, sourceCoord + ivec2(2, 2)).r);
+        maxDepth = HIZ_COMBINE(maxDepth, sourceDepth(sourceCoord + ivec2(2, 2)));
     }
 
     imageStore(u_destMip, destCoord, vec4(maxDepth, 0.0, 0.0, 0.0));

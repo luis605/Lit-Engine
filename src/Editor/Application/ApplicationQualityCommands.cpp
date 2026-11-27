@@ -4,7 +4,7 @@ module;
 #include <string>
 #include <vector>
 
-#include "Editor/Look/QualityPresets.hpp"
+#include "Engine/Render/QualityPresets.hpp"
 
 module Editor.application;
 
@@ -25,7 +25,7 @@ void Application::registerQualityCommands() {
         }).checked = [this, name] { return activeQualityPreset(m_engine.renderSettings()) == name; };
     }
     addCommand("quality.preset", "Quality preset: choose by name", "Render", {}, [this, names] {
-        m_palette.prompt({"Quality preset", "", "low, medium, high or ultra", names, [this](const std::string& answer) {
+        m_palette.prompt({"Quality preset", "", "low, medium, high, ultra, default, balanced or performance", names, [this](const std::string& answer) {
             if (applyQualityPreset(m_engine.renderSettings(), answer)) m_ctx->toast(std::format("Quality: {}", answer));
             else m_ctx->toast(std::format("Unknown quality preset '{}'", answer), ToastKind::Error);
         }});

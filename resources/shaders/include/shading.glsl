@@ -200,15 +200,22 @@ vec3 evaluatePunctual(ShadingData s, GpuLight light, float noise) {
     float d2 = dot(toLight, toLight);
     vec3 L = toLight * inversesqrt(max(d2, 1e-8));
     bool isSpot = light.colorType.w > 1.5;
+#ifdef LIT_PUNCTUAL_ONLY
+    bool isArea = false;
+#else
     bool isArea = !isSpot && qualityParams.z > 0.5 && light.params.x + light.params.y > 1e-4;
+#endif
     float attenuation = distanceAttenuation(d2, light.params.z);
     if (isSpot) attenuation *= spotAttenuation(L, light);
     if (attenuation <= 0.0) return vec3(0.0);
     float NoL = dot(s.N, L);
     float visibility = 1.0;
     if (NoL > 0.0 || s.subsurface > 0.0) {
+#ifndef LIT_NO_LOCAL_SHADOW_MAP
         if (light.params.w >= 0.0) visibility = localShadow(int(light.params.w + 0.5), light.colorType.w < 1.5, light.positionRange.xyz, s.position, s.N, L, max(NoL, 0.05), noise);
-        else if (lightHasVirtualShadow(light)) visibility = virtualShadow(lightVirtualFace(light), light.colorType.w < 1.5, light.positionRange.xyz, s.position, s.N, L, max(NoL, 0.05), noise, g_pixelFootprint);
+        else
+#endif
+        if (lightHasVirtualShadow(light)) visibility = virtualShadow(lightVirtualFace(light), light.colorType.w < 1.5, light.positionRange.xyz, s.position, s.N, L, max(NoL, 0.05), noise, g_pixelFootprint);
     }
     if (isArea) return evaluateAreaLight(s, light, toLight, d2, visibility);
     return surfaceShading(s, L, light.colorType.rgb * attenuation, visibility);
@@ -221,6 +228,8 @@ vec3 evaluateLights(ShadingData s, vec2 pixel, float viewDepth) {
     vec3 color = vec3(0.0);
     for (uint i = 0u; i < range.y; ++i) {
         uint index = clusterLights[range.x + i];
+        vec3 toLight = lights[index].positionRange.xyz - s.position;
+        if (dot(toLight, toLight) * lights[index].params.z >= 1.0) continue;
         GpuLight light = lights[index];
         float aperture = lightAperture(index, light.positionRange.xyz, s.position);
         if (aperture > 0.0) color += aperture * evaluatePunctual(s, light, noise);
@@ -228,14 +237,19 @@ vec3 evaluateLights(ShadingData s, vec2 pixel, float viewDepth) {
     return color;
 }
 
-float g_contactShadow = 1.0;
+#ifdef SUN_CONTACT_SHADOW
+float sunContactShadow();
+#endif
 
 vec3 evaluateSun(ShadingData s, vec2 pixel, out float visibility) {
     vec3 L = sunDirection.xyz;
     float NoL = dot(s.N, L);
     visibility = 0.0;
     if (sunIlluminance.w <= 0.0) return vec3(0.0);
-    if (NoL > 0.0 || s.subsurface > 0.0) visibility = sunShadow(s.position, s.N, max(NoL, 0.05), pixel) * g_contactShadow;
+    if (NoL > 0.0 || s.subsurface > 0.0) visibility = sunShadow(s.position, s.N, max(NoL, 0.05), pixel);
+#ifdef SUN_CONTACT_SHADOW
+    if (visibility > 0.0) visibility *= sunContactShadow();
+#endif
     return surfaceShading(s, L, sunIlluminance.rgb, visibility);
 }
 

@@ -30,6 +30,9 @@ constexpr float kRayleighScaleHeight = 8.0f;
 constexpr float kMieScaleHeight = 1.2f;
 constexpr float kMoonSunThreshold = -0.16f;
 constexpr float kMoonDiskRadius = 0.0075f;
+constexpr float kSunShaftMinClipW = 1e-4f;
+constexpr float kSunShaftMinElevation = -0.02f;
+constexpr int kMaxSsgiStepCount = 24;
 constexpr float kMaxCloudOffset = 1.26e6f;
 constexpr float kCloudTimeWrap = 10000.0f;
 constexpr float kCloudEnvironmentRefreshTravel = 7.5f;
@@ -117,11 +120,13 @@ void fillCameraUniforms(Lighting::Data& state, const FrameInput& input, SceneUni
     uniforms.clusterParams = glm::vec4(static_cast<float>(kClusterZ) / std::log(std::max(depthRatio, 1.0001f)), 0.0f, width / static_cast<float>(kClusterX), height / static_cast<float>(kClusterY));
 }
 
-void fillSunUniforms(const Lighting::Data& state, const SunState& sun, const glm::vec3& transmittance, SceneUniforms& uniforms) {
+void fillSunUniforms(Lighting::Data& state, const SunState& sun, const glm::vec3& transmittance, SceneUniforms& uniforms) {
     const RenderSettings& settings = state.settings;
     const float sunUp = glm::length(transmittance) > 1e-6f ? 1.0f : 0.0f;
+    state.sunShaftsOnScreenSide = (uniforms.viewProjection * glm::vec4(state.sun, 0.0f)).w > kSunShaftMinClipW && -glm::dot(glm::vec3(uniforms.invView[2]), state.sun) > 0.0f && state.sun.y > kSunShaftMinElevation;
     uniforms.sunDirection = glm::vec4(state.sun, glm::radians(settings.sunAngularDiameter) * 0.5f);
     uniforms.sunIlluminance = glm::vec4(sun.illuminance * transmittance, sunUp);
+    state.sunReachesGround = sunUp > 0.0f;
     uniforms.exposureParams = glm::vec4(settings.skyBrightness, 0.0f, settings.environmentIntensity, static_cast<float>(static_cast<int>(settings.debugView)));
     uniforms.moonDirection = glm::vec4(sun.moon, kMoonDiskRadius);
     uniforms.celestialParams = glm::vec4(sun.trueSun, sun.moonLit ? 1.0f : 0.0f);
@@ -159,7 +164,7 @@ void fillRenderUniforms(const Lighting::Data& state, SceneUniforms& uniforms) {
     uniforms.maskParams = glm::vec4(settings.maskContrast, settings.maskSheen, settings.maskSheenSpeed, settings.maskSheenWidth);
     uniforms.maskColor = glm::vec4(settings.maskSheenColor, glm::radians(settings.maskSheenAngle));
     uniforms.vignetteParams = glm::vec4(settings.vignetteWidth, settings.vignetteTightness, 0.0f, 0.0f);
-    uniforms.giParams = glm::vec4(settings.ssao && settings.ssgi ? settings.ssgiIntensity : 0.0f, settings.ssgiThickness, state.pyramidValid ? 1.0f : 0.0f, static_cast<float>(kPyramidMips));
+    uniforms.giParams = glm::vec4(settings.ssao && settings.ssgi ? settings.ssgiIntensity : 0.0f, settings.ssgiThickness, state.pyramidValid ? 1.0f : 0.0f, static_cast<float>(std::clamp(settings.ssgiStepCount, 0, kMaxSsgiStepCount)));
     uniforms.bleedParams = colorBleedUniform(settings);
     uniforms.qualityParams = glm::vec4(settings.shadowCascadeBlend, settings.contactShadows ? settings.shadowContactLength : 0.0f, settings.areaLights ? 1.0f : 0.0f, settings.cloudAerialStrength);
     uniforms.qualityParams2 = glm::vec4(static_cast<float>(settings.aoDenoise), settings.bentNormals ? 1.0f : 0.0f, settings.upscaleSharpness, settings.renderScale);
@@ -182,7 +187,7 @@ void updateSkyHash(Lighting::Data& state, const FrameInput& input, const SunStat
         state.skyHash = hash;
         state.envDirty = true;
     }
-    if (state.cloudTravelSinceCapture > kCloudEnvironmentRefreshTravel) state.envDirty = true;
+    if (state.cloudTravelSinceCapture > kCloudEnvironmentRefreshTravel) state.envRefreshPending = true;
 }
 
 }

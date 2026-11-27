@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "screen_region.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
@@ -6,7 +8,10 @@ uniform sampler2D u_depth;
 layout(r32f) writeonly uniform image2D u_destMip;
 
 void main() {
-    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(coord, imageSize(u_destMip)))) return;
+    ivec2 first;
+    ivec2 end;
+    screenRegionAtSize(imageSize(u_destMip), first, end);
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy) + first;
+    if (any(greaterThanEqual(coord, end))) return;
     imageStore(u_destMip, coord, vec4(texelFetch(u_depth, coord, 0).r, 0.0, 0.0, 0.0));
 }

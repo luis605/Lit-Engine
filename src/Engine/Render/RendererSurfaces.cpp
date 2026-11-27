@@ -182,6 +182,7 @@ bool BuildSurface(DiligentData& gpu, DiligentData::SurfaceProgram& program) {
     }
     const SurfaceSource source = ParseSurface(text);
     program.bounds = source.bounds;
+    program.deformsVertices = source.bounds > 0.0f || !source.vertexCode.empty();
     program.twoSided = source.twoSided;
     litgpu::lastCompileErrors().clear();
     const std::tuple<SurfaceKind, bool> variants[kSurfaceVariantCount] = {

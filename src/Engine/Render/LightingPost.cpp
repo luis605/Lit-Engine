@@ -94,7 +94,7 @@ void createPostBindings(Lighting::Data& state, Diligent::IBuffer* scene) {
     state.fxaaSrb = litgpu::makeBinding(state.fxaaPso,
                                         {
                                             {"SceneData", scene                                },
-                                            {"u_ldr",     litgpu::srv(finalColorTexture(state))}
+                                            {"u_ldr",     litgpu::srv(state.ldr)}
     });
     createUpscaleBindings(state, scene);
 }
@@ -131,7 +131,7 @@ void createGodRayBindings(Lighting::Data& state, Diligent::IBuffer* scene) {
 
 void renderGodRays(Lighting::Data& state, Diligent::IBuffer* scene, int parity) {
     const RenderSettings& settings = state.settings;
-    const bool enabled = settings.godRays && settings.godRayIntensity > 0.0f && settings.sky == SkyMode::Physical && state.shadeDepth && state.godRayMaskPso && state.godRayBlurPso && state.godRayCompositePso;
+    const bool enabled = state.sunShaftsOnScreenSide && settings.godRays && settings.godRayIntensity > 0.0f && settings.sky == SkyMode::Physical && state.shadeDepth && state.godRayMaskPso && state.godRayBlurPso && state.godRayCompositePso;
     if (!enabled) return;
     if (state.godRayVersion != state.bindingVersion || state.godRayDepth != state.shadeDepth || !state.godRayMaskSrb) createGodRayBindings(state, scene);
     Diligent::IDeviceContext* context = state.context;
@@ -222,11 +222,19 @@ void Lighting::finish(Diligent::IBuffer* sceneUniforms, Diligent::ITextureView* 
     if (state.tonemapPso && state.tonemapSrb[parity]) drawFullscreen(context, state.tonemapPso, state.tonemapSrb[parity]);
     litgpu::dispatch(context, state.commitPso, state.commitSrb, 1);
     if (afterTonemap) afterTonemap(state.ldr);
-    runUpscale(state);
+    const bool upscale = upscaleReady(state);
+    if (upscale) {
+        Diligent::ITextureView* upscaleSourceTarget = litgpu::rtv(state.upscaleSource);
+        context->SetRenderTargets(1, &upscaleSourceTarget, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->SetViewports(1, &viewport, targetWidth, targetHeight);
+        drawFullscreen(context, state.upscaleFxaaPso, state.upscaleFxaaSrb);
+        runUpscale(state);
+    }
     context->SetRenderTargets(1, &backBuffer, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     viewport.Width = static_cast<float>(state.outputWidth);
     viewport.Height = static_cast<float>(state.outputHeight);
     context->SetViewports(1, &viewport, static_cast<Diligent::Uint32>(state.outputWidth), static_cast<Diligent::Uint32>(state.outputHeight));
-    if (state.fxaaPso && state.fxaaSrb) drawFullscreen(context, state.fxaaPso, state.fxaaSrb);
+    if (upscale) drawFullscreen(context, state.presentPso, state.presentSrb);
+    else if (state.fxaaPso && state.fxaaSrb) drawFullscreen(context, state.fxaaPso, state.fxaaSrb);
     state.hdrIndex = 1 - state.hdrIndex;
 }

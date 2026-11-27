@@ -6,6 +6,7 @@ inline constexpr uint32_t kProbeMips = 6;
 inline constexpr uint32_t kProbeCubeFaces = 6;
 inline constexpr uint32_t kProbeSlices = kMaxReflectionProbes * kProbeCubeFaces;
 inline constexpr uint32_t kSkyVolumeGroupSize = 4;
+inline constexpr uint32_t kSkyVolumeLayersPerFrame = 2;
 
 struct ReflectionConstants {
     glm::vec4 mode;
@@ -26,6 +27,10 @@ struct ReflectionGpu {
     ReflectionVoxelGrid grid;
     bool gridDirty = false;
     bool skyVolumeDirty = true;
+    bool skyVolumeBuilt = false;
+    int skyVolumeLayer = -1;
+    glm::vec3 skyVolumeMin{0.0f};
+    glm::vec3 skyVolumeSize{0.0f};
     uint64_t gridKey = 0;
     ProbeBakeState bake;
     uint32_t probeResolution = kProbeResolutionDefault;
@@ -33,7 +38,7 @@ struct ReflectionGpu {
     Diligent::ITexture* boundDepth = nullptr;
     int planarWidth = 0;
     int planarHeight = 0;
-    RefCntAutoPtr<Diligent::IBuffer> constants;
+    RefCntAutoPtr<Diligent::IBuffer> constants, skyVolumeConstants;
     RefCntAutoPtr<Diligent::ITexture> voxels, skyVolume, probeCubes, planarDepth, planarColor;
     RefCntAutoPtr<Diligent::ITextureView> probeMips[kProbeMips];
     RefCntAutoPtr<Diligent::IPipelineState> planarClearPso, planarDepthPso, planarColorPso, probeBakePso, skyVolumePso, compositePso;

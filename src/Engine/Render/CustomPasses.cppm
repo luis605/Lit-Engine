@@ -124,6 +124,7 @@ export class CustomPasses {
     bool load(std::string_view line);
     [[nodiscard]] bool meshShadersSupported() const;
     [[nodiscard]] bool hasEffects(EffectStage stage = EffectStage::Hdr) const;
+    [[nodiscard]] bool hasSceneShaderPasses() const;
     void resetTimers(uint32_t frameSlot);
     void readTimings(uint32_t frameSlot);
 

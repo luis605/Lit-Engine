@@ -24,9 +24,10 @@ const uint VSM_COUNTER_RENDERED_FRAME = 9u;
 const uint VSM_ARGS_CLEAR = 0u;
 const uint VSM_ARGS_CULL = 4u;
 const uint VSM_ARGS_SCATTER = 8u;
-const uint VSM_ARGS_DRAW_COUNT = 12u;
+const uint VSM_ARGS_INSTANCE_CURSOR = 12u;
 
 const uint VSM_BUCKETS = 2048u;
+const uint VSM_VIEWPORTS_PER_DRAW = 16u;
 
 const uint VSM_TIERS = 8u;
 const uint VSM_HIST_BASE = 16u;

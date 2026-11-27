@@ -75,7 +75,7 @@ void main() {
     float occludedS = -1.0;
     for (int i = 0; i < iterationLimit && s < lengthPx; ++i) {
         vec2 p = start.xy + dir * s;
-        if (any(lessThan(p, vec2(0.0))) || any(greaterThanEqual(p, hizSize))) break;
+        if (any(lessThan(p, vec2(0.0))) || any(greaterThanEqual(p, hizSize)) || outsideDepthRegion(p)) break;
         float cellSize = exp2(float(level));
         vec2 cell = floor(p / cellSize);
         vec2 boundary = (cell + exitBias) * cellSize;
@@ -95,8 +95,9 @@ void main() {
         }
         float sPlane = abs(dzds) > 1e-9 ? (zMin - start.z) / dzds : s;
         float sHit = clamp(sPlane, s, sExit);
-        float rayLinear = linearViewDepth(1.0 - (start.z + dzds * sHit));
-        float sceneLinear = linearViewDepth(1.0 - zMin);
+        vec2 hitUv = (start.xy + dir * sHit) / hizSize;
+        float rayLinear = linearViewDepth(hitUv, 1.0 - (start.z + dzds * sHit));
+        float sceneLinear = linearViewDepth(hitUv, 1.0 - zMin);
         float thick = thickness * max(sceneLinear * 0.05, 1.0);
         float behind = rayLinear - sceneLinear;
         if (behind < thick * 2.0) {

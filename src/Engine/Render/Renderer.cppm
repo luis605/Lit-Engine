@@ -256,11 +256,13 @@ export class Renderer {
     void buildMeshletDraws(int phaseIndex, uint32_t views);
     void drawMeshletSurfaces(int phaseIndex, int cascade, uint32_t view);
     void setMeshletShadowLod(std::span<const glm::vec4> views, uint32_t orthoMask);
+    void setMeshletCasterCull(std::span<const glm::vec4> casterPlanes, const glm::vec3& lightTravel);
     [[nodiscard]] bool meshletsActive() const;
     [[nodiscard]] bool meshletMeshInfoStale() const;
     bool uploadMeshletMeshInfo(size_t count);
     void releaseMeshlets();
     void invalidateMeshletBindings();
+    [[nodiscard]] bool instancingRequested() const;
     [[nodiscard]] bool instancingActive() const;
     void uploadInstances();
     void dispatchInstanceCull(int mode, int phaseIndex, Diligent::ITexture* hiz, const void* constants);
@@ -307,6 +309,8 @@ export class Renderer {
     void renderPortalGeometry(int index, uint32_t objectCount, PortalHistory& history);
     void shadePortalView(int index);
     [[nodiscard]] glm::ivec4 portalViewRect(int index) const;
+    [[nodiscard]] glm::ivec4 portalDepthRegion(int index) const;
+    [[nodiscard]] glm::ivec4 portalSurfaceRect(const PortalSurface& surface) const;
     void compositePortals(int index);
     void resolvePortalDepth(int index);
     void maskPortalView(int index);

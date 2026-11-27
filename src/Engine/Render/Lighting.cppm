@@ -84,6 +84,7 @@ export struct SceneUniforms {
     glm::vec4 cellParams;
     glm::vec4 cellTint;
     glm::ivec4 viewRect;
+    glm::ivec4 depthRegion;
 };
 
 export struct LightAperture {
@@ -119,11 +120,13 @@ export struct MaterialGpu {
 export MaterialGpu packMaterial(const Material& material);
 
 export constexpr int kShadowLayers = 6;
+export constexpr int kCascadeReceiverPlanes = 8;
 
 export struct Cascade {
     glm::mat4 viewProjection{1.0f};
     glm::mat4 renderViewProjection{1.0f};
     glm::vec4 planes[6]{};
+    glm::vec4 receiverPlanes[kCascadeReceiverPlanes]{};
     int viewport[4]{};
     float split = 0.0f;
     float texelsPerUnit = 1.0f;
@@ -231,11 +234,12 @@ export class Lighting {
     void beginFrame(const FrameInput& input, SceneUniforms& uniforms);
     void fitShadows(const FrameInput& input, SceneUniforms& uniforms);
     // Restricts the screen-space passes of shade() to a pixel rectangle (x, y, width, height); an empty size means the whole view. SceneUniforms::viewRect must hold the same value.
-    void setViewRect(const glm::ivec4& rect);
+    void setViewRect(const glm::ivec4& rect, const glm::ivec4& depthRegion = glm::ivec4(0));
     void useCascades(const std::array<Cascade, 4>& cascades, SceneUniforms& uniforms);
     [[nodiscard]] const std::array<Cascade, 4>& cascades() const;
     [[nodiscard]] int cascadeCount() const;
     [[nodiscard]] int shadowResolution() const;
+    [[nodiscard]] bool sunCastsShadows() const;
     [[nodiscard]] const std::array<LocalShadowView, kMaxLocalShadowViews>& localShadowViews() const;
     [[nodiscard]] const std::array<LocalShadowCaster, kMaxLocalShadowLights>& localShadowCasters() const;
     [[nodiscard]] int localShadowCasterCount() const;

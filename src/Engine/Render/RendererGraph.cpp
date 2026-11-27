@@ -278,7 +278,7 @@ void Renderer::addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, 
         }, [this, phase, objectCount, texture](rg::PassContext&) { cullVisibilityPhase(phase, objectCount, texture); });
     };
     auto instanceCull = [&](const char* name, GpuPass timing, int phase, rg::Handle hiz, Diligent::ITexture* texture) {
-        if (!instancingActive()) return;
+        if (!instancingRequested()) return;
         graph.addPass(name, [&](rg::PassBuilder& pass) {
             pass.timing(timed(timing));
             pass.read(hiz, Usage::ShaderResource);
@@ -332,7 +332,7 @@ void Renderer::addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, 
         pass.timing(timed(GpuPass::HiZ));
         pass.read(frame.depth, Usage::ShaderResource);
         pass.write(hizCurrent, Usage::None);
-    }, [this, history](rg::PassContext&) {
+    }, [this, history, viewIndex](rg::PassContext&) {
         auto& state = *m_diligent;
         UnbindRenderTargets(state.pImmediateContext);
         if (!history) {
@@ -340,7 +340,7 @@ void Renderer::addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, 
             return;
         }
         HiZSet& set = history->hiz[1 - history->previous];
-        BuildHiZ(state, set.texture.RawPtr(), set.source, set.dest, m_renderWidth, m_renderHeight, m_maxMipLevel);
+        BuildHiZ(state, set.texture.RawPtr(), set.source, set.dest, m_renderWidth, m_renderHeight, m_maxMipLevel, portalDepthRegion(viewIndex));
     });
     cull("Retest Cull", GpuPass::RetestCull, kPhaseRetest, hizCurrent, currentHiZ);
     instanceCull("Instance Retest Cull", GpuPass::InstanceRetestCull, kPhaseRetest, hizCurrent, currentHiZ);
@@ -397,6 +397,7 @@ void Renderer::addResolvePasses(rg::RenderGraph& graph, FrameGraphData& frame, i
         }
         pass.write(scratch, Usage::CopyDest);
         for (const rg::Handle target : frame.gbuffer) pass.write(target, Usage::RenderTarget);
+        pass.write(frame.hdr, Usage::RenderTarget);
         pass.write(frame.depth, Usage::None);
     }, [this, viewIndex, scratch](rg::PassContext& context) {
         auto& state = *m_diligent;
@@ -427,7 +428,7 @@ void Renderer::addShadePasses(rg::RenderGraph& graph, FrameGraphData& frame, int
     };
     auto shade = [this, viewIndex](int stage) {
         auto& state = *m_diligent;
-        m_lighting.setViewRect(viewIndex > 0 ? portalViewRect(viewIndex) : glm::ivec4(0));
+        m_lighting.setViewRect(portalViewRect(viewIndex), portalDepthRegion(viewIndex));
         m_lighting.shade(state.pSceneDepth, state.pSceneUBO[m_currentFrame], stage);
     };
 
@@ -625,7 +626,7 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
         pass.read(frame.phases[kPhaseTransparent], Usage::None);
         pass.read(frame.meshlets[kPhaseTransparent], Usage::None);
     }, [this](rg::PassContext&) {
-        m_lighting.captureSceneColor();
+        if (m_diligent->sceneHasTranslucent) m_lighting.captureSceneColor();
         drawTransparency();
     });
     if (frame.portalsActive) {

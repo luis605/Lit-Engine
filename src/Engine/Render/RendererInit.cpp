@@ -18,6 +18,7 @@ module;
 #include <GLFW/glfw3native.h>
 
 std::string LitDescriptorIndexingAudit(Diligent::IRenderDevice* device);
+bool LitVulkanAdapterSupportsExtension(uint32_t vendorId, uint32_t deviceId, const char* extension);
 
 module Engine.renderer;
 
@@ -47,6 +48,7 @@ constexpr const char* kIgnoredValidationMessages[] = {
     "VUID-VkPhysicalDeviceMeshShaderFeaturesEXT-multiviewMeshShader-07032",
     "VUID-VkPhysicalDeviceMeshShaderFeaturesEXT-primitiveFragmentShadingRateMeshShader-07033"
 };
+constexpr const char* kVertexViewportIndexExtension = "VK_EXT_shader_viewport_index_layer";
 
 }
 
@@ -57,6 +59,17 @@ std::filesystem::path PipelineCachePath() { return litgpu::shaderCacheDirectory(
 bool PipelineCacheDisabled() {
     const char* value = std::getenv("LIT_NO_PIPELINE_CACHE");
     return value && value[0] == '1';
+}
+
+bool AdapterSupportsVertexViewportIndex(Diligent::IEngineFactory* factory, Diligent::Uint32 adapterId, Diligent::Version minVersion) {
+    const char* disabled = std::getenv("LIT_NO_VIEWPORT_INDEX");
+    if (disabled && disabled[0] == '1') return false;
+    Diligent::Uint32 adapterCount = 0;
+    factory->EnumerateAdapters(minVersion, adapterCount, nullptr);
+    std::vector<Diligent::GraphicsAdapterInfo> adapters(adapterCount);
+    factory->EnumerateAdapters(minVersion, adapterCount, adapters.data());
+    if (adapterId >= adapterCount || adapters[adapterId].Features.MultiViewport == Diligent::DEVICE_FEATURE_STATE_DISABLED) return false;
+    return LitVulkanAdapterSupportsExtension(adapters[adapterId].VendorId, adapters[adapterId].DeviceId, kVertexViewportIndexExtension);
 }
 
 bool BindlessRequested() {
@@ -126,6 +139,12 @@ void Renderer::createDevice() {
     engineInfo.Features.GeometryShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     engineInfo.Features.MeshShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
     engineInfo.Features.VariableRateShading = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+    const bool vertexViewportIndex = engineInfo.AdapterId != Diligent::DEFAULT_ADAPTER_ID && AdapterSupportsVertexViewportIndex(gpu.pFactoryVk, engineInfo.AdapterId, engineInfo.GraphicsAPIVersion);
+    if (vertexViewportIndex) {
+        engineInfo.Features.MultiViewport = Diligent::DEVICE_FEATURE_STATE_ENABLED;
+        engineInfo.ppDeviceExtensionNames = &kVertexViewportIndexExtension;
+        engineInfo.DeviceExtensionCount = 1;
+    }
     if (BindlessRequested()) {
         engineInfo.Features.BindlessResources = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
         engineInfo.Features.ShaderResourceRuntimeArrays = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
@@ -138,6 +157,7 @@ void Renderer::createDevice() {
 
     gpu.pFactoryVk->CreateDeviceAndContextsVk(engineInfo, &gpu.pDevice, &gpu.pImmediateContext);
     Lit::Log::Phase("vulkan device");
+    litgpu::vertexViewportIndexEnabled() = vertexViewportIndex && gpu.pDevice && gpu.pDevice->GetDeviceInfo().Features.MultiViewport == Diligent::DEVICE_FEATURE_STATE_ENABLED;
     LogBindlessAudit(gpu);
     CreatePipelineCache(gpu);
 
@@ -330,4 +350,9 @@ void Renderer::setAnimation(float time, uint32_t movingCount, uint32_t entityOff
 void Renderer::setMaterial(uint32_t index, const Material& material) {
     if (!m_initialized) return;
     m_lighting.setMaterial(index, material);
+    const MaterialGpu packed = packMaterial(material);
+    auto& translucent = m_diligent->translucentMaterials;
+    if (translucent.size() <= index) translucent.resize(static_cast<size_t>(index) + 1, false);
+    translucent[index] = packed.baseColorOpacity.w < 0.999f || packed.transmission.x > 0.001f;
+    m_diligent->translucencyDirty = true;
 }

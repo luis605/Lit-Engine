@@ -11,6 +11,7 @@ import Engine.engine;
 import Engine.World;
 import Engine.Physics;
 import Engine.Character;
+import Engine.Terrain;
 import Engine.Portal;
 import Engine.camera;
 import Engine.Replay;
@@ -30,6 +31,7 @@ constexpr float kYawWest = 180.0f;
 constexpr int kSettleTicks = 90;
 constexpr float kContinuityDistance = 0.2f;
 constexpr float kContinuityAlignment = 0.95f;
+constexpr float kCourtyardSampleX = 400.0f;
 
 struct Run {
     std::unique_ptr<Engine> engine;
@@ -128,6 +130,23 @@ void testSceneStructure() {
     CHECK(run.engine->terrain() != nullptr);
     CHECK(std::abs(orbRunTerrainHeight(400.0f, 0.0f)) < 1.0e-3f);
     CHECK(orbRunTerrainHeight(400.0f, 150.0f) > 10.0f);
+}
+
+bool terrainShown(Run& run, float x, float z, int maxLevel) {
+    const TerrainStreamer& terrain = *run.engine->terrain();
+    const float tileSize = run.engine->terrain()->terrain().tileSize;
+    return std::ranges::any_of(terrain.visibleTiles(), [&](const TileKey& key) {
+        const float size = tileSize * static_cast<float>(1u << static_cast<unsigned>(key.level));
+        return key.level <= maxLevel && static_cast<int>(std::floor(x / size)) == key.x && static_cast<int>(std::floor(z / size)) == key.z;
+    });
+}
+
+void testCourtyardTerrainStreamedThroughPortal() {
+    Run run = makeRun();
+    run.engine->portals().step(run.engine->world().camera());
+    CHECK(run.player->cell() == cellOf(run, kOrbRunHub));
+    tick(run, kSettleTicks);
+    for (const float z : {10.0f, -20.0f, -60.0f}) CHECK(terrainShown(run, kCourtyardSampleX, z, 0));
 }
 
 void testCollectAllOrbsWins() {
@@ -334,6 +353,7 @@ void testDeterministic() {
 int main() {
     testRules();
     testSceneStructure();
+    testCourtyardTerrainStreamedThroughPortal();
     testCollectAllOrbsWins();
     testTimeoutLoses();
     testSpiderContactCostsLifeAndRespawns();

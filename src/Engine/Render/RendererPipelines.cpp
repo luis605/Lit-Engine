@@ -204,6 +204,7 @@ void Renderer::createTransparentPSO() {
 
 void Renderer::drawTransparency() {
     auto& gpu = *m_diligent;
+    if (!gpu.sceneHasTranslucent) return;
     auto* context = gpu.pImmediateContext.RawPtr();
     Diligent::ITextureView* targets[] = {gpu.pAccumulation->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET), gpu.pRevealage->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET)};
     auto* depthView = gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);

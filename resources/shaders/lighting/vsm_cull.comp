@@ -28,17 +28,36 @@ layout(std430) buffer VsmCounters {
 };
 
 layout(std430) writeonly buffer VsmInstances {
-    uvec2 vsmInstances[];
+    uvec4 vsmInstances[];
 };
 
-layout(std430) buffer VsmBuckets {
-    uint vsmBuckets[];
+layout(std430) buffer VsmPairCounts {
+    uint vsmPairCounts[];
+};
+
+layout(std430) buffer VsmGroupDraws {
+    uint vsmGroupDraws[];
+};
+
+layout(std430) readonly buffer VsmGroupActive {
+    uint vsmGroupActive[];
+};
+
+layout(std430) buffer VsmGroupTouched {
+    uint vsmGroupTouched[];
+};
+
+layout(std430) writeonly buffer VsmDrawCommands {
+    DrawElementsIndirectCommand vsmCommands[];
 };
 
 shared vec4 s_planes[6];
 shared vec4 s_depthRow;
 shared vec4 s_cut;
 shared vec2 s_lod;
+shared uint s_group;
+shared uint s_physicalGroup;
+shared bool s_emitted;
 
 void main() {
     uint slot = gl_WorkGroupID.x;
@@ -61,9 +80,15 @@ void main() {
         s_depthRow = r3;
         s_cut = f.clipPlane;
         s_lod = vec2(float(VSM_PAGE << page.mip) / (2.0 * f.info.x), vsmTuning.x);
+        uint physicalGroup = vsmRenderList[slot].y / VSM_VIEWPORTS_PER_DRAW;
+        bool pageViewports = ((vsmGroupActive[physicalGroup >> 5u] >> (physicalGroup & 31u)) & 1u) != 0u;
+        s_physicalGroup = physicalGroup;
+        s_group = pageViewports ? physicalGroup : vsmMisc.y / VSM_VIEWPORTS_PER_DRAW;
+        s_emitted = false;
     }
     barrier();
     vec4 planes[6] = s_planes;
+    uint group = s_group;
     for (uint id = thread; id < vsmCounts.z; id += 64u) {
         vec4 sphere = cullSpheres[id];
         if (sphere.w <= 0.0) continue;
@@ -80,7 +105,19 @@ void main() {
         if (bucket >= VSM_BUCKETS || meshInfos[bucket].indexCount == 0u) continue;
         uint instance = atomicAdd(vsmCounters[VSM_COUNTER_INSTANCES], 1u);
         if (instance >= vsmLimits.y) continue;
-        vsmInstances[instance] = uvec2(id, slot | (bucket << 16u));
-        atomicAdd(vsmBuckets[bucket], 1u);
+        uint pair = group * VSM_BUCKETS + bucket;
+        uint pairIndex = atomicAdd(vsmPairCounts[pair], 1u);
+        if (pairIndex == 0u) {
+            uint command = group * VSM_BUCKETS + atomicAdd(vsmGroupDraws[group], 1u);
+            MeshInfo mesh = meshInfos[bucket];
+            vsmCommands[command].count = mesh.indexCount;
+            vsmCommands[command].firstIndex = mesh.firstIndex;
+            vsmCommands[command].baseVertex = mesh.baseVertex;
+            vsmCommands[command].baseInstance = bucket;
+        }
+        vsmInstances[instance] = uvec4(id, slot, pair, pairIndex);
+        s_emitted = true;
     }
+    barrier();
+    if (thread == 0u && s_emitted) atomicOr(vsmGroupTouched[s_physicalGroup >> 5u], 1u << (s_physicalGroup & 31u));
 }

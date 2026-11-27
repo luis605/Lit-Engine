@@ -92,6 +92,11 @@ bool CustomPasses::hasEffects(EffectStage stage) const {
     return std::any_of(m_data->passes.begin(), m_data->passes.end(), [&](const Pass& pass) { return pass.info.kind == PassKind::Effect && pass.info.enabled && pass.pso && pass.info.stage == stage; });
 }
 
+bool CustomPasses::hasSceneShaderPasses() const {
+    if (!m_data) return false;
+    return std::any_of(m_data->passes.begin(), m_data->passes.end(), [](const Pass& pass) { return pass.info.kind != PassKind::Effect && pass.info.enabled && pass.pso; });
+}
+
 void CustomPasses::resetTimers(uint32_t frameSlot) {
     if (!m_data) return;
     for (Pass& pass : m_data->passes) pass.timed[frameSlot % kTimerSlots] = false;

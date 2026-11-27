@@ -1,4 +1,7 @@
 #version 450
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_KHR_shader_subgroup_arithmetic : enable
 #extension GL_GOOGLE_include_directive : require
 #include "scene.glsl"
 #include "mesh.glsl"
@@ -22,14 +25,6 @@ layout(std430) readonly buffer ClusterBuffer {
     Cluster clusters[];
 };
 
-layout(std430) readonly buffer ClusterVertexBuffer {
-    uint clusterVertices[];
-};
-
-layout(std430) readonly buffer ClusterTriangleBuffer {
-    uint clusterTriangles[];
-};
-
 layout(std430) readonly buffer ClusterMeshBuffer {
     ClusterMeshInfo clusterMeshes[];
 };
@@ -40,14 +35,6 @@ layout(std430) readonly buffer WorkCounterBuffer {
 
 layout(std430) readonly buffer WorkItemBuffer {
     uvec4 workItems[];
-};
-
-layout(std430) buffer IndexCounterBuffer {
-    uint u_indexCount;
-};
-
-layout(std430) writeonly buffer ExpandedIndexBuffer {
-    uint expandedIndices[];
 };
 
 layout(std430) buffer MeshletDrawCounterBuffer {
@@ -70,16 +57,13 @@ layout(std430) buffer MeshletStatsBuffer {
     uint meshletStats[];
 };
 
-shared uint s_triangles[MESHLET_GROUP_SIZE];
-shared uint s_prefix[MESHLET_GROUP_SIZE + 1u];
-shared uint s_vertexOffset[MESHLET_GROUP_SIZE];
-shared uint s_triangleOffset[MESHLET_GROUP_SIZE];
+shared uint s_first[MESHLET_GROUP_SIZE];
+shared uint s_count[MESHLET_GROUP_SIZE];
+shared uvec4 s_subgroupTotals[MESHLET_GROUP_SIZE];
 shared uint s_retest[2];
-shared uint s_tested;
-shared uint s_selected;
-shared uint s_drawn;
+shared uint s_starts[2];
 shared uint s_base;
-shared uint s_emit;
+shared uint s_runs;
 
 bool frustumVisible(vec3 center, float radius) {
     for (int i = 0; i < 6; ++i) {
@@ -102,9 +86,8 @@ void main() {
     if (lane == 0u) {
         s_retest[0] = 0u;
         s_retest[1] = 0u;
-        s_tested = 0u;
-        s_selected = 0u;
-        s_drawn = 0u;
+        s_starts[0] = 0u;
+        s_starts[1] = 0u;
     }
     barrier();
 
@@ -118,20 +101,22 @@ void main() {
     bool mirrored = dot(m3[0], cross(m3[1], m3[2])) < 0.0;
     bool coneUsable = (u_flags & MESHLET_FLAG_CONE) != 0u && !mirrored && minScale > scale * 0.95 && ((u_twoSidedMask >> shader) & 1u) == 0u;
     MeshletLod lod = meshletLod(commandSlot / max(u_shaderCount, 1u), scale);
+    bool casterCull = meshletCasterCulled(shader);
+    bool casterConeUsable = casterCull && !mirrored && minScale > scale * MESHLET_CASTER_UNIFORM_SCALE && ((u_twoSidedMask >> shader) & 1u) == 0u;
 
     bool maskBit = lane < 32u ? ((mask.x >> lane) & 1u) != 0u : ((mask.y >> (lane - 32u)) & 1u) != 0u;
     bool live = lane < item.z && maskBit;
     bool draw = false;
+    bool selected = false;
     Cluster cluster;
     if (live) {
         cluster = clusters[item.y + lane];
-        atomicAdd(s_tested, 1u);
         vec3 selfCenter = (model * vec4(cluster.selfSphere.xyz, 1.0)).xyz;
         vec3 parentCenter = (model * vec4(cluster.parentSphere.xyz, 1.0)).xyz;
         float selfError = meshletLodError(lod, selfCenter, cluster.selfSphere.w * scale, cluster.errors.x);
         float parentError = meshletLodError(lod, parentCenter, cluster.parentSphere.w * scale, cluster.errors.y);
         draw = selfError <= u_errorThreshold && parentError > u_errorThreshold;
-        if (draw) atomicAdd(s_selected, 1u);
+        selected = draw;
         vec3 center = (model * vec4(cluster.bounds.xyz, 1.0)).xyz;
         float radius = cluster.bounds.w * scale;
         if (draw && (u_flags & MESHLET_FLAG_FRUSTUM) != 0u) draw = frustumVisible(center, radius);
@@ -140,43 +125,36 @@ void main() {
             vec3 toCluster = center - viewPos;
             if (dot(toCluster, axis) >= cluster.cone.w * length(toCluster) + radius) draw = false;
         }
+        if (draw && casterCull) draw = meshletCasterInside(center, radius);
+        if (draw && casterConeUsable && cluster.cone.w < 1.0 && dot(normalize(m3 * cluster.cone.xyz), u_casterDirection.xyz) >= cluster.cone.w) draw = false;
         if (draw && (u_flags & MESHLET_FLAG_HIZ) != 0u && sphereOccluded(center, radius)) {
             draw = false;
             if ((u_flags & MESHLET_FLAG_RETEST_OUTPUT) != 0u) atomicOr(s_retest[lane >> 5u], 1u << (lane & 31u));
         }
     }
-    s_triangles[lane] = draw ? cluster.ranges.w : 0u;
-    s_vertexOffset[lane] = draw ? cluster.ranges.x : 0u;
-    s_triangleOffset[lane] = draw ? cluster.ranges.y : 0u;
-    if (draw) atomicAdd(s_drawn, 1u);
+    uint triangles = draw ? cluster.ranges.w : 0u;
+    s_first[lane] = draw ? cluster.ranges.y : 0u;
+    s_count[lane] = triangles;
+    uvec4 subgroupTotals = uvec4(subgroupBallotBitCount(subgroupBallot(live)), subgroupBallotBitCount(subgroupBallot(selected)), subgroupBallotBitCount(subgroupBallot(draw)), subgroupAdd(triangles));
+    if (subgroupElect()) s_subgroupTotals[gl_SubgroupID] = subgroupTotals;
+    barrier();
+    bool start = triangles > 0u && (lane == 0u || s_count[lane - 1u] == 0u || s_first[lane - 1u] + s_count[lane - 1u] != s_first[lane]);
+    if (start) atomicOr(s_starts[lane >> 5u], 1u << (lane & 31u));
     barrier();
 
     if (lane == 0u) {
-        uint total = 0u;
-        for (uint i = 0u; i < MESHLET_GROUP_SIZE; ++i) {
-            s_prefix[i] = total;
-            total += s_triangles[i];
-        }
-        s_prefix[MESHLET_GROUP_SIZE] = total;
-        s_emit = 0u;
+        uvec4 totals = uvec4(0u);
+        for (uint subgroup = 0u; subgroup < gl_NumSubgroups; ++subgroup) totals += s_subgroupTotals[subgroup];
+        uint runs = bitCount(s_starts[0]) + bitCount(s_starts[1]);
+        uint emitted = 0u;
         bool overflow = false;
-        if (total > 0u) {
-            uint base = atomicAdd(u_indexCount, total * 3u);
-            uint drawIndex = atomicAdd(drawCounters[commandSlot], 1u);
-            if (base + total * 3u <= u_indexCapacity && drawIndex < u_drawsPerSlot) {
-                s_base = base;
-                s_emit = 1u;
-                DrawElementsIndirectCommand command;
-                command.count = total * 3u;
-                command.instanceCount = 1u;
-                command.firstIndex = base;
-                command.baseVertex = clusterMeshes[meshId].info.z;
-                command.baseInstance = slot;
-                drawCommands[commandSlot * u_drawsPerSlot + drawIndex] = command;
-            } else {
-                overflow = true;
-            }
+        if (runs > 0u) {
+            uint drawIndex = atomicAdd(drawCounters[commandSlot], runs);
+            s_base = drawIndex;
+            emitted = drawIndex < u_drawsPerSlot ? min(runs, u_drawsPerSlot - drawIndex) : 0u;
+            overflow = emitted < runs;
         }
+        s_runs = emitted;
         if ((s_retest[0] | s_retest[1]) != 0u) {
             uint record = atomicAdd(u_retestCount, 1u);
             if (record < u_retestCapacity) {
@@ -187,33 +165,30 @@ void main() {
             }
         }
         uint stats = u_statsBase;
-        atomicAdd(meshletStats[stats + MESHLET_STAT_TESTED], s_tested);
-        atomicAdd(meshletStats[stats + MESHLET_STAT_SELECTED], s_selected);
-        if (s_emit != 0u) {
-            atomicAdd(meshletStats[stats + MESHLET_STAT_DRAWN], s_drawn);
-            atomicAdd(meshletStats[stats + MESHLET_STAT_TRIANGLES], total);
-            atomicAdd(meshletStats[stats + MESHLET_STAT_DRAWS], 1u);
+        atomicAdd(meshletStats[stats + MESHLET_STAT_TESTED], totals.x);
+        atomicAdd(meshletStats[stats + MESHLET_STAT_SELECTED], totals.y);
+        if (emitted != 0u) {
+            atomicAdd(meshletStats[stats + MESHLET_STAT_DRAWN], totals.z);
+            atomicAdd(meshletStats[stats + MESHLET_STAT_TRIANGLES], totals.w);
+            atomicAdd(meshletStats[stats + MESHLET_STAT_DRAWS], emitted);
         }
         if (overflow) atomicAdd(meshletStats[stats + MESHLET_STAT_OVERFLOW], 1u);
     }
     barrier();
-    if (s_emit == 0u) return;
-
-    uint total = s_prefix[MESHLET_GROUP_SIZE];
-    uint base = s_base;
-    for (uint triangle = lane; triangle < total; triangle += MESHLET_GROUP_SIZE) {
-        uint lo = 0u;
-        uint hi = MESHLET_GROUP_SIZE;
-        while (lo < hi) {
-            uint mid = (lo + hi) >> 1u;
-            if (s_prefix[mid + 1u] <= triangle) lo = mid + 1u;
-            else hi = mid;
-        }
-        uint packed = clusterTriangles[s_triangleOffset[lo] + (triangle - s_prefix[lo])];
-        uint vertexBase = s_vertexOffset[lo];
-        uint out0 = base + triangle * 3u;
-        expandedIndices[out0] = clusterVertices[vertexBase + (packed & 0xFFu)];
-        expandedIndices[out0 + 1u] = clusterVertices[vertexBase + ((packed >> 8u) & 0xFFu)];
-        expandedIndices[out0 + 2u] = clusterVertices[vertexBase + ((packed >> 16u) & 0xFFu)];
+    if (!start) return;
+    uint below = lane < 32u ? bitCount(s_starts[0] & ((1u << lane) - 1u)) : bitCount(s_starts[0]) + bitCount(s_starts[1] & ((1u << (lane - 32u)) - 1u));
+    if (below >= s_runs) return;
+    uint count = triangles;
+    uint next = lane + 1u;
+    while (next < MESHLET_GROUP_SIZE && s_count[next] != 0u && s_first[next] == s_first[next - 1u] + s_count[next - 1u]) {
+        count += s_count[next];
+        ++next;
     }
+    DrawElementsIndirectCommand command;
+    command.count = count * 3u;
+    command.instanceCount = 1u;
+    command.firstIndex = s_first[lane] * 3u;
+    command.baseVertex = clusterMeshes[meshId].info.z;
+    command.baseInstance = slot;
+    drawCommands[commandSlot * u_drawsPerSlot + s_base + below] = command;
 }

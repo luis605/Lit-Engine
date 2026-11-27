@@ -11,7 +11,7 @@ layout(location = 0) out vec4 out_color;
 
 vec3 litColor(vec2 uv) { return textureLod(u_color, uv, 0.0).rgb; }
 float litDepth(vec2 uv) { return textureLod(u_depth, uv, 0.0).r; }
-float litLinearDepth(vec2 uv) { return linearViewDepth(litDepth(uv)); }
+float litLinearDepth(vec2 uv) { return linearViewDepth(uv, litDepth(uv)); }
 vec3 litWorldPosition(vec2 uv) { return worldFromDepth(uv, litDepth(uv)); }
 vec3 litNormal(vec2 uv) { return decodeNormal(textureLod(u_gbuffer1, uv, 0.0).rg); }
 vec3 litBaseColor(vec2 uv) { return textureLod(u_gbuffer0, uv, 0.0).rgb; }

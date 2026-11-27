@@ -626,6 +626,28 @@ static void testBalanceAndFrustum() {
     CHECK(!boxInFrustum(lod.planes, glm::vec3(camera.x - 5.0f, 0.0f, camera.z - 300.0f), glm::vec3(camera.x + 5.0f, 10.0f, camera.z - 290.0f)));
 }
 
+static void testExtraViewpoints() {
+    const TerrainConfig config = makeConfig();
+    LodParams lod;
+    lod.maxLevel = 4;
+    lod.viewDistance = 500.0f;
+    lod.frustumCull = true;
+    lod.frustumMargin = 0.0f;
+    lod.keepRadius = 100.0f;
+    const glm::vec3 camera(0.0f, 40.0f, 0.0f);
+    const glm::vec3 remote(4000.0f, 40.0f, 0.0f);
+    const glm::mat4 projection = glm::perspective(glm::radians(60.0f), 16.0f / 9.0f, 0.5f, 3000.0f);
+    const glm::vec3 up(0.0f, 1.0f, 0.0f);
+    lod.planes = frustumPlanes(projection * glm::lookAt(camera, camera + glm::vec3(0.0f, 0.0f, 1.0f), up));
+    CHECK(!areaCovered(selectTerrainTiles(config, camera, lod), config, remote.x, remote.z + 300.0f));
+    lod.extraViews.push_back({remote, frustumPlanes(projection * glm::lookAt(remote, remote + glm::vec3(0.0f, 0.0f, 1.0f), up))});
+    const std::vector<SelectedTile> both = selectTerrainTiles(config, camera, lod);
+    CHECK(areaCovered(both, config, camera.x, camera.z + 300.0f));
+    CHECK(areaCovered(both, config, remote.x, remote.z + 300.0f));
+    CHECK(!areaCovered(both, config, remote.x, remote.z - 400.0f));
+    CHECK(std::ranges::any_of(both, [&](const SelectedTile& tile) { return tile.key.level == 0 && tile.distance == 0.0f && tile.boundsMin.x <= remote.x && tile.boundsMax.x > remote.x; }));
+}
+
 static void testPackedMorph() {
     const TerrainConfig config = makeConfig();
     TileMeshOptions packed;
@@ -1026,6 +1048,7 @@ int main() {
     testScatter();
     testLoader();
     testBalanceAndFrustum();
+    testExtraViewpoints();
     testPackedMorph();
     testStreamer();
     testScatterDeltas();

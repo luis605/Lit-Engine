@@ -35,6 +35,7 @@ float reflectionMaxRoughness() { return reflectMode.z; }
 int reflectionVoxelSteps() { return int(reflectMode.w + 0.5); }
 int probeCount() { return int(reflectCounts.x + 0.5); }
 bool planarActive() { return reflectCounts.y > 0.5; }
+bool screenGiApplied() { return planeAxisU.w > 0.5; }
 bool voxelsValid() { return reflectCounts.z > 0.5; }
 int planarDivisor() { return max(int(reflectCounts.w + 0.5), 1); }
 

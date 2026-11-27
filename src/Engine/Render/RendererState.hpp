@@ -99,6 +99,7 @@ struct DiligentData {
         std::string path;
         float bounds = 0.0f;
         bool twoSided = false;
+        bool deformsVertices = false;
         bool valid = false;
         std::string error;
         Diligent::RefCntAutoPtr<Diligent::IPipelineState> gbuffer;
@@ -170,6 +171,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::ITexture> pSceneDepth;
     Diligent::RefCntAutoPtr<Diligent::ITexture> pOverlayDepth;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pHiZFromDepthPSO;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> pHiZRegionUBO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pHiZFromDepthSRB;
 
     Diligent::RefCntAutoPtr<Diligent::IQuery> passQueries[kGpuPassCount][NumFrames][2];
@@ -229,6 +231,9 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPortalColorPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pPortalColorSRB;
     bool portalCompositeWritesDepth = true;
+    std::vector<bool> translucentMaterials;
+    bool translucencyDirty = true;
+    bool sceneHasTranslucent = true;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pPortalDepthPSO;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> pPortalDepthSRB;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pPortalDepthUBO;

@@ -9,6 +9,8 @@ module;
 #include <string_view>
 #include <type_traits>
 
+#include "QualityPresets.hpp"
+
 export module Engine.Render.settings;
 
 import Engine.glm;
@@ -93,6 +95,7 @@ export struct RenderSettings {
     bool ssgi = true;
     float ssgiIntensity = 1.0f;
     float ssgiThickness = 0.5f;
+    int ssgiStepCount = 0;
     bool colorBleed = true;
     float colorBleedIntensity = 1.0f;
     float colorBleedRadius = 2.5f;
@@ -113,6 +116,7 @@ export struct RenderSettings {
     float shadowSoftness = 1.0f;
     float shadowNormalBias = 1.5f;
     float shadowDepthBias = 0.6f;
+    bool shadowOcclusionCulling = false;
     bool pcss = true;
     bool contactShadows = true;
     bool localShadows = true;
@@ -233,6 +237,7 @@ void visitRenderSettings(Settings& settings, Visitor&& visit) {
     visit("ssgi", settings.ssgi);
     visit("ssgiIntensity", settings.ssgiIntensity);
     visit("ssgiThickness", settings.ssgiThickness);
+    visit("ssgiStepCount", settings.ssgiStepCount);
     visit("colorBleed", settings.colorBleed);
     visit("colorBleedIntensity", settings.colorBleedIntensity);
     visit("colorBleedRadius", settings.colorBleedRadius);
@@ -251,6 +256,7 @@ void visitRenderSettings(Settings& settings, Visitor&& visit) {
     visit("shadowSoftness", settings.shadowSoftness);
     visit("shadowNormalBias", settings.shadowNormalBias);
     visit("shadowDepthBias", settings.shadowDepthBias);
+    visit("shadowOcclusionCulling", settings.shadowOcclusionCulling);
     visit("pcss", settings.pcss);
     visit("contactShadows", settings.contactShadows);
     visit("localShadows", settings.localShadows);
@@ -410,6 +416,10 @@ export inline void clampQualitySettings(RenderSettings& settings) {
 }
 
 export inline bool setRenderSetting(RenderSettings& settings, std::string_view key, std::string_view value) {
+    if (key == "preset") {
+        while (!value.empty() && value.front() == ' ') value.remove_prefix(1);
+        return quality::applyPresetWith(value, [&](std::string_view presetKey, std::string_view presetValue) { return setRenderSetting(settings, presetKey, presetValue); });
+    }
     if (key == "ssr") {
         float enabled = 0.0f;
         if (!render_settings_detail::parseFloat(value, enabled)) return false;

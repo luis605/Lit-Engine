@@ -102,7 +102,7 @@ Entities are ordered by slot index. `dumpWorld(world, DumpOptions)` dumps only t
 
 ## Frame pacing
 
-`Engine::setFramePacing(true)` (Sandbox and Editor; off under `LIT_AUTOPILOT`) paces `run()` to a rate the machine holds with headroom: the interval is 1.15 times the 90th percentile of recent frame work (the longer of CPU time and whole-frame GPU time), never shorter than the monitor refresh interval and never longer than 1/30 s. Running flat out starved the compositor of GPU time and heated the GPU into throttling, which showed as bursts of long frames. `LIT_MAX_FPS=<n>` sets the upper rate, `LIT_MAX_FPS=0` turns pacing off. `LitShot` runs unpaced unless it is given `--paced`.
+`Engine::setFramePacing(true)` (Sandbox and Editor; off under `LIT_AUTOPILOT`) paces `run()` to a rate the machine holds with headroom: the interval is 1.15 times the 90th percentile of recent frame work (the longer of CPU time and whole-frame GPU time), never shorter than the monitor refresh interval and never longer than 1/30 s. The first 30 frames after pacing is enabled are ignored, so load spikes do not lower the rate. Running flat out starved the compositor of GPU time and heated the GPU into throttling, which showed as bursts of long frames. `LIT_MAX_FPS=<n>` sets the upper rate, `LIT_MAX_FPS=0` turns pacing off. `LitShot` runs unpaced unless it is given `--paced`.
 
 ## Parameter bus
 

@@ -27,18 +27,21 @@ uint32_t groupsFor(int size) { return (static_cast<uint32_t>(size) + kThreadGrou
 
 bool upscaleActive(const Lighting::Data& state) { return state.outputWidth != state.width || state.outputHeight != state.height; }
 
-Diligent::ITexture* finalColorTexture(const Lighting::Data& state) { return upscaleActive(state) && state.upscaled[1] ? state.upscaled[1].RawPtr() : state.ldr.RawPtr(); }
+bool upscaleReady(const Lighting::Data& state) { return state.upscaleFxaaSrb && state.easuSrb && state.rcasSrb && state.presentSrb; }
 
 void createUpscaleBindings(Lighting::Data& state, Diligent::IBuffer* scene) {
+    state.upscaleFxaaSrb.Release();
     state.easuSrb.Release();
     state.rcasSrb.Release();
-    if (!upscaleActive(state) || !state.upscaled[0] || !state.upscaled[1] || !state.easuPso || !state.rcasPso) return;
-    state.easuSrb = litgpu::makeBinding(state.easuPso, {{"u_source", litgpu::srv(state.ldr)}, {"u_output", litgpu::uav(state.upscaled[0])}});
+    state.presentSrb.Release();
+    if (!upscaleActive(state) || !state.upscaleSource || !state.upscaled[0] || !state.upscaled[1] || !state.upscaleFxaaPso || !state.easuPso || !state.rcasPso || !state.presentPso) return;
+    state.upscaleFxaaSrb = litgpu::makeBinding(state.upscaleFxaaPso, {{"SceneData", scene}, {"u_ldr", litgpu::srv(state.ldr)}});
+    state.presentSrb = litgpu::makeBinding(state.presentPso, {{"u_ldr", litgpu::srv(state.upscaled[1])}});
+    state.easuSrb = litgpu::makeBinding(state.easuPso, {{"u_source", litgpu::srv(state.upscaleSource)}, {"u_output", litgpu::uav(state.upscaled[0])}});
     state.rcasSrb = litgpu::makeBinding(state.rcasPso, {{"SceneData", scene}, {"u_source", litgpu::srv(state.upscaled[0])}, {"u_output", litgpu::uav(state.upscaled[1])}});
 }
 
 void runUpscale(Lighting::Data& state) {
-    if (!state.easuSrb || !state.rcasSrb) return;
     litgpu::dispatch(state.context, state.easuPso, state.easuSrb, groupsFor(state.outputWidth), groupsFor(state.outputHeight));
     litgpu::dispatch(state.context, state.rcasPso, state.rcasSrb, groupsFor(state.outputWidth), groupsFor(state.outputHeight));
 }

@@ -11,8 +11,6 @@ layout(std430) buffer VisibleLightBuffer {
     vec4 visibleLights[];
 };
 
-const uint INDEX_CAPACITY = 4u * 1024u * 1024u;
-
 #ifdef VISIBLE_PASS
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -48,17 +46,24 @@ void main() {
     uint slot = atomicAdd(clusterLights[CLUSTER_VISIBLE_COUNTER], 1u);
     vec3 viewCenter = (view * vec4(center, 1.0)).xyz;
     visibleLights[slot * 2u] = vec4(viewCenter, radius);
-    visibleLights[slot * 2u + 1u] = vec4(uintBitsToFloat(index), 0.0, 0.0, 0.0);
+    visibleLights[slot * 2u + 1u] = vec4(uintBitsToFloat(index), dot(light.colorType.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0, 0.0);
 }
 
 #else
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
-shared uint s_count;
-shared uint s_base;
-shared uint s_list[CLUSTER_MAX_LIGHTS];
-shared vec3 s_min;
-shared vec3 s_max;
+const uint RANK_BINS = 64u;
+const int RANK_TOP_SHIFT = 18;
+
+shared uint s_count[CLUSTER_Z];
+shared uint s_cursor[CLUSTER_Z];
+shared uint s_base[CLUSTER_Z];
+shared uint s_rank[CLUSTER_Z];
+shared uint s_quota[CLUSTER_Z];
+shared uint s_trim;
+shared vec3 s_min[CLUSTER_Z];
+shared vec3 s_max[CLUSTER_Z];
+shared vec4 s_sides[4];
 
 vec3 atDepth(vec2 pixel, float depth) {
     vec2 uv = pixel * screenParams.zw;
@@ -66,15 +71,89 @@ vec3 atDepth(vec2 pixel, float depth) {
     return vec3(depth * (ndc.x + projection[2][0]) / projection[0][0], depth * (ndc.y + projection[2][1]) / projection[1][1], -depth);
 }
 
+bool touchesTile(vec4 sphere) {
+    for (int i = 0; i < 4; ++i) {
+        if (dot(s_sides[i].xyz, sphere.xyz) < -sphere.w) return false;
+    }
+    return true;
+}
+
+uvec2 candidateSlices(vec4 sphere) {
+    uint first = clusterSlice(-sphere.z - sphere.w);
+    uint last = clusterSlice(-sphere.z + sphere.w);
+    return uvec2(first > 0u ? first - 1u : 0u, min(last + 1u, CLUSTER_Z - 1u));
+}
+
+bool touchesCluster(vec4 sphere, uint slice) {
+    vec3 closest = clamp(sphere.xyz, s_min[slice], s_max[slice]);
+    vec3 d = closest - sphere.xyz;
+    return dot(d, d) <= sphere.w * sphere.w;
+}
+
+uint lightRank(vec4 sphere, uint index, float luminance, uint slice) {
+    vec3 offset = sphere.xyz - 0.5 * (s_min[slice] + s_max[slice]);
+    vec3 extent = 0.5 * (s_max[slice] - s_min[slice]);
+    float extentSquare = dot(extent, extent);
+    float reach = sphere.w + sqrt(extentSquare);
+    float distanceSquare = dot(offset, offset);
+    float ratio = distanceSquare / max(reach * reach, 1e-8);
+    float window = clamp(1.0 - ratio * ratio, 0.0, 1.0);
+    float score = luminance * window * window / max(max(distanceSquare, extentSquare), 1e-8);
+    uint level = uint(clamp((log2(max(score, 1e-30)) + 20.0) * 8.0, 0.0, 511.0));
+    return (level << 15u) | (0x7FFFu - index);
+}
+
+uint histogramWord(uint tile, uint entry) {
+    return CLUSTER_RANK_BASE + ((entry / RANK_BINS) * CLUSTER_X * CLUSTER_Y + tile) * RANK_BINS + entry % RANK_BINS;
+}
+
+void rankTrimmedSlices(uint tile, uint thread, uint total) {
+    if (thread < CLUSTER_Z) {
+        s_rank[thread] = 0u;
+        s_quota[thread] = CLUSTER_MAX_LIGHTS;
+    }
+    for (int shift = RANK_TOP_SHIFT; shift >= 0; shift -= 6) {
+        for (uint i = thread; i < CLUSTER_Z * RANK_BINS; i += 64u) atomicExchange(clusterLights[histogramWord(tile, i)], 0u);
+        memoryBarrierBuffer();
+        barrier();
+        for (uint i = thread; i < total; i += 64u) {
+            vec4 sphere = visibleLights[i * 2u];
+            if (!touchesTile(sphere)) continue;
+            vec4 info = visibleLights[i * 2u + 1u];
+            uvec2 slices = candidateSlices(sphere);
+            for (uint slice = slices.x; slice <= slices.y; ++slice) {
+                if (s_count[slice] <= CLUSTER_MAX_LIGHTS || !touchesCluster(sphere, slice)) continue;
+                uint rank = lightRank(sphere, floatBitsToUint(info.x), info.y, slice);
+                if ((rank >> uint(shift + 6)) != s_rank[slice]) continue;
+                atomicAdd(clusterLights[histogramWord(tile, slice * RANK_BINS + ((rank >> uint(shift)) & (RANK_BINS - 1u)))], 1u);
+            }
+        }
+        memoryBarrierBuffer();
+        barrier();
+        if (thread < CLUSTER_Z && s_count[thread] > CLUSTER_MAX_LIGHTS) {
+            uint above = 0u;
+            uint bin = RANK_BINS - 1u;
+            while (bin > 0u) {
+                uint inBin = atomicAdd(clusterLights[histogramWord(tile, thread * RANK_BINS + bin)], 0u);
+                if (above + inBin > s_quota[thread]) break;
+                above += inBin;
+                --bin;
+            }
+            s_quota[thread] -= above;
+            s_rank[thread] = (s_rank[thread] << 6u) | bin;
+        }
+        barrier();
+    }
+}
+
 void main() {
-    uint cluster = gl_WorkGroupID.x;
+    uint tile = gl_WorkGroupID.x;
     uint thread = gl_LocalInvocationIndex;
-    if (thread == 0u) {
-        uint x = cluster % CLUSTER_X;
-        uint y = (cluster / CLUSTER_X) % CLUSTER_Y;
-        uint z = cluster / (CLUSTER_X * CLUSTER_Y);
-        float zNear = nearPlane * exp(float(z) / clusterParams.x);
-        float zFar = nearPlane * exp(float(z + 1u) / clusterParams.x);
+    if (thread < CLUSTER_Z) {
+        uint x = tile % CLUSTER_X;
+        uint y = tile / CLUSTER_X;
+        float zNear = nearPlane * exp(float(thread) / clusterParams.x);
+        float zFar = nearPlane * exp(float(thread + 1u) / clusterParams.x);
         vec2 tileMin = vec2(x, y) * clusterParams.zw;
         vec2 tileMax = tileMin + clusterParams.zw;
         vec2 corners[4] = vec2[](tileMin, vec2(tileMax.x, tileMin.y), vec2(tileMin.x, tileMax.y), tileMax);
@@ -86,35 +165,61 @@ void main() {
             aabbMin = min(aabbMin, min(a, b));
             aabbMax = max(aabbMax, max(a, b));
         }
-        s_min = aabbMin;
-        s_max = aabbMax;
-        s_count = 0u;
+        s_min[thread] = aabbMin;
+        s_max[thread] = aabbMax;
+        s_count[thread] = 0u;
+        s_cursor[thread] = 0u;
+        if (thread == 0u) {
+            s_trim = 0u;
+            bool perspective = projection[3][3] < 0.5;
+            vec3 a = atDepth(tileMin, 1.0);
+            vec3 b = atDepth(tileMax, 1.0);
+            s_sides[0] = perspective ? vec4(normalize(vec3(1.0, 0.0, a.x)), 0.0) : vec4(0.0);
+            s_sides[1] = perspective ? vec4(normalize(vec3(-1.0, 0.0, -b.x)), 0.0) : vec4(0.0);
+            s_sides[2] = perspective ? vec4(normalize(vec3(0.0, -1.0, -a.y)), 0.0) : vec4(0.0);
+            s_sides[3] = perspective ? vec4(normalize(vec3(0.0, 1.0, b.y)), 0.0) : vec4(0.0);
+        }
     }
     barrier();
-    vec3 aabbMin = s_min;
-    vec3 aabbMax = s_max;
     uint total = clusterLights[CLUSTER_VISIBLE_COUNTER];
     for (uint i = thread; i < total; i += 64u) {
         vec4 sphere = visibleLights[i * 2u];
-        vec3 closest = clamp(sphere.xyz, aabbMin, aabbMax);
-        vec3 d = closest - sphere.xyz;
-        if (dot(d, d) > sphere.w * sphere.w) continue;
-        uint slot = atomicAdd(s_count, 1u);
-        if (slot < CLUSTER_MAX_LIGHTS) s_list[slot] = floatBitsToUint(visibleLights[i * 2u + 1u].x);
+        if (!touchesTile(sphere)) continue;
+        uvec2 slices = candidateSlices(sphere);
+        for (uint slice = slices.x; slice <= slices.y; ++slice) {
+            if (touchesCluster(sphere, slice)) atomicAdd(s_count[slice], 1u);
+        }
     }
     barrier();
-    if (thread == 0u) {
-        uint count = min(s_count, CLUSTER_MAX_LIGHTS);
+    if (thread < CLUSTER_Z && s_count[thread] > CLUSTER_MAX_LIGHTS) {
+        atomicOr(s_trim, 1u);
+        atomicAdd(clusterLights[CLUSTER_TRIMMED_COUNTER], 1u);
+        atomicMax(clusterLights[CLUSTER_PEAK_COUNTER], s_count[thread]);
+    }
+    barrier();
+    bool trim = s_trim != 0u;
+    if (trim) rankTrimmedSlices(tile, thread, total);
+    if (thread < CLUSTER_Z) {
+        uint cluster = thread * CLUSTER_X * CLUSTER_Y + tile;
+        uint count = min(s_count[thread], CLUSTER_MAX_LIGHTS);
         uint base = count > 0u ? atomicAdd(clusterLights[CLUSTER_ALLOC_COUNTER], count) : 0u;
-        if (base + count > INDEX_CAPACITY) count = base < INDEX_CAPACITY ? INDEX_CAPACITY - base : 0u;
-        s_base = base;
-        s_count = count;
+        s_base[thread] = CLUSTER_INDEX_BASE + base;
         clusterLights[cluster * 2u] = base;
         clusterLights[cluster * 2u + 1u] = count;
     }
     barrier();
-    uint count = s_count;
-    uint base = CLUSTER_INDEX_BASE + s_base;
-    for (uint i = thread; i < count; i += 64u) clusterLights[base + i] = s_list[i];
+    for (uint i = thread; i < total; i += 64u) {
+        vec4 sphere = visibleLights[i * 2u];
+        if (!touchesTile(sphere)) continue;
+        vec4 info = visibleLights[i * 2u + 1u];
+        uint index = floatBitsToUint(info.x);
+        uvec2 slices = candidateSlices(sphere);
+        for (uint slice = slices.x; slice <= slices.y; ++slice) {
+            if (!touchesCluster(sphere, slice)) continue;
+            if (trim && s_count[slice] > CLUSTER_MAX_LIGHTS && lightRank(sphere, index, info.y, slice) <= s_rank[slice]) continue;
+            uint slot = atomicAdd(s_cursor[slice], 1u);
+            if (slot < CLUSTER_MAX_LIGHTS) clusterLights[s_base[slice] + slot] = index;
+        }
+    }
 }
 #endif

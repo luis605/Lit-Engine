@@ -78,9 +78,17 @@ void createStaticBuffers(Lighting::Data& state) {
     state.materials = litgpu::structuredBuffer(device, "Material Buffer", sizeof(MaterialGpu), kMaxMaterials, defaultMaterials.data());
     const std::vector<GpuLight> noLights(kMaxLights + kMaxPortalLights, GpuLight{});
     state.lights = litgpu::structuredBuffer(device, "Light Buffer", sizeof(GpuLight), kMaxLights + kMaxPortalLights, noLights.data());
-    const std::vector<uint32_t> emptyClusters(static_cast<size_t>(kClusterHeaderWords) + kClusterIndexCapacity, 0u);
-    state.clusters = litgpu::structuredBuffer(device, "Cluster Buffer", sizeof(uint32_t), kClusterHeaderWords + kClusterIndexCapacity, emptyClusters.data());
+    const std::vector<uint32_t> emptyClusters(static_cast<size_t>(kClusterHeaderWords) + kClusterIndexCapacity + kClusterRankWords, 0u);
+    state.clusters = litgpu::structuredBuffer(device, "Cluster Buffer", sizeof(uint32_t), kClusterHeaderWords + kClusterIndexCapacity + kClusterRankWords, emptyClusters.data());
     state.visibleLights = litgpu::structuredBuffer(device, "Visible Light Buffer", sizeof(glm::vec4), kMaxLights * 2);
+    for (auto& readback : state.clusterReadback) {
+        Diligent::BufferDesc desc;
+        desc.Name = "Cluster Stats Readback";
+        desc.Usage = Diligent::USAGE_STAGING;
+        desc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
+        desc.Size = sizeof(uint32_t) * 2;
+        device->CreateBuffer(desc, nullptr, &readback);
+    }
     const std::vector<int32_t> noCells(kMaxLights, -1);
     state.lightCellBuffer = litgpu::structuredBuffer(device, "Light Cell Buffer", sizeof(int32_t), kMaxLights, noCells.data());
     const float initialExposure = 1.0f / (1.2f * std::exp2(kInitialExposureEv));
@@ -93,6 +101,8 @@ void createStaticBuffers(Lighting::Data& state) {
     state.irradiance = litgpu::structuredBuffer(device, "Irradiance SH", sizeof(glm::vec4), kShCoefficients, irradianceCoefficients.data());
     state.exposureConstants = litgpu::uniformBuffer(device, "Exposure Constants", sizeof(ExposureConstants));
     state.prefilterConstants = litgpu::uniformBuffer(device, "Prefilter Constants", sizeof(glm::vec4));
+    state.ssrRegionConstants = litgpu::uniformBuffer(device, "SSR Screen Region", sizeof(litgpu::ScreenRegion));
+    state.pyramidRegionConstants = litgpu::uniformBuffer(device, "Pyramid Screen Region", sizeof(litgpu::ScreenRegion));
     state.bloomConstants = litgpu::uniformBuffer(device, "Bloom Constants", sizeof(glm::vec4));
     state.godRayConstants = litgpu::uniformBuffer(device, "GodRayConstants", sizeof(glm::vec4));
 }
@@ -152,8 +162,10 @@ void createSceneTextures(Lighting::Data& state) {
     state.hdrTargets[0] = litgpu::texture(device, TextureSpec{"HDR Color A", Diligent::RESOURCE_DIM_TEX_2D, width, height, 1, 1, kHdrFormat, renderTarget | Diligent::BIND_UNORDERED_ACCESS});
     state.hdrTargets[1] = litgpu::texture(device, TextureSpec{"HDR Color B", Diligent::RESOURCE_DIM_TEX_2D, width, height, 1, 1, kHdrFormat, renderTarget | Diligent::BIND_UNORDERED_ACCESS});
     state.ldr = litgpu::texture(device, TextureSpec{"LDR Color", Diligent::RESOURCE_DIM_TEX_2D, width, height, 1, 1, kLdrFormat, renderTarget});
+    state.upscaleSource.Release();
     for (auto& upscaled : state.upscaled) upscaled.Release();
     if (upscaleActive(state)) {
+        state.upscaleSource = litgpu::texture(device, TextureSpec{"Upscale Source", Diligent::RESOURCE_DIM_TEX_2D, width, height, 1, 1, kLdrFormat, renderTarget});
         const auto outputWidth = static_cast<uint32_t>(state.outputWidth);
         const auto outputHeight = static_cast<uint32_t>(state.outputHeight);
         state.upscaled[0] = litgpu::texture(device, TextureSpec{"Upscaled Color", Diligent::RESOURCE_DIM_TEX_2D, outputWidth, outputHeight, 1, 1, kLdrFormat});
@@ -167,6 +179,8 @@ void createSceneTextures(Lighting::Data& state) {
     state.clouds = litgpu::texture(device, TextureSpec{"Clouds", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, Diligent::TEX_FORMAT_RGBA16_FLOAT});
     for (auto& rays : state.godRays) rays = litgpu::texture(device, TextureSpec{"God Rays", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, Diligent::TEX_FORMAT_R16_FLOAT});
     state.aoDepth = litgpu::texture(device, TextureSpec{"GTAO Depth", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, Diligent::TEX_FORMAT_R32_FLOAT});
+    state.skyOpen = litgpu::texture(device, TextureSpec{"Sky Openness", Diligent::RESOURCE_DIM_TEX_2D, width, height, 1, 1, Diligent::TEX_FORMAT_R32_FLOAT});
+    state.localLight.Release();
     state.aoFiltered = litgpu::texture(device, TextureSpec{"GTAO", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, kHdrFormat});
     state.giFiltered = litgpu::texture(device, TextureSpec{"Screen GI", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, kHdrFormat});
     state.sceneColor = litgpu::texture(device, TextureSpec{"Scene Color Pyramid", Diligent::RESOURCE_DIM_TEX_2D, width, height, 1, kPyramidMips, kHdrFormat});
@@ -250,6 +264,10 @@ MaterialGpu packMaterial(const Material& material) {
     return packed;
 }
 
+bool hasLayeredLobes(const MaterialGpu& material) {
+    return std::abs(material.coat.z) > 0.01f || material.sheen.r > 0.0f || material.sheen.g > 0.0f || material.sheen.b > 0.0f || material.coat.x > 0.0f || material.subsurface.w > 0.0f;
+}
+
 Lighting::Lighting() = default;
 Lighting::~Lighting() { shutdown(); }
 
@@ -263,6 +281,7 @@ uint64_t Lighting::bindingVersion() const { return m_data ? m_data->bindingVersi
 const std::array<Cascade, 4>& Lighting::cascades() const { return m_data->cascades; }
 int Lighting::cascadeCount() const { return m_data->settings.shadows ? std::clamp(m_data->settings.shadowCascades, 1, 4) : 0; }
 int Lighting::shadowResolution() const { return m_data->shadowResolution; }
+bool Lighting::sunCastsShadows() const { return m_data->sunReachesGround; }
 const std::array<LocalShadowView, kMaxLocalShadowViews>& Lighting::localShadowViews() const { return m_data->localViews; }
 const std::array<LocalShadowCaster, kMaxLocalShadowLights>& Lighting::localShadowCasters() const { return m_data->localCasters; }
 int Lighting::localShadowCasterCount() const { return m_data->localCasterCount; }
@@ -341,6 +360,13 @@ void Lighting::resize(int width, int height, int outputWidth, int outputHeight) 
 void Lighting::setMaterial(uint32_t id, const Material& material) {
     if (!m_data || id >= kMaxMaterials) return;
     const MaterialGpu packed = packMaterial(material);
+    Data& state = *m_data;
+    if (state.layeredMaterials.size() <= id) state.layeredMaterials.resize(id + 1, false);
+    const bool layered = hasLayeredLobes(packed);
+    if (layered != state.layeredMaterials[id]) {
+        state.layeredMaterials[id] = layered;
+        state.layeredMaterialCount += layered ? 1u : ~0u;
+    }
     LIT_UP(m_data->context)->UpdateBuffer(m_data->materials, static_cast<Diligent::Uint64>(id) * sizeof(MaterialGpu), sizeof(MaterialGpu), &packed, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
@@ -349,6 +375,7 @@ void Lighting::setLights(const std::vector<GpuLight>& lights) {
     state.lightCount = static_cast<uint32_t>(std::min<size_t>(lights.size(), kMaxLights));
     if (state.cpuLights.size() != state.lightCount) state.lightCellsDirty = true;
     state.cpuLights.assign(lights.begin(), lights.begin() + state.lightCount);
+    state.hasAreaLights = std::any_of(state.cpuLights.begin(), state.cpuLights.end(), [](const GpuLight& light) { return light.colorType.w <= 1.5f && light.params.x + light.params.y > 1e-4f; });
 }
 
 void Lighting::setLightCells(const std::vector<int32_t>& cells) {

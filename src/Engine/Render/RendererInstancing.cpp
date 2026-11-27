@@ -305,10 +305,16 @@ void Renderer::syncInstanceBatch(uint32_t batchIndex, const InstanceBatch& data,
     }
 }
 
-bool Renderer::instancingActive() const {
+bool Renderer::instancingRequested() const {
     if (!m_instancing || !m_diligent) return false;
     const auto& state = *Instancing(m_instancing);
-    return !state.failed && state.liveBatches > 0 && state.allocator.highWater() > 0 && state.instanceBuffer && state.cellBuffer && const_cast<Lighting&>(m_lighting).settings().instancing;
+    return !state.failed && state.liveBatches > 0 && state.allocator.highWater() > 0 && const_cast<Lighting&>(m_lighting).settings().instancing;
+}
+
+bool Renderer::instancingActive() const {
+    if (!instancingRequested()) return false;
+    const auto& state = *Instancing(m_instancing);
+    return state.instanceBuffer && state.cellBuffer;
 }
 
 void Renderer::uploadInstances() {

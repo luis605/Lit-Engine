@@ -73,6 +73,7 @@ void LookPanel::drawScreenSpace(EditorContext& ctx) {
     ImGui::SliderFloat("AO strength", &settings.aoIntensity, 0.2f, 3.0f);
     ImGui::SliderInt("AO slices", &settings.aoSlices, 1, 6);
     ImGui::SliderInt("AO steps", &settings.aoSteps, 2, 12);
+    ImGui::SliderInt("GI steps (0 = automatic)", &settings.ssgiStepCount, 0, 24);
     ImGui::SliderInt("AO denoise", &settings.aoDenoise, 0, kAoDenoiseMax);
     ImGui::Checkbox("Bent normals", &settings.bentNormals);
     ImGui::Checkbox("Color bleeding", &settings.colorBleed);

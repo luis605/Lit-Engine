@@ -1,5 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#define SUN_CONTACT_SHADOW
 #include "lighting_models.glsl"
 #define CLOUD_TEXTURE
 #include "sky.glsl"
@@ -14,10 +15,14 @@ uniform sampler2D u_ao;
 uniform sampler2D u_aoDepth;
 uniform sampler2D u_bent;
 uniform sampler3D u_aerial;
+#ifdef LOCAL_LIGHT_INPUT
+uniform sampler2D u_localLight;
+#endif
 
 #include "sky_visibility.glsl"
 
 layout(rgba16f) uniform image2D u_hdr;
+layout(r32f) writeonly uniform image2D u_skyOpen;
 
 layout(std430) readonly buffer ExposureBuffer {
     vec4 exposureData;
@@ -80,6 +85,7 @@ float contactShadow(vec3 worldPos, vec3 N, vec3 L, float viewDepth, float noise)
     float occlusion = 0.0;
     for (int step = 0; step < CONTACT_STEPS; ++step) {
         float t = (float(step) + noise) / float(CONTACT_STEPS);
+        if (occlusion >= 1.0 - t * t) break;
         vec3 position = start + L * (rayLength * t);
         vec4 clip = viewProjection * vec4(position, 1.0);
         if (clip.w <= 0.0) break;
@@ -87,13 +93,20 @@ float contactShadow(vec3 worldPos, vec3 N, vec3 L, float viewDepth, float noise)
         if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) break;
         float sceneDepth = textureLod(u_depth, uv, 0.0).r;
         if (isSkyDepth(sceneDepth)) continue;
-        float difference = -(view * vec4(position, 1.0)).z - linearViewDepth(sceneDepth);
+        float difference = -(view * vec4(position, 1.0)).z - linearViewDepth(uv, sceneDepth);
         float bias = 0.004 * viewDepth + 0.01;
         float hit = smoothstep(bias, bias * 2.0, difference) * (1.0 - smoothstep(thickness * 0.5, thickness, difference));
         occlusion = max(occlusion, hit * (1.0 - t * t));
     }
     return 1.0 - occlusion;
 }
+
+vec3 g_contactPosition;
+vec3 g_contactNormal;
+float g_contactViewDepth;
+float g_contactNoise;
+
+float sunContactShadow() { return contactShadow(g_contactPosition, g_contactNormal, sunDirection.xyz, g_contactViewDepth, g_contactNoise); }
 
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + viewRect.xy;
@@ -103,8 +116,13 @@ void main() {
     float depth = texelFetch(u_depth, pixel, 0).r;
     float exposure = exposureData.x;
     int debugMode = debugViewMode();
+    bool behindPortal = imageLoad(u_hdr, pixel).a < 0.0;
     if (isSkyDepth(depth)) {
-        vec3 dir = normalize(worldFromDepth(uv, FAR_DEPTH) - viewPos);
+        if (behindPortal) {
+            imageStore(u_hdr, pixel, vec4(0.0, 0.0, 0.0, 1.0));
+            return;
+        }
+        vec3 dir = worldViewDirection(uv);
         g_cloudUv = uv;
         vec3 sky = skyRadiance(dir, true) * exposureParams.x;
         vec3 skyOut = min(sky * exposure, vec3(60000.0));
@@ -134,8 +152,13 @@ void main() {
     s.indirectDiffuse = aoGi.rgb * g0.a;
     if (renderFlags.x > 0.5 && !toon) applyBentNormal(s, bentNormal, ao);
     float skyOpen = skyVisibility(worldPos, N, viewDepth, shadowNoise(vec2(pixel) + 17.0));
+    imageStore(u_skyOpen, pixel, vec4(skyOpen));
     s.occlusion *= skyOpen;
     s.specularOcclusion *= skyOpen;
+    if (behindPortal) {
+        imageStore(u_hdr, pixel, vec4(0.0, 0.0, 0.0, 1.0));
+        return;
+    }
     float sunVisibility;
     vec3 direct;
     vec3 ambient;
@@ -144,8 +167,15 @@ void main() {
         direct = litToonDirect(s, toonParams, vec2(pixel), viewDepth, sunVisibility);
         ambient = litToonAmbient(s, toonParams, sunVisibility);
     } else {
-        g_contactShadow = contactShadow(worldPos, N, sunDirection.xyz, viewDepth, shadowNoise(vec2(pixel)));
+        g_contactPosition = worldPos;
+        g_contactNormal = N;
+        g_contactViewDepth = viewDepth;
+        g_contactNoise = shadowNoise(vec2(pixel));
+#ifdef LOCAL_LIGHT_INPUT
+        direct = evaluateSun(s, vec2(pixel), sunVisibility) + texelFetch(u_localLight, pixel, 0).rgb;
+#else
         direct = evaluateSun(s, vec2(pixel), sunVisibility) + evaluateLights(s, vec2(pixel), viewDepth);
+#endif
         ambient = evaluateIBL(s);
     }
     vec3 color = direct + ambient;

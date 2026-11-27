@@ -6,7 +6,7 @@ module;
 #include <string>
 #include <string_view>
 
-#include "Editor/Look/QualityPresets.hpp"
+#include "Engine/Render/QualityPresets.hpp"
 
 module Editor.look;
 
@@ -58,6 +58,7 @@ void LookPanel::drawQuality(EditorContext& ctx) {
     const std::string active = activeQualityPreset(settings);
     for (const quality::Preset& preset : quality::kPresets) {
         const bool isActive = active == preset.name;
+        if (preset.name == "default") ImGui::NewLine();
         if (isActive) ImGui::PushStyleColor(ImGuiCol_Text, kActiveColor);
         if (ImGui::Button(capitalized(preset.name).c_str())) {
             applyQualityPreset(settings, preset.name);
@@ -67,7 +68,7 @@ void LookPanel::drawQuality(EditorContext& ctx) {
         ImGui::SameLine();
     }
     ImGui::TextDisabled("(%s)", active.c_str());
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("One-click settings bundles. Palette: quality.low, quality.medium, quality.high, quality.ultra");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("One-click settings bundles. Palette: quality.low, quality.medium, quality.high, quality.ultra, quality.default, quality.balanced, quality.performance");
     summaryRow("Reflections", std::format("{}, {}", kReflectionModeNames[static_cast<int>(settings.reflectionMode)], kReflectionQualityNames[static_cast<int>(settings.reflectionQuality)]));
     summaryRow("Colour bleed", settings.colorBleed ? std::format("on, quality {}", settings.colorBleedQuality) : yesNo(false));
     summaryRow("Contact shadows", yesNo(settings.contactShadows));

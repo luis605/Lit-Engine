@@ -20,6 +20,11 @@ bool sphereOccluded(vec3 worldCenter, float radius) {
     ivec2 baseSize = textureSize(u_hizTexture, 0);
     vec2 pixelMin = uvMin * vec2(baseSize);
     vec2 pixelMax = uvMax * vec2(baseSize);
+    if (depthRegion.z > 0) {
+        pixelMin = max(pixelMin, vec2(depthRegion.xy));
+        pixelMax = min(pixelMax, vec2(depthRegion.zw) - 0.5);
+        if (any(greaterThan(pixelMin, pixelMax))) return true;
+    }
     vec2 footprint = pixelMax - pixelMin;
     int mip = clamp(int(ceil(log2(max(max(footprint.x, footprint.y), 1.0)))), 0, textureQueryLevels(u_hizTexture) - 1);
 

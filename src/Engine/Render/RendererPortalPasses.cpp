@@ -45,6 +45,11 @@ glm::vec4 PortalScreenParams(const PortalViewNode& node, const DiligentData& gpu
     return glm::vec4(node.projection[0][0], node.projection[1][1], static_cast<float>(width), static_cast<float>(height));
 }
 
+void SetPortalScissor(DiligentData& gpu, const glm::ivec4& rect) {
+    const Diligent::Rect scissor(rect.x, rect.y, rect.x + rect.z, rect.y + rect.w);
+    gpu.pImmediateContext->SetScissorRects(1, &scissor, gpu.renderWidth, gpu.renderHeight);
+}
+
 void SetPortalSurfaceGeometry(const PortalSurface& surface, glm::vec4& center, glm::vec4& axisU, glm::vec4& axisV, glm::vec4& normal) {
     center = glm::vec4(surface.center, 0.0f);
     axisU = PackPortalAxis(surface.axisU);
@@ -68,6 +73,7 @@ void Renderer::createPortalCompositePSO() {
     for (const bool writeDepth : {true, false}) {
         Diligent::GraphicsPipelineStateCreateInfo info;
         InitPortalPipelineInfo(info, writeDepth ? "Portal Composite PSO" : "Portal Composite Color PSO", Diligent::TEX_FORMAT_RGBA16_FLOAT, Diligent::COMPARISON_FUNC_GREATER);
+        info.GraphicsPipeline.RasterizerDesc.ScissorEnable = true;
         info.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = writeDepth;
         auto& blend = info.GraphicsPipeline.BlendDesc.RenderTargets[0];
         blend.BlendEnable = true;
@@ -101,10 +107,19 @@ static void CreatePortalResolvePSO(DiligentData& gpu) {
     if (!vertexShader || !resolveShader || !gpu.pPortalResolveUBO) return;
     Diligent::GraphicsPipelineStateCreateInfo info;
     InitPortalPipelineInfo(info, "Portal Resolve PSO", Diligent::TEX_FORMAT_UNKNOWN, Diligent::COMPARISON_FUNC_ALWAYS);
-    info.GraphicsPipeline.NumRenderTargets = 3;
+    info.GraphicsPipeline.RasterizerDesc.ScissorEnable = true;
+    info.GraphicsPipeline.NumRenderTargets = 4;
     info.GraphicsPipeline.RTVFormats[0] = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
     info.GraphicsPipeline.RTVFormats[1] = Diligent::TEX_FORMAT_RGB10A2_UNORM;
     info.GraphicsPipeline.RTVFormats[2] = Diligent::TEX_FORMAT_RGBA8_UINT;
+    info.GraphicsPipeline.RTVFormats[3] = Diligent::TEX_FORMAT_RGBA16_FLOAT;
+    info.GraphicsPipeline.BlendDesc.IndependentBlendEnable = true;
+    auto& marker = info.GraphicsPipeline.BlendDesc.RenderTargets[3];
+    marker.BlendEnable = true;
+    marker.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+    marker.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+    marker.BlendOpAlpha = Diligent::BLEND_OPERATION_MIN;
+    marker.RenderTargetWriteMask = Diligent::COLOR_MASK_ALPHA;
     info.pVS = vertexShader;
     info.pPS = resolveShader;
     const auto variables = DescribeVariables({vertexShader, resolveShader}, {"u_childDepth", "u_sceneDepth", "u_childGBuffer0", "u_childGBuffer1", "u_childGBuffer2"});
@@ -193,14 +208,26 @@ void Renderer::resolvePortalDepth(int index) {
     auto* context = gpu.pImmediateContext.RawPtr();
     if (!ensurePortalScratch()) return;
     UnbindRenderTargets(context);
+    glm::ivec2 readLow(static_cast<int>(m_renderWidth), static_cast<int>(m_renderHeight));
+    glm::ivec2 readHigh(0);
+    for (const PortalSurface& surface : node.surfaces) {
+        if (!hasChildData(surface.child)) continue;
+        const glm::ivec4 rect = portalSurfaceRect(surface);
+        readLow = glm::min(readLow, glm::ivec2(rect));
+        readHigh = glm::max(readHigh, glm::ivec2(rect) + glm::ivec2(rect.z, rect.w));
+    }
+    const Diligent::Box readBox(static_cast<Diligent::Uint32>(readLow.x), static_cast<Diligent::Uint32>(readHigh.x), static_cast<Diligent::Uint32>(readLow.y), static_cast<Diligent::Uint32>(readHigh.y));
     Diligent::CopyTextureAttribs copy;
     copy.pSrcTexture = gpu.pSceneDepth;
+    copy.pSrcBox = &readBox;
     copy.SrcTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
     copy.pDstTexture = gpu.portalDepthScratch;
+    copy.DstX = readBox.MinX;
+    copy.DstY = readBox.MinY;
     copy.DstTextureTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
     context->CopyTexture(copy);
-    Diligent::ITextureView* targets[3] = {litgpu::rtv(m_lighting.gbuffer(0)), litgpu::rtv(m_lighting.gbuffer(1)), litgpu::rtv(m_lighting.gbuffer(2))};
-    context->SetRenderTargets(3, targets, gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    Diligent::ITextureView* targets[4] = {litgpu::rtv(m_lighting.gbuffer(0)), litgpu::rtv(m_lighting.gbuffer(1)), litgpu::rtv(m_lighting.gbuffer(2)), litgpu::rtv(m_lighting.hdr())};
+    context->SetRenderTargets(4, targets, gpu.pSceneDepth->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     SetSceneViewport(gpu);
     context->SetPipelineState(gpu.pPortalResolvePSO);
     const glm::mat4 parentInvView = glm::inverse(node.view);
@@ -225,6 +252,7 @@ void Renderer::resolvePortalDepth(int index) {
         SetDynamicVariable(gpu.pPortalResolveSRB, "u_childGBuffer1", gpu.portalGBuffer[surface.child][1]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
         SetDynamicVariable(gpu.pPortalResolveSRB, "u_childGBuffer2", gpu.portalGBuffer[surface.child][2]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
         context->CommitShaderResources(gpu.pPortalResolveSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        SetPortalScissor(gpu, portalSurfaceRect(surface));
         DrawFullscreenTriangle(context);
     }
     UnbindRenderTargets(context);
@@ -291,6 +319,7 @@ void Renderer::compositePortals(int index) {
         Diligent::ITexture* source = hasChild ? gpu.portalColor[surface.child].RawPtr() : gpu.pAccumulation.RawPtr();
         SetDynamicVariable(srb, "u_child", source->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SHADER_TYPE_PIXEL);
         context->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        SetPortalScissor(gpu, portalSurfaceRect(surface));
         DrawFullscreenTriangle(context);
     }
 }

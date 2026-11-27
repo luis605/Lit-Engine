@@ -28,25 +28,27 @@ using BindingPtr = Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>;
 
 constexpr uint32_t kMeshletGroupSize = 64;
 constexpr uint32_t kMeshletMaxWorkItems = 1u << 19;
-constexpr std::array<uint32_t, 4> kMeshletDrawBudget = {1u << 18, 1u << 16, 1u << 16, 1u << 20};
-constexpr uint32_t kMeshletRetestCapacity = 1u << 18;
+constexpr std::array<uint32_t, 4> kMeshletDrawBudget = {1u << 21, 1u << 20, 1u << 18, 1u << 22};
+constexpr uint32_t kMeshletRetestCapacity = 1u << 19;
 constexpr uint32_t kMeshletStatsWords = 20;
 constexpr uint32_t kMeshletStatsPerView = 10;
 constexpr uint32_t kMeshletShadowStatsBase = 10;
-constexpr uint32_t kMeshletNodeQueueCapacity = 1u << 18;
+constexpr uint32_t kMeshletNodeQueueCapacity = 1u << 21;
 constexpr uint32_t kMeshletMaxDepth = 28;
 constexpr uint32_t kMeshletNodeCounterWords = kMeshletMaxDepth + 4;
 constexpr uint32_t kMeshletLodViews = kMaxLocalShadowViews;
 constexpr uint32_t kMeshletLodSlots = kLodLevelCount - 1;
-constexpr std::array<uint32_t, kPhaseCount> kMeshletIndexCapacity = {24u << 20, 8u << 20, 4u << 20, 40u << 20};
 constexpr uint32_t kFlagFrustum = 1;
 constexpr uint32_t kFlagHiZ = 2;
 constexpr uint32_t kFlagCone = 4;
 constexpr uint32_t kFlagRetestOutput = 8;
 constexpr uint32_t kFlagViewLod = 16;
 constexpr uint32_t kFlagHierarchy = 32;
+constexpr uint32_t kFlagCasterCull = 64;
+constexpr uint32_t kCasterPlaneCount = 12;
 constexpr int kStagingFrames = 3;
 constexpr float kMeshletShadowErrorScale = 4.0f;
+constexpr uint64_t kMeshletOverflowWarnFrames = 600;
 
 struct GpuClusterMesh {
     glm::vec4 lodCenter{0.0f};
@@ -80,15 +82,35 @@ struct MeshletConstants {
     uint32_t retestCapacity;
     uint32_t queueCapacity;
     uint32_t orthoMask;
-    uint32_t pad[2];
+    uint32_t casterExemptMask;
+    uint32_t pad;
     glm::vec4 lodViews[kMeshletLodViews];
+    glm::vec4 casterPlanes[kCasterPlaneCount];
+    glm::vec4 casterDirection;
 };
-static_assert(sizeof(MeshletConstants) == 64 + 16 * kMeshletLodViews, "MeshletConstants must match meshlet.glsl (std140)");
+static_assert(sizeof(MeshletConstants) == 64 + 16 * (kMeshletLodViews + kCasterPlaneCount + 1), "MeshletConstants must match meshlet.glsl (std140)");
 
 uint32_t PhaseSlotCapacity(int phaseIndex) { return static_cast<uint32_t>(kMaxSurfaceShaders) * (phaseIndex == kPhaseShadow ? static_cast<uint32_t>(kMaxLocalShadowViews) : 1u); }
 
 BufferPtr Structured(Diligent::IRenderDevice* device, const char* name, uint32_t stride, size_t count, const void* data = nullptr, Diligent::BIND_FLAGS extra = Diligent::BIND_NONE) {
     return CreateStructuredBuffer(device, name, stride, static_cast<Diligent::Uint32>(std::max<size_t>(count, 1)), const_cast<void*>(data), extra);
+}
+
+struct ClusterSpan {
+    uint32_t clusterBase = 0;
+    uint32_t clusterCount = 0;
+    uint32_t triangleBase = 0;
+    uint32_t triangleCount = 0;
+    uint32_t chunkBase = 0;
+    uint32_t chunkCount = 0;
+    uint32_t nodeBase = 0;
+    uint32_t nodeCount = 0;
+    uint64_t sourceTriangles = 0;
+};
+
+template <typename T>
+void EraseRange(std::vector<T>& values, size_t first, size_t count) {
+    values.erase(values.begin() + static_cast<std::ptrdiff_t>(first), values.begin() + static_cast<std::ptrdiff_t>(first + count));
 }
 
 ClusterViewStats ReadViewStats(const uint32_t* words) {
@@ -112,8 +134,6 @@ struct MeshletState {
         BufferPtr constants;
         BufferPtr workCounter;
         BufferPtr workItems;
-        BufferPtr indexCounter;
-        BufferPtr indices;
         BufferPtr drawCounters;
         BufferPtr drawCommands;
         BufferPtr cullArgs;
@@ -130,21 +150,21 @@ struct MeshletState {
     };
 
     std::vector<MeshCluster> clusters;
-    std::vector<uint32_t> vertices;
-    std::vector<uint32_t> triangles;
+    std::vector<uint32_t> indices;
     std::vector<GpuClusterChunk> chunks;
     std::vector<ClusterNode> nodes;
     uint32_t maxDepth = 0;
     std::vector<GpuClusterMesh> meshes = std::vector<GpuClusterMesh>(kMaxMeshes);
     std::vector<uint32_t> meshIds;
+    std::vector<ClusterSpan> spans = std::vector<ClusterSpan>(kMaxMeshes);
+    uint64_t nextOverflowWarning = 0;
     uint64_t residentTriangles = 0;
     bool geometryDirty = true;
     bool patchedMeshInfo = false;
     bool failed = false;
 
     BufferPtr clusterBuffer;
-    BufferPtr vertexBuffer;
-    BufferPtr triangleBuffer;
+    BufferPtr indexBuffer;
     BufferPtr meshBuffer;
     BufferPtr levelBuffer;
     BufferPtr statsBuffer;
@@ -172,6 +192,9 @@ struct MeshletState {
     std::array<glm::vec4, kMeshletLodViews> shadowLodViews{};
     uint32_t shadowOrthoMask = 0;
     bool shadowLodValid = false;
+    std::array<glm::vec4, kCasterPlaneCount> casterPlanes{};
+    glm::vec4 casterDirection{0.0f};
+    bool casterCullValid = false;
 };
 
 namespace {
@@ -209,22 +232,24 @@ void Renderer::uploadClusterMesh(uint32_t meshId, const ClusterMesh& source) {
     if (hierarchy.depth > kMeshletMaxDepth) Lit::Log::Error("Cluster hierarchy of mesh {} is {} levels deep (max {}); deeper leaves are not drawn", meshId, hierarchy.depth, kMeshletMaxDepth);
 
     const auto clusterBase = static_cast<uint32_t>(state.clusters.size());
-    const auto vertexBase = static_cast<uint32_t>(state.vertices.size());
-    const auto triangleBase = static_cast<uint32_t>(state.triangles.size());
     const auto chunkBase = static_cast<uint32_t>(state.chunks.size());
     const auto nodeBase = static_cast<uint32_t>(state.nodes.size());
+    const auto triangleBase = static_cast<uint32_t>(state.indices.size() / 3);
     for (ClusterNode node : hierarchy.nodes) {
         node.first += node.leaf() ? clusterBase : nodeBase;
         state.nodes.push_back(node);
     }
     state.maxDepth = std::max(state.maxDepth, std::min(hierarchy.depth, kMeshletMaxDepth));
     for (MeshCluster cluster : ordered.clusters) {
-        cluster.vertexOffset += vertexBase;
-        cluster.triangleOffset += triangleBase;
+        const uint32_t first = static_cast<uint32_t>(state.indices.size() / 3);
+        for (uint32_t t = 0; t < cluster.triangleCount; ++t) {
+            const uint32_t packed = ordered.triangles[cluster.triangleOffset + t];
+            for (uint32_t corner = 0; corner < 3; ++corner) state.indices.push_back(ordered.vertices[cluster.vertexOffset + ((packed >> (corner * 8)) & 0xFFu)]);
+        }
+        cluster.vertexOffset = 0;
+        cluster.triangleOffset = first;
         state.clusters.push_back(cluster);
     }
-    state.vertices.insert(state.vertices.end(), ordered.vertices.begin(), ordered.vertices.end());
-    state.triangles.insert(state.triangles.end(), ordered.triangles.begin(), ordered.triangles.end());
     for (const ClusterLevel& level : ordered.levels) {
         for (uint32_t first = level.firstCluster; first < level.firstCluster + level.clusterCount; first += kMeshletGroupSize) {
             const uint32_t count = std::min(kMeshletGroupSize, level.firstCluster + level.clusterCount - first);
@@ -253,6 +278,7 @@ void Renderer::uploadClusterMesh(uint32_t meshId, const ClusterMesh& source) {
     mesh.info[2] = gMeshInfos[meshId].baseVertex;
     mesh.info[3] = nodeBase + hierarchy.root;
     state.meshIds.push_back(meshId);
+    state.spans[meshId] = {clusterBase, static_cast<uint32_t>(state.clusters.size()) - clusterBase, triangleBase, static_cast<uint32_t>(state.indices.size() / 3) - triangleBase, chunkBase, mesh.info[1], nodeBase, static_cast<uint32_t>(state.nodes.size()) - nodeBase, source.triangleCount(0)};
     state.residentTriangles += source.triangleCount(0);
     state.geometryDirty = true;
     m_meshInfoDirty = true;
@@ -264,8 +290,28 @@ void Renderer::releaseClusterMesh(uint32_t meshId) {
     if (!m_meshlets || meshId >= kMaxMeshes) return;
     auto& state = *Meshlets(m_meshlets);
     if (state.meshes[meshId].info[1] == 0) return;
+    const ClusterSpan span = state.spans[meshId];
+    state.spans[meshId] = ClusterSpan{};
     state.meshes[meshId] = GpuClusterMesh{};
     state.meshIds.erase(std::remove(state.meshIds.begin(), state.meshIds.end(), meshId), state.meshIds.end());
+    EraseRange(state.clusters, span.clusterBase, span.clusterCount);
+    EraseRange(state.indices, static_cast<size_t>(span.triangleBase) * 3, static_cast<size_t>(span.triangleCount) * 3);
+    EraseRange(state.chunks, span.chunkBase, span.chunkCount);
+    EraseRange(state.nodes, span.nodeBase, span.nodeCount);
+    for (size_t id = span.clusterBase; id < state.clusters.size(); ++id) state.clusters[id].triangleOffset -= span.triangleCount;
+    for (size_t id = span.chunkBase; id < state.chunks.size(); ++id) state.chunks[id].firstCluster -= span.clusterCount;
+    for (size_t id = span.nodeBase; id < state.nodes.size(); ++id) state.nodes[id].first -= state.nodes[id].leaf() ? span.clusterCount : span.nodeCount;
+    for (const uint32_t other : state.meshIds) {
+        ClusterSpan& later = state.spans[other];
+        if (later.clusterBase < span.clusterBase) continue;
+        later.clusterBase -= span.clusterCount;
+        later.triangleBase -= span.triangleCount;
+        later.chunkBase -= span.chunkCount;
+        later.nodeBase -= span.nodeCount;
+        state.meshes[other].info[0] -= span.chunkCount;
+        state.meshes[other].info[3] -= span.nodeCount;
+    }
+    state.residentTriangles -= span.sourceTriangles;
     state.geometryDirty = true;
     m_meshInfoDirty = true;
 }
@@ -295,11 +341,15 @@ void Renderer::ensureMeshletBuffers() {
     auto* device = gpu.pDevice.RawPtr();
     if (state.geometryDirty) {
         state.clusterBuffer = Structured(device, "Cluster Buffer", sizeof(MeshCluster), state.clusters.size(), state.clusters.data());
-        state.vertexBuffer = Structured(device, "Cluster Vertex Buffer", sizeof(uint32_t), state.vertices.size(), state.vertices.data());
-        state.triangleBuffer = Structured(device, "Cluster Triangle Buffer", sizeof(uint32_t), state.triangles.size(), state.triangles.data());
+        state.indexBuffer = Structured(device, "Cluster Index Buffer", sizeof(uint32_t), state.indices.size(), state.indices.data(), Diligent::BIND_INDEX_BUFFER);
         state.levelBuffer = Structured(device, "Cluster Chunk Buffer", sizeof(GpuClusterChunk), state.chunks.size(), state.chunks.data());
         state.meshBuffer = Structured(device, "Cluster Mesh Buffer", sizeof(GpuClusterMesh), state.meshes.size(), state.meshes.data());
         state.nodeBuffer = Structured(device, "Cluster Node Buffer", sizeof(ClusterNode), state.nodes.size(), state.nodes.data());
+        if (!state.clusterBuffer || !state.indexBuffer || !state.levelBuffer || !state.meshBuffer || !state.nodeBuffer) {
+            state.failed = true;
+            Lit::Log::Error("Cluster LOD geometry buffers could not be allocated; falling back to per-object LOD.");
+            return;
+        }
         state.geometryDirty = false;
         for (auto& phase : state.phases) {
             for (auto& keys : phase.keys) keys.fill(nullptr);
@@ -329,12 +379,10 @@ void Renderer::ensureMeshletBuffers() {
             phase.constants = CreateUniformBuffer(device, "Meshlet Constants", sizeof(MeshletConstants), Diligent::USAGE_DEFAULT);
             phase.workCounter = Structured(device, "Meshlet Work Counter", sizeof(uint32_t), 1, zeros.data());
             phase.workItems = Structured(device, "Meshlet Work Items", sizeof(uint32_t) * 4, static_cast<size_t>(kMeshletMaxWorkItems) * 2);
-            phase.indexCounter = Structured(device, "Meshlet Index Counter", sizeof(uint32_t), 1, zeros.data());
-            phase.indices = Structured(device, "Meshlet Expanded Indices", sizeof(uint32_t), kMeshletIndexCapacity[static_cast<size_t>(phaseIndex)], nullptr, Diligent::BIND_INDEX_BUFFER);
             phase.drawCounters = Structured(device, "Meshlet Draw Counters", sizeof(uint32_t), slotCapacity, zeros.data(), Diligent::BIND_INDIRECT_DRAW_ARGS);
             phase.drawCommands = CreateIndirectBuffer(device, "Meshlet Draw Commands", static_cast<size_t>(kMeshletDrawBudget[static_cast<size_t>(phaseIndex)]) * sizeof(DrawElementsIndirectCommand));
             phase.cullArgs = CreateDispatchArgsBuffer(device, "Meshlet Cull Args");
-            if (!phase.indices || !phase.workItems || !phase.drawCommands) state.failed = true;
+            if (!phase.workItems || !phase.drawCommands) state.failed = true;
         }
         if (state.failed) Lit::Log::Error("Cluster LOD buffers could not be allocated; falling back to per-object LOD.");
     }
@@ -408,13 +456,9 @@ void Renderer::bindMeshletPhase(int phaseIndex) {
                                                                   {"SortedVisibleObjectBuffer", visibility.sortedEntries     },
                                                                   {"WorldMatrixBuffer",         gpu.pWorldMatrixBuffer[frame]},
                                                                   {"ClusterBuffer",             state.clusterBuffer          },
-                                                                  {"ClusterVertexBuffer",       state.vertexBuffer           },
-                                                                  {"ClusterTriangleBuffer",     state.triangleBuffer         },
                                                                   {"ClusterMeshBuffer",         state.meshBuffer             },
                                                                   {"WorkCounterBuffer",         phase.workCounter            },
                                                                   {"WorkItemBuffer",            phase.workItems              },
-                                                                  {"IndexCounterBuffer",        phase.indexCounter           },
-                                                                  {"ExpandedIndexBuffer",       phase.indices                },
                                                                   {"MeshletDrawCounterBuffer",  phase.drawCounters           },
                                                                   {"MeshletDrawCommandBuffer",  phase.drawCommands           },
                                                                   {"RetestCounterBuffer",       state.retestCounter          },
@@ -451,6 +495,12 @@ void Renderer::rollMeshletStats() {
             state.lastStats.camera = ReadViewStats(words);
             state.lastStats.shadow = ReadViewStats(words + kMeshletStatsPerView);
             state.lastStats.frame = state.stagingFrame[slot];
+            const uint64_t cameraDropped = state.lastStats.camera.overflows;
+            const uint64_t shadowDropped = state.lastStats.shadow.overflows;
+            if (cameraDropped + shadowDropped != 0 && m_frameCounter >= state.nextOverflowWarning) {
+                state.nextOverflowWarning = m_frameCounter + kMeshletOverflowWarnFrames;
+                Lit::Log::Warn("Cluster LOD capacity exceeded (camera {}, shadow {} overflows); some geometry is not drawn. Raise clusterErrorPixels or clusterShadowErrorTexels.", cameraDropped, shadowDropped);
+            }
         }
     }
     if (state.statsFrame != 0 && state.staging[slot]) {
@@ -482,11 +532,13 @@ void Renderer::buildMeshletDraws(int phaseIndex, uint32_t views) {
     const auto shaderCount = static_cast<uint32_t>(std::min(m_numDrawingShaders, kMaxSurfaceShaders));
     phase.slots = std::max(1u, shaderCount * std::max(views, 1u));
     if (phase.slots > PhaseSlotCapacity(phaseIndex)) return;
-    phase.perSlot = kMeshletDrawBudget[static_cast<size_t>(phaseIndex)] / phase.slots;
+    phase.perSlot = std::min(kMeshletDrawBudget[static_cast<size_t>(phaseIndex)] / phase.slots, gpu.pDevice->GetAdapterInfo().DrawCommand.MaxDrawIndirectCount);
 
     uint32_t twoSided = 0;
+    uint32_t deforming = 0;
     for (size_t shader = 0; shader < gpu.surfaces.size() && shader < 32; ++shader) {
         if (gpu.surfaces[shader].twoSided) twoSided |= 1u << shader;
+        if (gpu.surfaces[shader].deformsVertices) deforming |= 1u << shader;
     }
     const RenderSettings& settings = m_lighting.settings();
     const bool hierarchy = settings.clusterHierarchy && !state.hierarchyFailed && phase.nodesSRB[frame] && state.maxDepth > 0;
@@ -500,7 +552,6 @@ void Renderer::buildMeshletDraws(int phaseIndex, uint32_t views) {
     if (hierarchy) constants.flags |= kFlagHierarchy;
     if (shadowTexels) constants.flags |= kFlagViewLod;
     constants.maxWorkItems = kMeshletMaxWorkItems;
-    constants.indexCapacity = kMeshletIndexCapacity[static_cast<size_t>(phaseIndex)];
     constants.drawsPerSlot = phase.perSlot;
     const float shadowScale = phaseIndex == kPhaseShadow ? kMeshletShadowErrorScale : 1.0f;
     constants.errorThreshold = shadowTexels ? std::max(settings.clusterShadowErrorTexels, 0.05f) / std::max(m_lodBias, 0.01f) : shadowScale * std::max(settings.clusterErrorPixels, 0.05f) / std::max(m_lodBias, 0.01f);
@@ -512,6 +563,12 @@ void Renderer::buildMeshletDraws(int phaseIndex, uint32_t views) {
         constants.orthoMask = state.shadowOrthoMask;
         std::copy(state.shadowLodViews.begin(), state.shadowLodViews.end(), constants.lodViews);
     }
+    if (phaseIndex == kPhaseShadow && state.casterCullValid) {
+        constants.flags |= kFlagCasterCull;
+        constants.casterExemptMask = deforming;
+        std::copy(state.casterPlanes.begin(), state.casterPlanes.end(), constants.casterPlanes);
+        constants.casterDirection = state.casterDirection;
+    }
     LIT_UP(context)->UpdateBuffer(phase.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (hierarchy) {
         std::array<uint32_t, kMeshletNodeCounterWords> counters{};
@@ -519,7 +576,6 @@ void Renderer::buildMeshletDraws(int phaseIndex, uint32_t views) {
         LIT_UP(context)->UpdateBuffer(state.nodeCounters, 0, sizeof(counters), counters.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     ClearCounter(context, phase.workCounter);
-    ClearCounter(context, phase.indexCounter);
     litgpu::zeroFill(context, m_diligent->pZeroBuffer, phase.drawCounters, 0, sizeof(uint32_t) * phase.slots, m_bucketZeros.data());
     if (phaseIndex == kPhaseOpaque) ClearCounter(context, state.retestCounter);
 
@@ -561,7 +617,7 @@ void Renderer::drawMeshletSurfaces(int phaseIndex, int cascade, uint32_t view) {
     auto* context = gpu.pImmediateContext.RawPtr();
     const auto& bindings = cascade >= 0 ? gpu.shadowSRBs[m_currentFrame][cascade] : gpu.visibility[phaseIndex].opaqueSRBs[m_currentFrame];
     const auto shaderCount = static_cast<uint32_t>(std::min(m_numDrawingShaders, kMaxSurfaceShaders));
-    context->SetIndexBuffer(phase.indices, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->SetIndexBuffer(Meshlets(m_meshlets)->indexBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     for (uint32_t shaderId = 0; shaderId < gpu.surfaces.size() && shaderId < shaderCount; ++shaderId) {
         const uint32_t commandSlot = view * shaderCount + shaderId;
         if (commandSlot >= phase.slots) break;
@@ -602,6 +658,15 @@ void Renderer::setMeshletShadowLod(std::span<const glm::vec4> views, uint32_t or
     std::copy_n(views.begin(), std::min<size_t>(views.size(), kMeshletLodViews), state.shadowLodViews.begin());
     state.shadowOrthoMask = orthoMask;
     state.shadowLodValid = !views.empty();
+    state.casterCullValid = false;
+}
+
+void Renderer::setMeshletCasterCull(std::span<const glm::vec4> casterPlanes, const glm::vec3& lightTravel) {
+    if (!m_meshlets) return;
+    auto& state = *Meshlets(m_meshlets);
+    std::copy_n(casterPlanes.begin(), std::min<size_t>(casterPlanes.size(), kCasterPlaneCount), state.casterPlanes.begin());
+    state.casterDirection = glm::vec4(lightTravel, 0.0f);
+    state.casterCullValid = casterPlanes.size() == kCasterPlaneCount;
 }
 
 void Renderer::releaseMeshlets() { m_meshlets.reset(); }

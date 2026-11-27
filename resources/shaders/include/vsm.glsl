@@ -77,13 +77,18 @@ uint vsmResolve(uint face, vec2 uv, inout uint mip) {
     return 0u;
 }
 
-float vsmSampleEntry(uint entry, vec2 uv, uint mip, float depth) {
+vec2 vsmPageOrigin(uint entry) {
     uint side = uint(vsmParams.z);
     uint physical = entry & VSM_PHYSICAL_MASK;
-    vec2 local = clamp(fract(clamp(uv, vec2(0.0), vec2(0.99999)) * float(1u << mip)) * float(VSM_PAGE), vec2(0.5), vec2(float(VSM_PAGE) - 0.5));
-    vec2 atlas = (vec2(physical % side, physical / side) * float(VSM_PAGE) + local) / vsmParams.y;
-    return texture(u_vsmAtlas, vec3(atlas, depth));
+    return vec2(physical % side, physical / side) * float(VSM_PAGE);
 }
+
+float vsmSampleAt(vec2 pageOrigin, vec2 uv, float pagesPerSide, float depth) {
+    vec2 local = clamp(fract(uv * pagesPerSide) * float(VSM_PAGE), vec2(0.5), vec2(float(VSM_PAGE) - 0.5));
+    return texture(u_vsmAtlas, vec3((pageOrigin + local) / vsmParams.y, depth));
+}
+
+const vec2 VSM_TAP_DIRECTIONS[4] = vec2[](vec2(0.35355339, 0.0), vec2(-0.45154438, 0.41365164), vec2(0.06911610, -0.78754236), vec2(0.56914244, 0.74234553));
 
 float virtualShadow(uint faceBase, bool point, vec3 lightPos, vec3 worldPos, vec3 N, vec3 L, float NoL, float noise, float footprint) {
     if (vsmParams.x < 0.5) return 1.0;
@@ -108,20 +113,23 @@ float virtualShadow(uint faceBase, bool point, vec3 lightPos, vec3 worldPos, vec
     uvec2 centerPage = uvec2(clamp(centerUv, vec2(0.0), vec2(0.99999)) * n);
     float radius = (1.0 + localShadowParams.z) / resolution;
     float phi = hash12(floor(uv * resolution) + float(face) * 17.0) * TWO_PI;
-    const int TAPS = 4;
+    vec2 rotation = vec2(cos(phi), sin(phi)) * radius;
+    vec2 centerOrigin = vsmPageOrigin(entry);
+    uint mipBase = face * VSM_PAGES_PER_FACE + vsmMipOffset(mip);
     float sum = 0.0;
-    for (int i = 0; i < TAPS; ++i) {
-        vec2 tapUv = clamp(uv + vogelDisk(i, TAPS, phi) * radius, vec2(0.0), vec2(0.99999));
+    for (int i = 0; i < 4; ++i) {
+        vec2 direction = VSM_TAP_DIRECTIONS[i];
+        vec2 tapUv = clamp(uv + vec2(direction.x * rotation.x - direction.y * rotation.y, direction.x * rotation.y + direction.y * rotation.x), vec2(0.0), vec2(0.99999));
         uvec2 page = uvec2(tapUv * n);
-        uint tapEntry = entry;
+        vec2 origin = centerOrigin;
         if (page != centerPage) {
-            uint other = vsmPageTable[face * VSM_PAGES_PER_FACE + vsmMipOffset(mip) + page.y * uint(n) + page.x];
-            if ((other & VSM_VALID) != 0u) tapEntry = other;
+            uint other = vsmPageTable[mipBase + page.y * uint(n) + page.x];
+            if ((other & VSM_VALID) != 0u) origin = vsmPageOrigin(other);
             else tapUv = clamp(tapUv, (vec2(centerPage) + 0.001) / n, (vec2(centerPage) + 0.999) / n);
         }
-        sum += vsmSampleEntry(tapEntry, tapUv, mip, ndc.z);
+        sum += vsmSampleAt(origin, tapUv, n, ndc.z);
     }
-    return sum / float(TAPS);
+    return sum * 0.25;
 }
 #endif
 

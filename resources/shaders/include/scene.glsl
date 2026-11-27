@@ -56,7 +56,17 @@ layout(std140) uniform SceneData {
     vec4 cellParams;
     vec4 cellTint;
     ivec4 viewRect;
+    ivec4 depthRegion;
 };
+
+bool outsideDepthRegion(vec2 pixel) {
+    if (depthRegion.z <= 0) return false;
+    vec2 low = vec2(depthRegion.xy);
+    vec2 high = vec2(depthRegion.zw);
+    low += 4.0 * step(vec2(0.5), low);
+    high -= 4.0 * step(high + 0.5, screenParams.xy);
+    return any(lessThan(pixel, low)) || any(greaterThan(pixel, high));
+}
 
 float projectedDiameterPx(float radius, float dist) {
     return radius * projection[1][1] * screenParams.y / max(dist, 1e-4);
@@ -85,10 +95,14 @@ vec3 viewFromDepth(vec2 uv, float depth) {
     return v.xyz / v.w;
 }
 
-float linearViewDepth(float depth) {
-    vec4 v = invProjection * vec4(0.0, 0.0, depth, 1.0);
-    return -v.z / v.w;
+vec3 worldViewDirection(vec2 uv) {
+    if (projection[3][3] > 0.5) return normalize(-invView[2].xyz);
+    vec2 ndc = vec2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+    vec3 ray = vec3((ndc + projection[2].xy) / vec2(projection[0][0], projection[1][1]), -1.0);
+    return normalize(mat3(invView) * ray);
 }
+
+float linearViewDepth(vec2 uv, float depth) { return -viewFromDepth(uv, depth).z; }
 
 vec2 projectToUv(vec3 world, mat4 vp, out float depth) {
     vec4 clip = vp * vec4(world, 1.0);

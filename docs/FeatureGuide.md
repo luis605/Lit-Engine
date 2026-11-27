@@ -19,6 +19,8 @@ Palette `render.colorBleed` toggles it (it needs ambient occlusion, `render.ssao
 - Reference: [Lighting.md](Lighting.md).
 
 ## Upscaler and quality governor
+Presets `quality.balanced` and `quality.performance` (or `LitShot --set preset=performance`) trade a modest image difference for a shorter frame; `quality.default` undoes them. See [Lighting.md](Lighting.md#quality-presets).
+
 Palette `render.scale` cycles `renderScale` from 1.0 down to 0.5; `upscaleSharpness` sets RCAS strength. Palette `render.governor` toggles `qualityGovernor`, which moves the scale between `governorMinScale` and 1 to hit `targetFrameMs` (default 16.6).
 
 ## IK spider and walkers

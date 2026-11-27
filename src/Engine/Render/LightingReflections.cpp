@@ -55,13 +55,38 @@ void uploadVoxels(Lighting::Data& state) {
     reflections.skyVolumeDirty = true;
 }
 
+void dispatchSkyVolume(Lighting::Data& state, Diligent::IBuffer* scene, uint32_t firstLayer, uint32_t layerCount) {
+    ReflectionGpu& reflections = state.reflections;
+    const glm::ivec4 slice(static_cast<int>(firstLayer * kSkyVolumeGroupSize), 0, 0, 0);
+    LIT_UP(state.context)->UpdateBuffer(reflections.skyVolumeConstants, 0, sizeof(slice), &slice, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    reflections.skyVolumeSrb = litgpu::makeBinding(reflections.skyVolumePso, {{"SceneData", scene}, {"ReflectionData", reflections.constants}, {"SkyVolumeConstants", reflections.skyVolumeConstants}, {"u_voxels", litgpu::srv(reflections.voxels)}, {"u_skyVolume", litgpu::uav(reflections.skyVolume)}}, false);
+    const uint32_t groups = (static_cast<uint32_t>(kReflectionVoxelResolution) + kSkyVolumeGroupSize - 1) / kSkyVolumeGroupSize;
+    litgpu::dispatch(state.context, reflections.skyVolumePso, reflections.skyVolumeSrb, groups, groups, layerCount);
+}
+
 void buildSkyVolume(Lighting::Data& state, Diligent::IBuffer* scene) {
     ReflectionGpu& reflections = state.reflections;
-    if (!reflections.skyVolumePso || !reflections.skyVolume || !reflections.grid.valid()) return;
-    reflections.skyVolumeSrb = litgpu::makeBinding(reflections.skyVolumePso, {{"SceneData", scene}, {"ReflectionData", reflections.constants}, {"u_voxels", litgpu::srv(reflections.voxels)}, {"u_skyVolume", litgpu::uav(reflections.skyVolume)}}, false);
-    const uint32_t groups = (static_cast<uint32_t>(kReflectionVoxelResolution) + kSkyVolumeGroupSize - 1) / kSkyVolumeGroupSize;
-    litgpu::dispatch(state.context, reflections.skyVolumePso, reflections.skyVolumeSrb, groups, groups, groups);
-    reflections.skyVolumeDirty = false;
+    const uint32_t layers = (static_cast<uint32_t>(kReflectionVoxelResolution) + kSkyVolumeGroupSize - 1) / kSkyVolumeGroupSize;
+    if (reflections.skyVolumeDirty) {
+        if (!reflections.skyVolumePso || !reflections.skyVolume || !reflections.skyVolumeConstants || !reflections.grid.valid()) return;
+        reflections.skyVolumeDirty = false;
+        const bool sameBounds = reflections.skyVolumeBuilt && reflections.skyVolumeMin == reflections.grid.minCorner && reflections.skyVolumeSize == reflections.grid.size;
+        if (sameBounds) {
+            reflections.skyVolumeLayer = 0;
+        } else {
+            dispatchSkyVolume(state, scene, 0, layers);
+            reflections.skyVolumeBuilt = true;
+            reflections.skyVolumeMin = reflections.grid.minCorner;
+            reflections.skyVolumeSize = reflections.grid.size;
+            reflections.skyVolumeLayer = -1;
+            return;
+        }
+    }
+    if (reflections.skyVolumeLayer < 0) return;
+    const auto first = static_cast<uint32_t>(reflections.skyVolumeLayer);
+    const uint32_t count = std::min(kSkyVolumeLayersPerFrame, layers - first);
+    dispatchSkyVolume(state, scene, first, count);
+    reflections.skyVolumeLayer = first + count < layers ? static_cast<int>(first + count) : -1;
 }
 
 ReflectionConstants buildConstants(const Lighting::Data& state, const ReflectionPlan& plan, int probeCount) {
@@ -78,6 +103,7 @@ ReflectionConstants buildConstants(const Lighting::Data& state, const Reflection
         constants.planeNormal = glm::vec4(plane.normal, plane.halfSize.y);
         constants.planeAxisU = glm::vec4(plane.axisU, 0.0f);
     }
+    constants.planeAxisU.w = screenGiActive(state) ? 1.0f : 0.0f;
     constants.voxelMin = glm::vec4(reflections.grid.minCorner, settings.reflectionTraceDistance);
     constants.voxelSize = glm::vec4(reflections.grid.size, static_cast<float>(reflections.grid.resolution));
     for (int index = 0; index < probeCount; ++index) {
@@ -137,11 +163,13 @@ void ensureCompositeBindings(Lighting::Data& state, Diligent::IBuffer* scene) {
                                                                 {"u_gbuffer2", litgpu::srv(state.gbuffer[2])},
                                                                 {"u_ao", litgpu::srv(state.aoFiltered)},
                                                                 {"u_ssr", litgpu::srv(state.ssr)},
+                                                                {"u_gi", litgpu::srv(state.giFiltered)},
+                                                                {"u_aoDepth", litgpu::srv(state.aoDepth)},
+                                                                {"u_skyOpen", litgpu::srv(state.skyOpen)},
                                                                 {"u_dfgLut", litgpu::srv(state.dfg)},
                                                                 {"u_prefilteredEnv", litgpu::srv(state.envPrefiltered)},
                                                                 {"u_probes", litgpu::srv(reflections.probeCubes)},
                                                                 {"u_voxels", litgpu::srv(reflections.voxels)},
-                                                                {"u_skyVolume", litgpu::srv(reflections.skyVolume)},
                                                                 {"u_planarDepth", litgpu::srv(reflections.planarDepth)},
                                                                 {"u_planarColor", litgpu::srv(reflections.planarColor)},
                                                                 {"u_hdr", litgpu::uav(state.hdrTargets[parity])},
@@ -186,6 +214,7 @@ void createReflectionResources(Lighting::Data& state) {
     if (!state.device) return;
     ReflectionGpu& reflections = state.reflections;
     reflections.constants = litgpu::uniformBuffer(state.device, "Reflection Data", sizeof(ReflectionConstants));
+    reflections.skyVolumeConstants = litgpu::uniformBuffer(state.device, "Sky Volume Slice", sizeof(glm::ivec4));
     const auto resolution = static_cast<uint32_t>(kReflectionVoxelResolution);
     reflections.voxels = litgpu::texture(state.device, TextureSpec{"Reflection Voxels", Diligent::RESOURCE_DIM_TEX_3D, resolution, resolution, resolution, 1, Diligent::TEX_FORMAT_RGBA8_UNORM, Diligent::BIND_SHADER_RESOURCE});
     reflections.skyVolume = litgpu::texture(state.device, TextureSpec{"Sky Visibility Volume", Diligent::RESOURCE_DIM_TEX_3D, resolution, resolution, resolution, 1, Diligent::TEX_FORMAT_R8_UNORM, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS});
@@ -200,12 +229,14 @@ void loadReflectionPipelines(Lighting::Data& state) {
     ReflectionGpu& reflections = state.reflections;
     Diligent::IRenderDevice* device = state.device;
     reflections.compositePso = litgpu::computePipeline(device, "resources/shaders/lighting/reflection_composite.comp",
-                                                       {pointSampler("u_depth"), pointSampler("u_gbuffer0"), pointSampler("u_gbuffer1"), pointSampler("u_gbuffer2"), linearSampler("u_ao"), linearSampler("u_ssr"), linearSampler("u_dfgLut"), linearSampler("u_prefilteredEnv"), linearSampler("u_probes"),
-                                                        pointSampler("u_planarDepth"), pointSampler("u_planarColor"), linearSampler("u_voxels"), linearSampler("u_skyVolume")});
+                                                       {pointSampler("u_depth"), pointSampler("u_gbuffer0"), pointSampler("u_gbuffer1"), pointSampler("u_gbuffer2"), linearSampler("u_ao"), linearSampler("u_ssr"), pointSampler("u_skyOpen"), pointSampler("u_gi"), pointSampler("u_aoDepth"), linearSampler("u_dfgLut"), linearSampler("u_prefilteredEnv"), linearSampler("u_probes"),
+                                                        pointSampler("u_planarDepth"), pointSampler("u_planarColor"), linearSampler("u_voxels")});
     reflections.probeBakePso = litgpu::computePipeline(device, "resources/shaders/lighting/probe_bake.comp", {linearSampler("u_envCapture"), pointSampler("u_voxels")});
     const std::string planar = "resources/shaders/lighting/planar.comp";
     reflections.skyVolumePso = litgpu::computePipeline(device, "resources/shaders/lighting/sky_volume.comp", {pointSampler("u_voxels")});
     reflections.skyVolumeDirty = true;
+    reflections.skyVolumeBuilt = false;
+    reflections.skyVolumeLayer = -1;
     reflections.planarClearPso = litgpu::computePipeline(device, planar, {pointSampler("u_depth"), linearSampler("u_sceneColor")}, {{"PASS_CLEAR", "1"}});
     reflections.planarDepthPso = litgpu::computePipeline(device, planar, {pointSampler("u_depth"), linearSampler("u_sceneColor")}, {{"PASS_DEPTH", "1"}});
     reflections.planarColorPso = litgpu::computePipeline(device, planar, {pointSampler("u_depth"), linearSampler("u_sceneColor")}, {{"PASS_COLOR", "1"}});
@@ -238,7 +269,7 @@ void updateReflectionAssets(Lighting::Data& state, Diligent::IBuffer* scene) {
     const int probeCount = wantProbes ? static_cast<int>(std::min<size_t>(reflections.scene.probes.size(), kMaxReflectionProbes)) : 0;
     ReflectionConstants constants = buildConstants(state, plan, probeCount);
     LIT_UP(state.context)->UpdateBuffer(reflections.constants, 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    if (reflections.skyVolumeDirty) buildSkyVolume(state, scene);
+    buildSkyVolume(state, scene);
     const uint32_t wantedResolution = sceneProbeResolution(reflections.scene.probes);
     if (probeCount > 0 && wantedResolution != reflections.probeResolution) createProbeTexture(state, wantedResolution);
     ensureCompositeBindings(state, scene);

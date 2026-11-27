@@ -66,6 +66,8 @@ struct TerrainStreamer::Impl {
     bool selected = false;
     glm::vec3 lastCamera{0.0f};
     glm::vec3 lastForward{0.0f, 0.0f, -1.0f};
+    std::vector<TerrainViewpoint> views;
+    std::vector<TerrainViewpoint> lastViews;
     int nextCell = 1;
     std::unique_ptr<ResidencyManager> ownResidency;
     ResidencyManager* res = nullptr;
@@ -151,8 +153,11 @@ struct TerrainStreamer::Impl {
     void select(const glm::vec3& camera, const glm::vec3& forward, const std::array<glm::vec4, 6>* planes) {
         const float moved = glm::length(camera - lastCamera);
         const bool turned = glm::dot(forward, lastForward) < 0.9995f;
-        if (selected && moved < config.moveThreshold && !turned && frame - lastSelect < config.reselectInterval) return;
+        const bool viewsChanged = !std::ranges::equal(views, lastViews, [&](const TerrainViewpoint& a, const TerrainViewpoint& b) { return glm::length(a.position - b.position) < config.moveThreshold; });
+        if (selected && moved < config.moveThreshold && !turned && !viewsChanged && frame - lastSelect < config.reselectInterval) return;
         LodParams lod = config.lod;
+        lod.extraViews = views;
+        lastViews = views;
         const size_t before = selectTerrainTiles(loader->config().terrain, camera, [&] {
             LodParams unculled = lod;
             unculled.frustumCull = false;
@@ -456,9 +461,13 @@ TerrainStreamer::TerrainStreamer(World& world, TerrainLoaderConfig loader, Terra
 
 TerrainStreamer::~TerrainStreamer() = default;
 
-void TerrainStreamer::update(const glm::vec3& cameraWorld, const glm::vec3& cameraForward, const std::array<glm::vec4, 6>* planes) { m_impl->update(cameraWorld, cameraForward, planes, false); }
+void TerrainStreamer::update(const glm::vec3& cameraWorld, const glm::vec3& cameraForward, const std::array<glm::vec4, 6>* planes, std::vector<TerrainViewpoint> extraViews) {
+    m_impl->views = std::move(extraViews);
+    m_impl->update(cameraWorld, cameraForward, planes, false);
+}
 
-void TerrainStreamer::prime(const glm::vec3& cameraWorld, const glm::vec3& cameraForward, const std::array<glm::vec4, 6>* planes) {
+void TerrainStreamer::prime(const glm::vec3& cameraWorld, const glm::vec3& cameraForward, const std::array<glm::vec4, 6>* planes, std::vector<TerrainViewpoint> extraViews) {
+    m_impl->views = std::move(extraViews);
     const auto start = std::chrono::steady_clock::now();
     m_impl->selected = false;
     do {

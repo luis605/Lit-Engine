@@ -296,7 +296,7 @@ void Renderer::shadeScene(bool portalsActive) {
 
 void Renderer::renderTransparentAndCustomEffects() {
     beginPass(GpuPass::TransparentDraw);
-    m_lighting.captureSceneColor();
+    if (m_diligent->sceneHasTranslucent) m_lighting.captureSceneColor();
     drawTransparency();
     endPass(GpuPass::TransparentDraw);
     if (!m_portalFrame.nodes.empty()) RestorePortalEffectsDepth(*m_diligent);

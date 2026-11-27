@@ -88,6 +88,7 @@ void main() {
         vec3 center = (model * vec4(node.cullSphere.xyz, 1.0)).xyz;
         float radius = node.cullSphere.w * scale;
         if (accept && (u_flags & MESHLET_FLAG_FRUSTUM) != 0u) accept = frustumVisible(center, radius);
+        if (accept && meshletCasterCulled(commandSlot % max(u_shaderCount, 1u))) accept = meshletCasterInside(center, radius);
         if (accept && (u_flags & MESHLET_FLAG_HIZ) != 0u && sphereOccluded(center, radius)) {
             accept = false;
             if ((u_flags & MESHLET_FLAG_RETEST_OUTPUT) != 0u) {

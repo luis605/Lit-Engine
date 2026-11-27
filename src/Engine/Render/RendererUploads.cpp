@@ -39,6 +39,15 @@ void Renderer::uploadDirtyHierarchies(SceneDatabase& sceneDatabase) {
     }
 }
 
+namespace {
+
+constexpr uint32_t kPackedMaterialShift = 12u;
+constexpr uint32_t kPackedMaterialMask = 0x3FFu;
+constexpr uint32_t kPackedFlagsShift = 26u;
+constexpr uint32_t kPackedTranslucentFlag = 4u;
+
+}
+
 void Renderer::uploadAllRenderables(const SceneDatabase& sceneDatabase) {
     const auto& renderables = sceneDatabase.renderables;
     m_packedRenderables.resize(renderables.size());
@@ -150,13 +159,22 @@ void Renderer::uploadTransforms(const SceneDatabase& sceneDatabase) {
 }
 
 void Renderer::uploadRenderables(SceneDatabase& sceneDatabase) {
+    auto& gpu = *m_diligent;
     if (m_renderableUpdateCounter > 0) {
         uploadAllRenderables(sceneDatabase);
         m_renderableUpdateCounter--;
+        gpu.translucencyDirty = true;
     } else if (!sceneDatabase.renderableDirty.list.empty()) {
         uploadDirtyRenderables(sceneDatabase);
+        gpu.translucencyDirty = true;
     }
     sceneDatabase.renderableDirty.clear();
+    if (!gpu.translucencyDirty) return;
+    gpu.translucencyDirty = false;
+    gpu.sceneHasTranslucent = std::ranges::any_of(m_packedRenderables, [&gpu](uint32_t packed) {
+        const uint32_t material = (packed >> kPackedMaterialShift) & kPackedMaterialMask;
+        return ((packed >> kPackedFlagsShift) & kPackedTranslucentFlag) != 0u || (material < gpu.translucentMaterials.size() && gpu.translucentMaterials[material]);
+    });
 }
 
 void Renderer::uploadMeshInfo() {

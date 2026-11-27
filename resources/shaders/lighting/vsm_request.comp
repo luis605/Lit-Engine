@@ -35,6 +35,7 @@ void requestPage(uint index) {
 void main() {
     ivec2 pixel = min(ivec2(gl_GlobalInvocationID.xy) * 2 + 1, ivec2(screenParams.xy) - 1);
     if (any(greaterThanEqual(ivec2(gl_GlobalInvocationID.xy) * 2, ivec2(screenParams.xy)))) return;
+    if (viewRect.z > 0 && (any(lessThan(pixel, viewRect.xy)) || any(greaterThanEqual(pixel, viewRect.xy + viewRect.zw)))) return;
     float depth = texelFetch(u_depth, pixel, 0).r;
     if (isSkyDepth(depth)) return;
     vec2 uv = (vec2(pixel) + 0.5) * screenParams.zw;
@@ -46,12 +47,13 @@ void main() {
     uvec2 range = clusterRange(clusterIndex(vec2(pixel), viewDepth));
     for (uint i = 0u; i < range.y; ++i) {
         uint index = clusterLights[range.x + i];
+        vec4 positionRange = lights[index].positionRange;
+        vec3 toLight = positionRange.xyz - worldPos;
+        float d2 = dot(toLight, toLight);
+        if (d2 >= positionRange.w * positionRange.w) continue;
         GpuLight light = lights[index];
         if (!lightHasVirtualShadow(light)) continue;
         if (lightAperture(index, light.positionRange.xyz, worldPos) <= 0.0) continue;
-        vec3 toLight = light.positionRange.xyz - worldPos;
-        float d2 = dot(toLight, toLight);
-        if (d2 >= light.positionRange.w * light.positionRange.w) continue;
         vec3 L = toLight * inversesqrt(max(d2, 1e-8));
         if (light.colorType.w > 1.5 && spotAttenuation(L, light) <= 0.0) continue;
         uint face = lightVirtualFace(light) + (light.colorType.w < 1.5 ? vsmCubeFace(-toLight) : 0u);

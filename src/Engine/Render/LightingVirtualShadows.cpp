@@ -99,6 +99,13 @@ void ensurePool(Lighting::Data& state) {
     if (vsm.compareSampler) litgpu::srv(vsm.atlas)->SetSampler(vsm.compareSampler);
     vsm.poolSize = size;
     vsm.poolSide = static_cast<uint32_t>(size) / kVsmPage;
+    vsm.drawGroups = std::max(vsm.poolSide * vsm.poolSide / kVsmViewportsPerDraw, 1u);
+    vsm.groupLastUsed.assign(vsm.drawGroups, 0u);
+    const uint32_t pairs = (vsm.drawGroups + 1) * kVsmBuckets;
+    vsm.pairCounts = zeroBuffer(state.device, "VSM Pair Counts", sizeof(uint32_t), pairs);
+    vsm.pairBases = litgpu::structuredBuffer(state.device, "VSM Pair Bases", sizeof(uint32_t), pairs);
+    vsm.groupDraws = indirectBuffer(state.device, "VSM Group Draws", sizeof(uint32_t), vsm.drawGroups + 1);
+    vsm.commands = indirectBuffer(state.device, "VSM Draw Commands", sizeof(uint32_t) * 5, pairs);
     vsm.resetPending = true;
     for (auto& binding : vsm.bindings) binding.key.clear();
     ++state.bindingVersion;
@@ -206,19 +213,19 @@ void createVirtualShadowResources(Lighting::Data& state) {
     vsm.args = indirectBuffer(device, "VSM Indirect Args", sizeof(uint32_t), kVsmArgsWords);
     vsm.requests = litgpu::structuredBuffer(device, "VSM Requests", sizeof(uint32_t), kVsmRequestCapacity);
     vsm.renderList = litgpu::structuredBuffer(device, "VSM Render List", sizeof(uint32_t) * 2, kMaxPoolPages);
-    vsm.faceDirty = zeroBuffer(device, "VSM Face Dirty", sizeof(uint32_t), kVsmMaxFaces);
+    vsm.faceDirty = zeroBuffer(device, "VSM Face Dirty", sizeof(uint32_t) * 4, kVsmMaxFaces);
     vsm.moved = litgpu::structuredBuffer(device, "VSM Moved Objects", sizeof(glm::vec4), kVsmMovedCapacity);
-    vsm.instances = litgpu::structuredBuffer(device, "VSM Instances", sizeof(uint32_t) * 2, kVsmInstanceCapacity);
+    vsm.instances = litgpu::structuredBuffer(device, "VSM Instances", sizeof(uint32_t) * 4, kVsmInstanceCapacity);
     vsm.sorted = litgpu::structuredBuffer(device, "VSM Sorted Instances", sizeof(uint32_t) * 2, kVsmInstanceCapacity);
-    vsm.buckets = zeroBuffer(device, "VSM Buckets", sizeof(uint32_t), kVsmBuckets * 3);
-    vsm.commands = indirectBuffer(device, "VSM Draw Commands", sizeof(uint32_t) * 5, kVsmBuckets);
+    vsm.groupActive = zeroBuffer(device, "VSM Group Active", sizeof(uint32_t), kVsmGroupMaskWords);
+    vsm.groupTouched = zeroBuffer(device, "VSM Group Touched", sizeof(uint32_t), kVsmGroupMaskWords);
     vsm.constants = litgpu::uniformBuffer(device, "VSM Constants", sizeof(VsmConstantsGpu));
     for (uint32_t ring = 0; ring < kVsmReadbackRing; ++ring) {
         Diligent::BufferDesc desc;
         desc.Name = "VSM Stats Readback";
         desc.Usage = Diligent::USAGE_STAGING;
         desc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
-        desc.Size = sizeof(uint32_t) * kVsmCounterWords;
+        desc.Size = sizeof(uint32_t) * (kVsmCounterWords + kVsmGroupMaskWords);
         device->CreateBuffer(desc, nullptr, &vsm.readback[ring]);
         vsm.readbackFrame[ring] = 0;
     }
@@ -240,12 +247,12 @@ void loadVirtualShadowPipelines(Lighting::Data& state) {
     vsm.finalizePso = litgpu::computePipeline(device, pages, {}, {{"FINALIZE", "1"}});
     vsm.requestPso = litgpu::computePipeline(device, "resources/shaders/lighting/vsm_request.comp", {{"u_depth", litgpu::pointClamp()}, {"u_gbuffer1", litgpu::pointClamp()}});
     vsm.cullPso = litgpu::computePipeline(device, "resources/shaders/lighting/vsm_cull.comp");
-    vsm.prefixPso = litgpu::computePipeline(device, "resources/shaders/lighting/vsm_sort.comp", {}, {{"PREFIX", "1"}});
+    vsm.commandPso = litgpu::computePipeline(device, "resources/shaders/lighting/vsm_sort.comp", {}, {{"COMMANDS", "1"}});
     vsm.scatterPso = litgpu::computePipeline(device, "resources/shaders/lighting/vsm_sort.comp");
 
-    auto graphics = [&](const char* name, const char* path, bool caster) {
+    auto graphics = [&](const char* name, const char* path, bool caster, bool pageViewports) {
         RefCntAutoPtr<Diligent::IPipelineState> pso;
-        RefCntAutoPtr<Diligent::IShader> vertexShader = litgpu::compileFile(device, path, Diligent::SHADER_TYPE_VERTEX);
+        RefCntAutoPtr<Diligent::IShader> vertexShader = pageViewports ? litgpu::compileFile(device, path, Diligent::SHADER_TYPE_VERTEX, {{"PAGE_VIEWPORTS", "1"}}) : litgpu::compileFile(device, path, Diligent::SHADER_TYPE_VERTEX);
         if (!vertexShader) return pso;
         Diligent::GraphicsPipelineStateCreateInfo createInfo;
         createInfo.PSODesc.Name = name;
@@ -256,6 +263,10 @@ void loadVirtualShadowPipelines(Lighting::Data& state) {
         pipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         pipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
         pipeline.RasterizerDesc.FrontCounterClockwise = true;
+        if (pageViewports) {
+            pipeline.NumViewports = static_cast<Diligent::Uint8>(kVsmViewportsPerDraw);
+            pipeline.RasterizerDesc.ScissorEnable = true;
+        }
         pipeline.DepthStencilDesc.DepthEnable = true;
         pipeline.DepthStencilDesc.DepthWriteEnable = true;
         pipeline.DepthStencilDesc.DepthFunc = caster ? Diligent::COMPARISON_FUNC_LESS_EQUAL : Diligent::COMPARISON_FUNC_ALWAYS;
@@ -276,8 +287,9 @@ void loadVirtualShadowPipelines(Lighting::Data& state) {
         if (!pso) Lit::Log::Error("Failed to create pipeline '{}'", name);
         return pso;
     };
-    vsm.casterPso = graphics("VSM Caster PSO", "resources/shaders/lighting/vsm_caster.vert", true);
-    vsm.clearPso = graphics("VSM Page Clear PSO", "resources/shaders/lighting/vsm_clear.vert", false);
+    vsm.casterPso = graphics("VSM Caster PSO", "resources/shaders/lighting/vsm_caster.vert", true, false);
+    vsm.casterPagePso = litgpu::vertexViewportIndexEnabled() ? graphics("VSM Page Viewport Caster PSO", "resources/shaders/lighting/vsm_caster.vert", true, true) : RefCntAutoPtr<Diligent::IPipelineState>();
+    vsm.clearPso = graphics("VSM Page Clear PSO", "resources/shaders/lighting/vsm_clear.vert", false, false);
     for (auto& binding : vsm.bindings) binding.key.clear();
 }
 
@@ -416,7 +428,7 @@ void fillVirtualShadowUniforms(const Lighting::Data& state, SceneUniforms& unifo
 bool Lighting::virtualShadowsActive() const {
     const Data& state = *m_data;
     const VirtualShadowGpu& vsm = state.vsm;
-    return virtualShadowsEnabled(state) && vsm.poolSize > static_cast<int>(kDisabledPool) && !vsm.slots.empty() && vsm.motionPso && vsm.faceDirtyPso && vsm.clearDirtyPso && vsm.releasePso && vsm.histPso && vsm.planPso && vsm.allocatePso && vsm.finalizePso && vsm.requestPso && vsm.cullPso && vsm.prefixPso &&
+    return virtualShadowsEnabled(state) && vsm.poolSize > static_cast<int>(kDisabledPool) && !vsm.slots.empty() && vsm.motionPso && vsm.faceDirtyPso && vsm.clearDirtyPso && vsm.releasePso && vsm.histPso && vsm.planPso && vsm.allocatePso && vsm.finalizePso && vsm.requestPso && vsm.cullPso && vsm.commandPso &&
            vsm.scatterPso && vsm.casterPso && vsm.clearPso;
 }
 
@@ -454,6 +466,10 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
             if (const uint32_t* values = mapped) {
                 std::memcpy(vsm.stats, values, sizeof(vsm.stats));
                 vsm.statsFrame = vsm.readbackFrame[old];
+                const uint32_t* touched = values + kVsmCounterWords;
+                for (uint32_t group = 0; group < vsm.drawGroups; ++group) {
+                    if ((touched[group / 32] >> (group % 32)) & 1u) vsm.groupLastUsed[group] = vsm.statsFrame;
+                }
                 static const bool logStats = std::getenv("LIT_VSM_STATS") != nullptr;
                 if (logStats && vsm.statsFrame % 30 == 0) {
                     Lit::Log::Info("VSM frame {}: faces {} requests {} rendered {} resident {}/{} overflow {} instances {} moved {}", vsm.statsFrame, vsm.faceSlots, vsm.stats[1], vsm.stats[9], vsm.stats[8], vsm.poolSide * vsm.poolSide, vsm.stats[4], vsm.stats[5], vsm.stats[6]);
@@ -488,10 +504,24 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
         const uint32_t zero = 0;
         LIT_UP(context)->UpdateBuffer(vsm.counters, sizeof(uint32_t) * 9, sizeof(zero), &zero, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
-    const std::vector<uint32_t> bucketZeros(kVsmBuckets, 0u);
-    LIT_UP(context)->UpdateBuffer(vsm.buckets, 0, sizeof(uint32_t) * kVsmBuckets, bucketZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    const uint32_t drawCount = 0;
-    LIT_UP(context)->UpdateBuffer(vsm.args, sizeof(uint32_t) * 12, sizeof(drawCount), &drawCount, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    const std::vector<uint32_t> groupZeros(vsm.drawGroups + 1, 0u);
+    LIT_UP(context)->UpdateBuffer(vsm.groupDraws, 0, sizeof(uint32_t) * groupZeros.size(), groupZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    std::array<uint32_t, kVsmGroupMaskWords> activeGroups{};
+    std::vector<uint32_t> pageViewportGroups;
+    if (vsm.casterPagePso) {
+        for (uint32_t group = 0; group < vsm.drawGroups; ++group) {
+            if (vsm.groupLastUsed[group] == 0 || state.frame - vsm.groupLastUsed[group] > kVsmGroupLingerFrames) continue;
+            activeGroups[group / 32] |= 1u << (group % 32);
+            pageViewportGroups.push_back(group);
+        }
+    }
+    LIT_UPDATE_DIFF(context, vsm.groupActive, 0, sizeof(activeGroups), activeGroups.data());
+    if (firstRun) {
+        const std::array<uint32_t, kVsmGroupMaskWords> touchedZeros{};
+        LIT_UP(context)->UpdateBuffer(vsm.groupTouched, 0, sizeof(touchedZeros), touchedZeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+    const uint32_t instanceCursor = 0;
+    LIT_UP(context)->UpdateBuffer(vsm.args, sizeof(uint32_t) * 12, sizeof(instanceCursor), &instanceCursor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::ITextureView* depthView = litgpu::srv(inputs.depth);
     const std::vector<const void*> key = {inputs.sceneUniforms, inputs.worldMatrices, inputs.cullSpheres, inputs.renderables, inputs.meshInfos, inputs.dynamicStamps, depthView, vsm.atlas.RawPtr(), vsm.previousObjects.RawPtr(), state.gbuffer[1].RawPtr(), state.lights.RawPtr()};
@@ -519,7 +549,11 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
             {"VsmMoved",           vsm.moved                         },
             {"VsmInstances",       vsm.instances                     },
             {"VsmSortedInstances", vsm.sorted                        },
-            {"VsmBuckets",         vsm.buckets                       },
+            {"VsmPairCounts",      vsm.pairCounts                    },
+            {"VsmPairBases",       vsm.pairBases                     },
+            {"VsmGroupDraws",      vsm.groupDraws                    },
+            {"VsmGroupActive",     vsm.groupActive                   },
+            {"VsmGroupTouched",    vsm.groupTouched                  },
             {"VsmDrawCommands",    vsm.commands                      },
             {"WorldMatrixBuffer",  inputs.worldMatrices              },
             {"CullSphereBuffer",   inputs.cullSpheres                },
@@ -549,9 +583,10 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
         bindings->finalize = make(vsm.finalizePso);
         bindings->request = make(vsm.requestPso);
         bindings->cull = make(vsm.cullPso);
-        bindings->prefix = make(vsm.prefixPso);
+        bindings->command = make(vsm.commandPso);
         bindings->scatter = make(vsm.scatterPso);
         bindings->caster = make(vsm.casterPso);
+        bindings->casterPage = make(vsm.casterPagePso);
         bindings->clear = make(vsm.clearPso);
     }
 
@@ -574,7 +609,7 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
         context->DispatchComputeIndirect(attribs);
     };
     indirectDispatch(vsm.cullPso, bindings->cull, 4);
-    litgpu::dispatch(context, vsm.prefixPso, bindings->prefix, 1);
+    litgpu::dispatch(context, vsm.commandPso, bindings->command, vsm.drawGroups + 1);
     indirectDispatch(vsm.scatterPso, bindings->scatter, 8);
 
     Diligent::ITextureView* dsv = litgpu::dsv(vsm.atlas);
@@ -593,23 +628,46 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
     Diligent::IBuffer* vertexBuffers[] = {inputs.vertices};
     context->SetVertexBuffers(0, 1, vertexBuffers, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
     context->SetIndexBuffer(inputs.indices, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetPipelineState(vsm.casterPso);
-    context->CommitShaderResources(bindings->caster, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     Diligent::DrawIndexedIndirectAttribs drawAttribs;
     drawAttribs.IndexType = Diligent::VT_UINT32;
     drawAttribs.pAttribsBuffer = vsm.commands;
-    drawAttribs.DrawArgsOffset = 0;
     drawAttribs.DrawCount = kVsmBuckets;
     drawAttribs.DrawArgsStride = sizeof(uint32_t) * 5;
-    drawAttribs.pCounterBuffer = vsm.args;
-    drawAttribs.CounterOffset = sizeof(uint32_t) * 12;
+    drawAttribs.pCounterBuffer = vsm.groupDraws;
     drawAttribs.AttribsBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
     drawAttribs.CounterBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-    context->DrawIndexedIndirect(drawAttribs);
+    auto drawGroup = [&](uint32_t group) {
+        drawAttribs.DrawArgsOffset = static_cast<Diligent::Uint64>(group) * kVsmBuckets * sizeof(uint32_t) * 5;
+        drawAttribs.CounterOffset = static_cast<Diligent::Uint64>(group) * sizeof(uint32_t);
+        context->DrawIndexedIndirect(drawAttribs);
+    };
+    context->SetPipelineState(vsm.casterPso);
+    context->CommitShaderResources(bindings->caster, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    drawGroup(vsm.drawGroups);
+    if (!pageViewportGroups.empty()) {
+        context->SetPipelineState(vsm.casterPagePso);
+        context->CommitShaderResources(bindings->casterPage, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const auto atlasSize = static_cast<Diligent::Uint32>(vsm.poolSize);
+        std::array<Diligent::Viewport, kVsmViewportsPerDraw> pageViewports;
+        std::array<Diligent::Rect, kVsmViewportsPerDraw> pageScissors;
+        for (uint32_t group : pageViewportGroups) {
+            for (uint32_t index = 0; index < kVsmViewportsPerDraw; ++index) {
+                const uint32_t physical = group * kVsmViewportsPerDraw + index;
+                const int left = static_cast<int>((physical % vsm.poolSide) * kVsmPage);
+                const int top = static_cast<int>((physical / vsm.poolSide) * kVsmPage);
+                pageViewports[index] = Diligent::Viewport(static_cast<float>(left), static_cast<float>(top), static_cast<float>(kVsmPage), static_cast<float>(kVsmPage));
+                pageScissors[index] = Diligent::Rect(left, top, left + static_cast<int>(kVsmPage), top + static_cast<int>(kVsmPage));
+            }
+            context->SetViewports(kVsmViewportsPerDraw, pageViewports.data(), atlasSize, atlasSize);
+            context->SetScissorRects(kVsmViewportsPerDraw, pageScissors.data(), atlasSize, atlasSize);
+            drawGroup(group);
+        }
+    }
     context->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     const uint32_t ring = state.frame % kVsmReadbackRing;
     context->CopyBuffer(vsm.counters, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, vsm.readback[ring], 0, sizeof(uint32_t) * kVsmCounterWords, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->CopyBuffer(vsm.groupTouched, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, vsm.readback[ring], sizeof(uint32_t) * kVsmCounterWords, sizeof(uint32_t) * kVsmGroupMaskWords, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     vsm.readbackFrame[ring] = state.frame;
     if (firstRun) vsm.allDirty = false;
     vsm.lastRunFrame = state.frame;

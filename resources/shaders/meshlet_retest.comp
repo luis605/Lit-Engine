@@ -59,7 +59,10 @@ void main() {
         return;
     }
     uint item = atomicAdd(u_workCount, 1u);
-    if (item >= u_maxWorkItems) return;
+    if (item >= u_maxWorkItems) {
+        atomicAdd(meshletStats[u_statsBase + MESHLET_STAT_OVERFLOW], 1u);
+        return;
+    }
     workItems[item * 2u] = uvec4(slot, head.z, tail.z, head.w);
     workItems[item * 2u + 1u] = uvec4(tail.x, tail.y, 0u, 0u);
 }

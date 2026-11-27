@@ -3,6 +3,7 @@
 #include "brdf.glsl"
 #include "reflection.glsl"
 #include "material.glsl"
+#include "gi_upsample.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
@@ -12,13 +13,12 @@ uniform sampler2D u_gbuffer1;
 uniform usampler2D u_gbuffer2;
 uniform sampler2D u_ao;
 uniform sampler2D u_ssr;
+uniform sampler2D u_skyOpen;
 uniform sampler2D u_dfgLut;
 uniform samplerCube u_prefilteredEnv;
 uniform samplerCubeArray u_probes;
 uniform usampler2D u_planarDepth;
 uniform sampler2D u_planarColor;
-
-#include "sky_visibility.glsl"
 
 layout(rgba16f) uniform image2D u_hdr;
 
@@ -82,14 +82,14 @@ vec4 upsampleSsr(ivec2 pixel, float depth) {
     vec2 position = (vec2(pixel) + 0.5) * 0.5 - 0.5;
     ivec2 base = ivec2(floor(position));
     vec2 fraction = position - vec2(base);
-    float linearCenter = linearViewDepth(depth);
+    float linearCenter = linearViewDepth((vec2(pixel) + 0.5) * screenParams.zw, depth);
     vec4 sum = vec4(0.0);
     float total = 0.0;
     for (int index = 0; index < 4; ++index) {
         ivec2 offset = ivec2(index & 1, index >> 1);
         ivec2 texel = clamp(base + offset, ivec2(0), ssrSize - 1);
         ivec2 source = min(texel * 2 + ivec2(1), fullSize - 1);
-        float sourceDepth = linearViewDepth(texelFetch(u_depth, source, 0).r);
+        float sourceDepth = linearViewDepth((vec2(source) + 0.5) * screenParams.zw, texelFetch(u_depth, source, 0).r);
         float bilinear = (offset.x == 1 ? fraction.x : 1.0 - fraction.x) * (offset.y == 1 ? fraction.y : 1.0 - fraction.y);
         float similarity = exp(-abs(sourceDepth - linearCenter) / max(linearCenter, 1.0e-3) * UPSAMPLE_DEPTH_SHARPNESS);
         float weight = bilinear * similarity + UPSAMPLE_MIN_WEIGHT;
@@ -127,8 +127,7 @@ void main() {
     float ambientOcclusion = renderFlags.x > 0.5 ? textureLod(u_ao, uv, 0.0).a : 1.0;
     float specularOcclusion = specularOcclusionLagarde(NoV, g0.a * ambientOcclusion, perceptualRoughness * perceptualRoughness);
     float exposure = exposureData.x;
-    float viewDepth = -(view * vec4(worldPosition, 1.0)).z;
-    float skyOpen = skyVisibility(worldPosition, N, viewDepth, interleavedGradientNoise(vec2(pixel) + 17.0, 0.0));
+    float skyOpen = texelFetch(u_skyOpen, pixel, 0).r;
     float skyAttenuation = mix(skyOpen, skyOpen * skyOpen, perceptualRoughness);
     vec3 environmentSample = environmentRadiance(R, perceptualRoughness) * exposure;
     vec3 skyBase = environmentSample * skyOpen;
@@ -180,7 +179,9 @@ void main() {
         return;
     }
     vec3 delta = (reflected - skyBase) * fresnelWeight * specularOcclusion * reflectionIntensity();
-    if (all(equal(delta, vec3(0.0)))) return;
+    vec3 bounce = vec3(0.0);
+    if (screenGiApplied() && debugMode == 0) bounce = g0.rgb * (1.0 - metallic) * g0.a * upsampleGi(pixel, linearViewDepth(uv, depth));
+    if (all(equal(delta, vec3(0.0))) && all(equal(bounce, vec3(0.0)))) return;
     vec3 shaded = imageLoad(u_hdr, pixel).rgb;
-    imageStore(u_hdr, pixel, vec4(max(shaded + delta, vec3(0.0)), 1.0));
+    imageStore(u_hdr, pixel, vec4(max(shaded + bounce + delta, vec3(0.0)), 1.0));
 }
