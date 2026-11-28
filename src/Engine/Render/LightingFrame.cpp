@@ -163,7 +163,7 @@ void fillRenderUniforms(const Lighting::Data& state, SceneUniforms& uniforms) {
     uniforms.postParams2 = glm::vec4(settings.contrast, settings.saturation, settings.temperature, settings.tint);
     uniforms.maskParams = glm::vec4(settings.maskContrast, settings.maskSheen, settings.maskSheenSpeed, settings.maskSheenWidth);
     uniforms.maskColor = glm::vec4(settings.maskSheenColor, glm::radians(settings.maskSheenAngle));
-    uniforms.vignetteParams = glm::vec4(settings.vignetteWidth, settings.vignetteTightness, 0.0f, 0.0f);
+    uniforms.vignetteParams = glm::vec4(settings.vignetteWidth, settings.vignetteTightness, settings.lightScatter, 0.0f);
     uniforms.giParams = glm::vec4(settings.ssao && settings.ssgi ? settings.ssgiIntensity : 0.0f, settings.ssgiThickness, state.pyramidValid ? 1.0f : 0.0f, static_cast<float>(std::clamp(settings.ssgiStepCount, 0, kMaxSsgiStepCount)));
     uniforms.bleedParams = colorBleedUniform(settings);
     uniforms.qualityParams = glm::vec4(settings.shadowCascadeBlend, settings.contactShadows ? settings.shadowContactLength : 0.0f, settings.areaLights ? 1.0f : 0.0f, settings.cloudAerialStrength);

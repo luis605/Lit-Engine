@@ -74,6 +74,7 @@ void LookPanel::drawWorldAtmosphere(EditorContext& ctx) {
         ImGui::SliderFloat("Density", &settings.fogDensity, 0.0f, 0.05f, "%.4f", ImGuiSliderFlags_Logarithmic);
         ImGui::DragFloat("Height", &settings.fogHeight, 0.5f, -1000.0f, 1000.0f, "%.1f m");
     }
+    ImGui::SliderFloat("Lamp glow", &settings.lightScatter, 0.0f, kLightScatterMax, "%.4f", ImGuiSliderFlags_Logarithmic);
     if (settings.sky == SkyMode::Physical) {
         ImGui::SliderFloat("Haze", &settings.mieScale, 0.0f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
         ImGui::SliderFloat("Aerial distance", &settings.aerialDistanceScale, 0.0f, 20.0f);

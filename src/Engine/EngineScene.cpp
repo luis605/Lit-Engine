@@ -85,6 +85,7 @@ void visitMaterialNumbers(M& m, F&& f) {
     f(m.emissiveTexture);
     for (int i = 0; i < 4; ++i) f(m.custom0[i]);
     for (int i = 0; i < 4; ++i) f(m.custom1[i]);
+    f(m.parallaxDepth);
 }
 
 bool nextNumber(std::string_view& text, float& out) {

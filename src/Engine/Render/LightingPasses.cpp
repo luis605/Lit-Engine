@@ -202,6 +202,7 @@ void createParityBindings(Lighting::Data& state, Diligent::IBuffer* scene, Dilig
         {"MaterialBuffer", state.materials},
         {"LightBuffer", state.lights},
         {"ClusterBuffer", state.clusters},
+        {"VisibleLightBuffer", state.visibleLights},
         {"VsmFaceBuffer", state.vsm.faces},
         {"VsmPageTable", state.vsm.pageTable},
         {"u_vsmAtlas", srvOf(state.vsm.atlas)},
@@ -440,6 +441,7 @@ void Lighting::graphResources(LightingStage stage, std::vector<rg::ExternalAcces
             texture("lighting/localShadowMap", state.localShadowMap, Usage::ShaderResource, false);
             texture("lighting/vsmAtlas", state.vsm.atlas, Usage::ShaderResource, false);
             buffer("lighting/clusters", state.clusters, Usage::None, false);
+            buffer("lighting/visibleLights", state.visibleLights, Usage::None, false);
             buffer("lighting/irradiance", state.irradiance, Usage::None, false);
             break;
         case LightingStage::Reflections:

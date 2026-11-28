@@ -47,6 +47,23 @@ vec4 litTexture(bool color, int slot, vec2 uv) {
 #endif
 }
 
+vec4 litTextureGrad(bool color, int slot, vec2 uv, vec2 ddx, vec2 ddy) {
+#ifdef LIT_BINDLESS
+    return textureGrad(u_textures[nonuniformEXT(slot)], uv, ddx, ddy);
+#else
+    return color ? textureGrad(u_colorTextures, vec3(uv, float(slot)), ddx, ddy) : textureGrad(u_dataTextures, vec3(uv, float(slot)), ddx, ddy);
+#endif
+}
+
+bool g_patternShifted = false;
+vec3 g_patternDdx;
+vec3 g_patternDdy;
+
+vec4 litPlanar(bool color, int layer, vec2 coordinates, vec2 ddx, vec2 ddy, float scale) {
+    if (g_patternShifted) return litTextureGrad(color, layer, coordinates * scale, ddx * scale, ddy * scale);
+    return litTexture(color, layer, coordinates * scale);
+}
+
 layout(location = 0) in vec3 in_worldPos;
 layout(location = 1) in vec3 in_normal;
 layout(location = 2) in vec2 in_uv;
@@ -98,18 +115,18 @@ vec3 litBumpNormal(SurfaceInput i, vec3 N, float height, float strength) {
 vec4 litTriplanar(bool color, int layer, vec3 p, vec3 n, float scale) {
     vec3 w = pow(abs(n), vec3(4.0));
     w /= dot(w, vec3(1.0)) + 1e-5;
-    vec4 x = litTexture(color, layer, p.zy * scale);
-    vec4 y = litTexture(color, layer, p.xz * scale);
-    vec4 z = litTexture(color, layer, p.xy * scale);
+    vec4 x = litPlanar(color, layer, p.zy, g_patternDdx.zy, g_patternDdy.zy, scale);
+    vec4 y = litPlanar(color, layer, p.xz, g_patternDdx.xz, g_patternDdy.xz, scale);
+    vec4 z = litPlanar(color, layer, p.xy, g_patternDdx.xy, g_patternDdy.xy, scale);
     return x * w.x + y * w.y + z * w.z;
 }
 
 vec3 litTriplanarNormal(int layer, vec3 p, vec3 n, float scale, float strength) {
     vec3 w = pow(abs(n), vec3(4.0));
     w /= dot(w, vec3(1.0)) + 1e-5;
-    vec3 x = litTexture(false, layer, p.zy * scale).xyz * 2.0 - 1.0;
-    vec3 y = litTexture(false, layer, p.xz * scale).xyz * 2.0 - 1.0;
-    vec3 z = litTexture(false, layer, p.xy * scale).xyz * 2.0 - 1.0;
+    vec3 x = litPlanar(false, layer, p.zy, g_patternDdx.zy, g_patternDdy.zy, scale).xyz * 2.0 - 1.0;
+    vec3 y = litPlanar(false, layer, p.xz, g_patternDdx.xz, g_patternDdy.xz, scale).xyz * 2.0 - 1.0;
+    vec3 z = litPlanar(false, layer, p.xy, g_patternDdx.xy, g_patternDdy.xy, scale).xyz * 2.0 - 1.0;
     x.xy *= strength;
     y.xy *= strength;
     z.xy *= strength;
@@ -122,6 +139,45 @@ vec3 litTriplanarNormal(int layer, vec3 p, vec3 n, float scale, float strength) 
 vec4 litSample(bool color, int layer, SurfaceInput i, bool triplanar, float scale) {
     if (triplanar) return litTriplanar(color, layer, i.patternPosition, i.geometricNormal, scale);
     return litTexture(color, layer, i.uv * scale);
+}
+
+const float PARALLAX_FADE_START = 6.0;
+const float PARALLAX_FADE_END = 11.0;
+const float PARALLAX_STEPS_FACING = 5.0;
+const float PARALLAX_STEPS_GRAZING = 16.0;
+
+vec3 litParallaxPosition(int heightLayer, SurfaceInput i, float scale, float depthMeters) {
+    vec3 p = i.patternPosition;
+    vec3 magnitude = abs(i.geometricNormal);
+    int axis = magnitude.x > magnitude.y ? (magnitude.x > magnitude.z ? 0 : 2) : (magnitude.y > magnitude.z ? 1 : 2);
+    float strength = smoothstep(0.8, 0.95, magnitude[axis]) * (1.0 - smoothstep(PARALLAX_FADE_START, PARALLAX_FADE_END, distance(viewPos, i.worldPosition)));
+    if (strength <= 0.0) return p;
+    int u = axis == 0 ? 2 : 0;
+    int v = axis == 1 ? 2 : 1;
+    float facing = max(abs(i.viewDirection[axis]), 0.25);
+    vec2 travel = -vec2(i.viewDirection[u], i.viewDirection[v]) / facing * (depthMeters * strength);
+    float travelPixels = length(travel) / max(max(length(g_patternDdx), length(g_patternDdy)), 1e-6);
+    if (travelPixels < 1.0) return p;
+    float steps = floor(clamp(min(mix(PARALLAX_STEPS_GRAZING, PARALLAX_STEPS_FACING, saturate(facing)), travelPixels), 3.0, PARALLAX_STEPS_GRAZING));
+    vec2 start = vec2(p[u], p[v]) * scale;
+    vec2 stride = travel * scale / steps;
+    vec2 ddx = vec2(g_patternDdx[u], g_patternDdx[v]) * scale;
+    vec2 ddy = vec2(g_patternDdy[u], g_patternDdy[v]) * scale;
+    float layer = 0.0;
+    float below = 1.0 - litTextureGrad(false, heightLayer, start, ddx, ddy).a;
+    float previousGap = below;
+    float index = 0.0;
+    while (index < steps && layer < below) {
+        previousGap = below - layer;
+        index += 1.0;
+        layer = index / steps;
+        below = 1.0 - litTextureGrad(false, heightLayer, start + stride * index, ddx, ddy).a;
+    }
+    float gap = below - layer;
+    float refined = index > 0.0 ? layer - (1.0 / steps) * saturate(-gap / max(previousGap - gap, 1e-5)) : 0.0;
+    p[u] += travel.x * refined;
+    p[v] += travel.y * refined;
+    return p;
 }
 
 Surface litDefaultSurface(MaterialData m, SurfaceInput i) {
@@ -140,6 +196,12 @@ Surface litDefaultSurface(MaterialData m, SurfaceInput i) {
     s.toonRimWidth = 0.3;
     bool triplanar = m.flags.x > 0.5;
     float scale = m.transmission.w;
+    if (triplanar && m.flags.y > 0.0 && m.textures.z >= 0) {
+        g_patternDdx = dFdx(i.patternPosition);
+        g_patternDdy = dFdy(i.patternPosition);
+        g_patternShifted = true;
+        i.patternPosition = litParallaxPosition(m.textures.z, i, scale, m.flags.y);
+    }
     if (m.textures.x >= 0) {
         vec4 c = litSample(true, m.textures.x, i, triplanar, scale);
         s.baseColor *= c.rgb;

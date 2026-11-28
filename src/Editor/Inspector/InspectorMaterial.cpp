@@ -142,6 +142,7 @@ void drawMapping(EditTracker& tracker, Material& material) {
     tracker.changed |= ImGui::Checkbox("Triplanar", &material.triplanar);
     tracker.track();
     tracker.slider("Normal strength", material.normalStrength, 0.0f, 2.0f);
+    tracker.slider("Parallax depth", material.parallaxDepth, 0.0f, 0.1f);
     tracker.slider("Occlusion", material.occlusion, 0.0f, 1.0f);
     tracker.changed |= ImGui::DragFloat4("Custom 0", &material.custom0.x, 0.01f);
     tracker.track();

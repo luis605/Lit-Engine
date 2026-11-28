@@ -574,6 +574,7 @@ void registerExtRenderBuiltins(Program& program) {
         m.thickness = static_cast<float>(getNum(r, "thickness", m.thickness));
         m.uvScale = static_cast<float>(getNum(r, "uvScale", m.uvScale));
         m.normalStrength = static_cast<float>(getNum(r, "normalStrength", m.normalStrength));
+        m.parallaxDepth = static_cast<float>(getNum(r, "parallaxDepth", m.parallaxDepth));
         m.triplanar = getBool(r, "triplanar", false);
         m.baseColorTexture = static_cast<int>(getInt(r, "baseColorTexture", NO_TEXTURE));
         m.normalTexture = static_cast<int>(getInt(r, "normalTexture", NO_TEXTURE));

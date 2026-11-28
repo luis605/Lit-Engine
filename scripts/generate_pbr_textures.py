@@ -57,7 +57,13 @@ def cavity(height, radius_cycles, strength):
 
 
 def store(image, name):
-    Image.fromarray((np.clip(image, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8), "RGB").save(OUTPUT / name, optimize=True)
+    mode = "RGBA" if image.shape[2] == 4 else "RGB"
+    Image.fromarray((np.clip(image, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8), mode).save(OUTPUT / name, optimize=True)
+
+
+def relative_depth(height):
+    low, high = np.percentile(height, (1.0, 99.0))
+    return np.clip((height - low) / (high - low + 1e-9), 0.0, 1.0)
 
 
 def emit(name, albedo, height, roughness, relief):
@@ -65,7 +71,7 @@ def emit(name, albedo, height, roughness, relief):
         albedo = np.dstack([albedo] * 3)
     store(albedo, f"{name}_albedo.png")
     store(normal_map(height, relief), f"{name}_normal.png")
-    store(np.dstack([cavity(height, 40.0, 2.5), roughness, np.ones_like(height)]), f"{name}_orm.png")
+    store(np.dstack([cavity(height, 40.0, 2.5), roughness, np.ones_like(height), relative_depth(height)]), f"{name}_orm.png")
 
 
 def plaster():

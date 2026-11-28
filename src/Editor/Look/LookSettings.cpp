@@ -97,6 +97,7 @@ void LookPanel::drawScreenSpace(EditorContext& ctx) {
         ImGui::SliderFloat("Fog falloff", &settings.fogHeightFalloff, 0.001f, 1.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
         ImGui::DragFloat("Fog height", &settings.fogHeight, 0.5f, -1000.0f, 1000.0f, "%.1f m");
     }
+    ImGui::SliderFloat("Lamp glow", &settings.lightScatter, 0.0f, kLightScatterMax, "%.4f", ImGuiSliderFlags_Logarithmic);
     ImGui::Checkbox("Area lights (sphere and tube)", &settings.areaLights);
     ImGui::SliderFloat("Cloud aerial haze", &settings.cloudAerialStrength, 0.0f, 2.0f);
     ImGui::SeparatorText("Upscaling and quality");

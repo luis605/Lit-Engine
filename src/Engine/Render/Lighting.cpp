@@ -30,6 +30,7 @@ using namespace lighting_detail;
 namespace {
 
 constexpr uint32_t kMaxHizMips = 9;
+constexpr float kMaxParallaxDepthMeters = 0.25f;
 constexpr uint32_t kHistogramBins = 256;
 constexpr uint32_t kPlaceholderSize = 4;
 constexpr uint32_t kInitialShadowResolution = 16;
@@ -271,7 +272,7 @@ MaterialGpu packMaterial(const Material& material) {
     packed.textures[1] = material.normalTexture;
     packed.textures[2] = material.ormTexture;
     packed.textures[3] = material.emissiveTexture;
-    packed.flags = glm::vec4(material.triplanar ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f);
+    packed.flags = glm::vec4(material.triplanar ? 1.0f : 0.0f, clampNanToLowest(material.parallaxDepth, 0.0f, kMaxParallaxDepthMeters), 0.0f, 0.0f);
     packed.custom0 = material.custom0;
     packed.custom1 = material.custom1;
     return packed;

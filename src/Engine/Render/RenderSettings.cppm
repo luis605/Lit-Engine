@@ -135,6 +135,7 @@ export struct RenderSettings {
     float fogDensity = 0.0015f;
     float fogHeightFalloff = 0.05f;
     float fogHeight = 0.0f;
+    float lightScatter = 0.0f;
 
     float shadowCascadeBlend = 0.12f;
     float shadowContactLength = 0.6f;
@@ -274,6 +275,7 @@ void visitRenderSettings(Settings& settings, Visitor&& visit) {
     visit("fogDensity", settings.fogDensity);
     visit("fogHeightFalloff", settings.fogHeightFalloff);
     visit("fogHeight", settings.fogHeight);
+    visit("lightScatter", settings.lightScatter);
     visit("shadowCascadeBlend", settings.shadowCascadeBlend);
     visit("shadowContactLength", settings.shadowContactLength);
     visit("aoDenoise", settings.aoDenoise);
@@ -389,6 +391,7 @@ export inline constexpr float kRenderScaleStep = 0.05f;
 export inline constexpr float kTargetFrameMsMin = 4.0f;
 export inline constexpr float kTargetFrameMsMax = 100.0f;
 export inline constexpr int kAoDenoiseMax = 3;
+export inline constexpr float kLightScatterMax = 0.2f;
 
 export inline float quantizeRenderScale(float scale) {
     const float clamped = std::clamp(scale, kRenderScaleMin, kRenderScaleMax);
@@ -406,6 +409,7 @@ export inline void clampQualitySettings(RenderSettings& settings) {
     settings.upscaleSharpness = std::clamp(settings.upscaleSharpness, 0.0f, 1.0f);
     settings.targetFrameMs = std::clamp(settings.targetFrameMs, kTargetFrameMsMin, kTargetFrameMsMax);
     settings.governorMinScale = std::clamp(quantizeRenderScale(settings.governorMinScale), kRenderScaleMin, kRenderScaleMax);
+    settings.lightScatter = std::clamp(settings.lightScatter, 0.0f, kLightScatterMax);
     settings.shadowCascadeBlend = std::clamp(settings.shadowCascadeBlend, 0.0f, 0.5f);
     settings.shadowContactLength = std::clamp(settings.shadowContactLength, 0.0f, 4.0f);
     settings.aoDenoise = std::clamp(settings.aoDenoise, 0, kAoDenoiseMax);

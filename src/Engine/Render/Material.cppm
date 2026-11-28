@@ -39,4 +39,5 @@ export struct Material {
     int emissiveTexture = NO_TEXTURE;
     glm::vec4 custom0{0.0f};
     glm::vec4 custom1{0.0f};
+    float parallaxDepth = 0.0f;
 };
