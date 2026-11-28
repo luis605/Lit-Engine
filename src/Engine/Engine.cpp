@@ -1,4 +1,5 @@
 #include <thread>
+#include <cstdio>
 #include <format>
 #include <GLFW/glfw3.h>
 #include <fstream>
@@ -18,6 +19,7 @@
 #include <system_error>
 #include <type_traits>
 #include "Engine/Log/Log.hpp"
+#include "FramePolicy.hpp"
 
 import Engine.engine;
 import Engine.renderer;
@@ -60,6 +62,8 @@ import Engine.Render.lighting;
 
 namespace {
 constexpr size_t kMaxSceneLights = 32768;
+constexpr float kResumedFrameSeconds = 1.0f / 60.0f;
+constexpr std::chrono::seconds kBatteryPollPeriod{5};
 
 std::vector<bool> portalOwningCells(const PortalSystem& portals) {
     std::vector<bool> owning(portals.cells().size(), false);
@@ -213,12 +217,11 @@ int Engine::run(const std::function<void(float)>& frame) {
     double last = glfwGetTime();
     const char* fixedStep = std::getenv("LIT_FIXED_DT");
     const float fixedDelta = fixedStep ? std::strtof(fixedStep, nullptr) : 0.0f;
-    auto deadline = std::chrono::steady_clock::now();
     while (m_window && !glfwWindowShouldClose(m_window)) {
-        if (m_pacer.enabled()) std::this_thread::sleep_until(deadline);
-        const auto workStart = std::chrono::steady_clock::now();
+        waitForNextFrame();
         const double now = glfwGetTime();
-        const auto deltaTime = fixedDelta > 0.0f ? fixedDelta : static_cast<float>(now - last);
+        float deltaTime = fixedDelta > 0.0f ? fixedDelta : static_cast<float>(now - last);
+        if (fixedDelta <= 0.0f && m_resumedFromThrottle) deltaTime = std::min(deltaTime, kResumedFrameSeconds);
         last = now;
         beginUi();
         if (frame) frame(deltaTime);
@@ -226,12 +229,7 @@ int Engine::run(const std::function<void(float)>& frame) {
         update();
         InputManager::Update();
         present();
-        glfwPollEvents();
-        if (m_pacer.enabled()) {
-            const double busyMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - workStart).count() - m_renderer.fenceWaitMilliseconds();
-            const double intervalMs = m_pacer.addFrame(std::max(busyMs, m_renderer.wholeFrameGpuMilliseconds()));
-            deadline = std::max(deadline, workStart - std::chrono::milliseconds(1)) + std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::milli>(intervalMs));
-        }
+        scheduleNextFrame();
     }
     cleanup();
     return 0;
@@ -245,6 +243,77 @@ void Engine::setFramePacing(bool enabled) {
     }
     if (const char* value = std::getenv("LIT_MAX_FPS"); value && enabled) maxFps = std::max(std::atof(value), 0.0);
     m_pacer.setMaxFps(maxFps);
+}
+
+void Engine::setPowerSaving(bool enabled) {
+    m_power = Lit::PowerSettings::fromEnvironment([](const char* name) -> const char* { return std::getenv(name); });
+    if (!enabled || std::getenv("LIT_FIXED_DT")) m_power.enabled = false;
+    noteActivity();
+}
+
+double Engine::policyIntervalNow() {
+    const auto now = std::chrono::steady_clock::now();
+    const bool focused = glfwGetWindowAttrib(m_window, GLFW_FOCUSED) != 0;
+    const uint64_t serial = InputManager::EventSerial();
+    if (serial != m_seenInputSerial || focused != m_wasFocused || InputManager::IsAnyHeld()) m_lastActivity = now;
+    m_seenInputSerial = serial;
+    m_wasFocused = focused;
+    if (m_power.batteryMaxFps > 0.0 && now - m_lastBatteryPoll > kBatteryPollPeriod) {
+        m_lastBatteryPoll = now;
+        m_onBattery = Lit::runningOnBattery("/sys/class/power_supply");
+    }
+    int width = 0;
+    int height = 0;
+    glfwGetFramebufferSize(m_window, &width, &height);
+    Lit::FrameConditions conditions;
+    conditions.focused = focused;
+    conditions.hidden = glfwGetWindowAttrib(m_window, GLFW_ICONIFIED) != 0 || glfwGetWindowAttrib(m_window, GLFW_VISIBLE) == 0 || width == 0 || height == 0;
+    conditions.onBattery = m_onBattery;
+    conditions.sceneBusy = m_sceneBusy;
+    conditions.secondsSinceActivity = std::chrono::duration<double>(now - m_lastActivity).count();
+    return Lit::powerIntervalMs(m_power, conditions);
+}
+
+void Engine::waitForNextFrame() {
+    if (m_pacer.enabled()) std::this_thread::sleep_until(m_deadline);
+    glfwPollEvents();
+    double policyMs = 0.0;
+    if (m_power.enabled && m_window) {
+        while (!glfwWindowShouldClose(m_window)) {
+            policyMs = policyIntervalNow();
+            const double remaining = policyMs / 1000.0 - std::chrono::duration<double>(std::chrono::steady_clock::now() - m_frameStart).count();
+            if (remaining <= 0.0) break;
+            glfwWaitEventsTimeout(remaining);
+        }
+    }
+    const bool throttled = policyMs > m_pacer.intervalMs();
+    m_resumedFromThrottle = m_throttled && !throttled;
+    m_throttled = throttled;
+    m_frameStart = std::chrono::steady_clock::now();
+}
+
+void Engine::scheduleNextFrame() {
+    if (!m_pacer.enabled() || m_throttled) {
+        m_deadline = m_frameStart;
+        return;
+    }
+    const double busyMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - m_frameStart).count() - m_renderer.fenceWaitMilliseconds();
+    const double intervalMs = m_pacer.addFrame(std::max(busyMs, m_renderer.wholeFrameGpuMilliseconds()));
+    m_deadline = std::max(m_deadline, m_frameStart - std::chrono::milliseconds(1)) + std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::milli>(intervalMs));
+}
+
+void Engine::detectSceneActivity() {
+    const Camera& camera = m_world.camera();
+    const std::array<glm::vec3, 3> pose{camera.getPosition(), camera.getFront(), camera.getUp()};
+    bool active = pose != m_seenCamera || camera.getFov() != m_seenFov;
+    m_seenCamera = pose;
+    m_seenFov = camera.getFov();
+    if (m_streaming) {
+        const StreamingStats streaming = m_streaming->stats();
+        active = active || streaming.pendingCells + streaming.pendingAssets > 0;
+    }
+    if (m_terrain) active = active || m_terrain->stats().loading > 0;
+    if (active) noteActivity();
 }
 
 bool Engine::openHeadless() {
@@ -393,7 +462,7 @@ void Engine::beginTickInput(float& dt) {
 void Engine::tick(float deltaTime) {
     const auto tickStart = std::chrono::steady_clock::now();
     const double frameMs = m_lastTickStart.time_since_epoch().count() == 0 ? 0.0 : std::chrono::duration<double, std::milli>(tickStart - m_lastTickStart).count();
-    if (m_streaming && frameMs > 0.0) m_streaming->recordFrame(frameMs);
+    if (m_streaming && frameMs > 0.0 && !m_throttled) m_streaming->recordFrame(frameMs);
     if (m_perf.active()) {
         std::vector<PerfPass> passes;
         for (const GpuPassTiming& t : m_renderer.gpuTimings()) passes.push_back({t.name, t.milliseconds});
@@ -486,11 +555,15 @@ void Engine::update() {
         const auto now = std::chrono::steady_clock::now();
         if (now - m_lastShaderPoll > std::chrono::milliseconds(500)) {
             m_lastShaderPoll = now;
-            if (shadersChanged()) m_renderer.reloadShaders();
+            if (shadersChanged()) {
+                m_renderer.reloadShaders();
+                noteActivity();
+            }
         }
     }
     m_world.syncCamera();
     updatePortals(m_world);
+    detectSceneActivity();
     uploadParams();
     feedGpuObservation();
     LightSet lights;
@@ -537,7 +610,23 @@ void Engine::updatePortals(World& world) {
     m_renderer.setPortalFrame(std::move(frame));
 }
 
-void Engine::present() { m_renderer.present(); }
+void Engine::present() {
+    m_renderer.present();
+    logPresentedFrame();
+}
+
+void Engine::logPresentedFrame() {
+    static const bool enabled = std::getenv("LIT_FRAME_LOG") != nullptr;
+    if (!enabled) return;
+    ++m_loggedFrames;
+    const auto now = std::chrono::steady_clock::now();
+    if (m_frameLogStart.time_since_epoch().count() == 0) m_frameLogStart = now;
+    const double seconds = std::chrono::duration<double>(now - m_frameLogStart).count();
+    if (seconds < 1.0) return;
+    std::fprintf(stderr, "frame-log presented=%llu seconds=%.3f\n", static_cast<unsigned long long>(m_loggedFrames), seconds);
+    m_loggedFrames = 0;
+    m_frameLogStart = now;
+}
 
 void Engine::syncWindowSize(Camera& camera) {
     if (!m_renderer.resizeToWindow()) return;

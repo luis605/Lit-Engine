@@ -1,5 +1,6 @@
 module;
 
+#include <array>
 #include <chrono>
 #include <functional>
 #include <map>
@@ -14,6 +15,7 @@ module;
 struct GLFWwindow;
 
 #include "FramePacer.hpp"
+#include "FramePolicy.hpp"
 
 export module Engine.engine;
 
@@ -85,6 +87,12 @@ export class Engine {
     bool open(const WindowConfig& config = {});
     int run(const std::function<void(float)>& frame = {});
     void setFramePacing(bool enabled);
+    void setPowerSaving(bool enabled);
+    void setSceneBusy(bool busy) { m_sceneBusy = busy; }
+    void noteActivity() { m_lastActivity = std::chrono::steady_clock::now(); }
+    void waitForNextFrame();
+    void scheduleNextFrame();
+    [[nodiscard]] bool resumedFromThrottle() const { return m_resumedFromThrottle; }
     bool openHeadless();
     [[nodiscard]] bool headless() const { return m_headless; }
     int runHeadless(uint64_t ticks = 0, float deltaTime = 0.0f, const std::function<void(uint64_t)>& beforeTick = {});
@@ -185,6 +193,7 @@ export class Engine {
     [[nodiscard]] InputActions& input() { return m_input; }
     [[nodiscard]] Camera& camera() { return m_world.camera(); }
     void present();
+    void logPresentedFrame();
     void cleanup();
     uint32_t uploadMesh(const Mesh& mesh);
     uint32_t uploadProcessedMesh(const Mesh& optimizedMesh, const std::vector<Mesh>& lodChain);
@@ -365,6 +374,23 @@ export class Engine {
     float m_fixedStep = 1.0f / 60.0f;
     float m_accumulator = 0.0f;
     Lit::FramePacer m_pacer;
+    Lit::PowerSettings m_power{.enabled = false};
+    bool m_sceneBusy = true;
+    bool m_throttled = false;
+    bool m_resumedFromThrottle = false;
+    bool m_onBattery = false;
+    bool m_wasFocused = true;
+    uint64_t m_seenInputSerial = 0;
+    std::chrono::steady_clock::time_point m_frameStart{};
+    std::chrono::steady_clock::time_point m_deadline{};
+    std::chrono::steady_clock::time_point m_lastActivity{};
+    std::chrono::steady_clock::time_point m_lastBatteryPoll{};
+    std::array<glm::vec3, 3> m_seenCamera{};
+    float m_seenFov = 0.0f;
+    [[nodiscard]] double policyIntervalNow();
+    void detectSceneActivity();
+    uint64_t m_loggedFrames = 0;
+    std::chrono::steady_clock::time_point m_frameLogStart{};
     std::unordered_map<std::string, uint32_t> m_meshIds;
     std::unordered_map<uint32_t, std::string> m_meshNames;
     struct InstanceMirror {

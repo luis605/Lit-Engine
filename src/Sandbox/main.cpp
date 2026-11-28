@@ -109,6 +109,7 @@ void configureEngine(Engine& engine, bool playable) {
     engine.setShaderWatch(true);
     engine.enableImGui();
     engine.setFramePacing(true);
+    engine.setPowerSaving(true);
     if (std::filesystem::exists("resources/data/params.json")) engine.params().loadFile("resources/data/params.json");
     if (std::filesystem::exists("resources/data/post_fx.json")) engine.loadPostFx("resources/data/post_fx.json");
     if (std::getenv("LIT_GPU_PROFILE")) engine.setFullProfiling(true);

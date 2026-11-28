@@ -1,7 +1,9 @@
 module;
 
 #include <GLFW/glfw3.h>
+#include <algorithm>
 #include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -16,6 +18,7 @@ std::vector<int> InputManager::m_keyEvents;
 glm::vec2 InputManager::m_currentMousePos(0.0f, 0.0f);
 glm::vec2 InputManager::m_previousMousePos(0.0f, 0.0f);
 bool InputManager::m_firstMouseMove = true;
+uint64_t InputManager::m_eventSerial = 0;
 
 namespace {
 constexpr unsigned kAsciiLimit = 0x80;
@@ -55,6 +58,8 @@ void InputManager::Init(GLFWwindow* window) {
     glfwSetCursorPosCallback(window, [](GLFWwindow* callbackWindow, double positionX, double positionY) {
         CursorPosCallback(callbackWindow, glm::vec2(static_cast<float>(positionX), static_cast<float>(positionY)));
     });
+    glfwSetScrollCallback(window, [](GLFWwindow*, double, double) { ++m_eventSerial; });
+    glfwSetWindowRefreshCallback(window, [](GLFWwindow*) { ++m_eventSerial; });
 
     m_keyStates.fill(KeyState::None);
     m_mouseButtonStates.fill(KeyState::None);
@@ -74,6 +79,13 @@ void InputManager::Update() {
     m_keyEvents.clear();
 }
 
+uint64_t InputManager::EventSerial() { return m_eventSerial; }
+
+bool InputManager::IsAnyHeld() {
+    const auto down = [](KeyState state) { return state == KeyState::Pressed || state == KeyState::Held; };
+    return std::ranges::any_of(m_keyStates, down) || std::ranges::any_of(m_mouseButtonStates, down);
+}
+
 bool InputManager::IsKeyPressed(int key) { return key >= 0 && key <= GLFW_KEY_LAST && m_keyStates[key] == KeyState::Pressed; }
 bool InputManager::IsKeyReleased(int key) { return key >= 0 && key <= GLFW_KEY_LAST && m_keyStates[key] == KeyState::Released; }
 bool InputManager::IsKeyHeld(int key) { return key >= 0 && key <= GLFW_KEY_LAST && m_keyStates[key] == KeyState::Held; }
@@ -85,12 +97,16 @@ bool InputManager::IsMouseButtonHeld(int button) { return button >= 0 && button 
 const std::string& InputManager::TypedText() { return m_typed; }
 const std::vector<int>& InputManager::KeyEvents() { return m_keyEvents; }
 
-void InputManager::CharCallback(GLFWwindow*, unsigned int codepoint) { appendUtf8(m_typed, codepoint); }
+void InputManager::CharCallback(GLFWwindow*, unsigned int codepoint) {
+    ++m_eventSerial;
+    appendUtf8(m_typed, codepoint);
+}
 
 glm::vec2 InputManager::GetMousePosition() { return m_currentMousePos; }
 glm::vec2 InputManager::GetMouseDelta() { return m_currentMousePos - m_previousMousePos; }
 
 void InputManager::KeyCallback(GLFWwindow*, int key, int, int action, int) {
+    ++m_eventSerial;
     if (key < 0 || key > GLFW_KEY_LAST) return;
     if (action == GLFW_PRESS) {
         m_keyStates[key] = KeyState::Pressed;
@@ -103,12 +119,14 @@ void InputManager::KeyCallback(GLFWwindow*, int key, int, int action, int) {
 }
 
 void InputManager::MouseButtonCallback(GLFWwindow*, int button, int action, int) {
+    ++m_eventSerial;
     if (button < 0 || button > GLFW_MOUSE_BUTTON_LAST) return;
     if (action == GLFW_PRESS) m_mouseButtonStates[button] = KeyState::Pressed;
     else if (action == GLFW_RELEASE) m_mouseButtonStates[button] = KeyState::Released;
 }
 
 void InputManager::CursorPosCallback(GLFWwindow*, glm::vec2 position) {
+    ++m_eventSerial;
     if (m_firstMouseMove) {
         m_previousMousePos = position;
         m_firstMouseMove = false;

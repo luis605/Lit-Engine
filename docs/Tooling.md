@@ -102,7 +102,23 @@ Entities are ordered by slot index. `dumpWorld(world, DumpOptions)` dumps only t
 
 ## Frame pacing
 
-`Engine::setFramePacing(true)` (Sandbox and Editor; off under `LIT_AUTOPILOT`) paces `run()` to a rate the machine holds with headroom: the interval is 1.15 times the 90th percentile of recent frame work (the longer of CPU time and whole-frame GPU time), never shorter than the monitor refresh interval and never longer than 1/30 s. The first 30 frames after pacing is enabled are ignored, so load spikes do not lower the rate. Running flat out starved the compositor of GPU time and heated the GPU into throttling, which showed as bursts of long frames. `LIT_MAX_FPS=<n>` sets the upper rate, `LIT_MAX_FPS=0` turns pacing off. `LitShot` runs unpaced unless it is given `--paced`.
+`Engine::setFramePacing(true)` (Sandbox and Editor; off under `LIT_AUTOPILOT`) paces `run()` and the Editor loop to a rate the machine holds with headroom: the interval is 1.15 times the 90th percentile of recent frame work (the longer of CPU time and whole-frame GPU time), never shorter than the monitor refresh interval and never longer than 1/30 s. The first 30 frames after pacing is enabled are ignored, so load spikes do not lower the rate. Running flat out starved the compositor of GPU time and heated the GPU into throttling, which showed as bursts of long frames. Input is polled after the pacing sleep, so the sleep adds no input latency. `LIT_MAX_FPS=<n>` sets the upper rate, `LIT_MAX_FPS=0` turns pacing off. `LitShot` runs unpaced unless it is given `--paced`.
+
+### Power saving
+
+`Engine::setPowerSaving(true)` (Sandbox and Editor; off under `LIT_AUTOPILOT` and `LIT_FIXED_DT`, never on in `LitShot`) lowers the frame rate when nobody would see the difference. Waiting is done in `glfwWaitEventsTimeout`, so a key, button, cursor, scroll, focus or expose event ends the wait at once and holds the full paced rate for the following activity window. The first frame after a lowered rate advances time by at most 1/60 s.
+
+| State | Default | Variable |
+| --- | --- | --- |
+| Editor focused, nothing changing | 10 fps | `LIT_IDLE_FPS` |
+| Unfocused, nothing changing | 5 fps | `LIT_UNFOCUSED_IDLE_FPS` |
+| Unfocused, game or play mode running | 30 fps | `LIT_UNFOCUSED_FPS` |
+| Minimized, invisible or zero sized | 4 fps | `LIT_HIDDEN_FPS` |
+| On battery, upper rate in every state | off | `LIT_BATTERY_MAX_FPS` |
+| Activity window | 2 s | `LIT_ACTIVITY_SECONDS` |
+
+A rate of 0 removes that limit, and `LIT_POWER_SAVING=0` turns the whole policy off. The Editor counts play mode, animated stress objects, toasts, animated time of day, held keys and buttons, history changes, camera movement, streaming and shader reloads as activity. Other animation in edit mode, such as cloud drift, advances at the idle rate. Compositors without a minimized state (Hyprland) report a window on another workspace only as unfocused. `LIT_FRAME_LOG=1` prints presented frames per second to stderr.
+
 
 ## Parameter bus
 

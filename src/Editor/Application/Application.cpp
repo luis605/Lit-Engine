@@ -81,7 +81,9 @@ Application::Application() {
     if (!m_engine.open({kWindowTitle, kWindowWidth, kWindowHeight})) return;
     m_window = m_engine.window();
     m_engine.enableImGui();
-    m_engine.setFramePacing(std::getenv("LIT_AUTOPILOT") == nullptr);
+    const bool interactive = std::getenv("LIT_AUTOPILOT") == nullptr;
+    m_engine.setFramePacing(interactive);
+    m_engine.setPowerSaving(interactive);
     Lit::Log::Phase("imgui");
     float scaleX = 1.0f;
     float scaleY = 1.0f;
@@ -315,14 +317,27 @@ void Application::reportOverCapacity() {
     if (over > 0) m_ctx->toast(std::format("{} entities exceed GPU memory; the viewport is paused. Undo (Ctrl+Z) or delete entities to resume.", over), ToastKind::Error);
 }
 
+void Application::reportSceneActivity() {
+    const EditorContext& ctx = *m_ctx;
+    if (const uint64_t revision = ctx.history->state(); revision != m_seenRevision) {
+        m_seenRevision = revision;
+        m_engine.noteActivity();
+    }
+    const bool simulating = ctx.playing && !ctx.paused;
+    const bool animating = (m_lookState.animateStress && m_movingObjectCount > 0) || m_engine.renderSettings().animateTime || !ctx.toasts.empty();
+    m_engine.setSceneBusy(simulating || animating);
+}
+
 void Application::update() {
     EditorContext& ctx = *m_ctx;
+    m_engine.waitForNextFrame();
     if (glfwWindowShouldClose(m_window)) {
         glfwSetWindowShouldClose(m_window, GLFW_FALSE);
         guarded([this] { m_ctx->requestQuit = true; });
     }
     const double now = glfwGetTime();
-    const float deltaTime = static_cast<float>(std::min(now - m_lastFrame, static_cast<double>(kMaxFrameSeconds)));
+    const double longestStep = m_engine.resumedFromThrottle() ? static_cast<double>(kSteppedFrameSeconds) : static_cast<double>(kMaxFrameSeconds);
+    const float deltaTime = static_cast<float>(std::min(now - m_lastFrame, longestStep));
     m_lastFrame = now;
     m_frameMs = deltaTime * 1000.0f;
 
@@ -346,9 +361,10 @@ void Application::update() {
     reportOverCapacity();
     trackRenderSettings();
     updateTitle();
+    reportSceneActivity();
     m_engine.update();
     InputManager::Update();
     m_engine.present();
     if (m_framesPresented++ == 0) Lit::Log::Phase("first frame presented");
-    glfwPollEvents();
+    m_engine.scheduleNextFrame();
 }

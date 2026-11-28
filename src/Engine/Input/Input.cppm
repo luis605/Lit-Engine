@@ -2,6 +2,7 @@ module;
 
 #include <GLFW/glfw3.h>
 #include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,9 @@ export class InputManager {
 
     static void Init(GLFWwindow* window);
     static void Update();
+
+    static uint64_t EventSerial();
+    static bool IsAnyHeld();
 
     static bool IsKeyPressed(int key);
     static bool IsKeyReleased(int key);
@@ -47,4 +51,5 @@ export class InputManager {
     static glm::vec2 m_currentMousePos;
     static glm::vec2 m_previousMousePos;
     static bool m_firstMouseMove;
+    static uint64_t m_eventSerial;
 };

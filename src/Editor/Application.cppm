@@ -74,6 +74,7 @@ export class Application {
     void drawUnsavedPrompt();
     void guarded(std::function<void()> action);
     void trackRenderSettings();
+    void reportSceneActivity();
     void drawStats(float frameMs);
     void updateTitle();
     std::vector<std::string> sceneFiles() const;
@@ -155,6 +156,7 @@ export class Application {
     double m_lastFrame = 0.0;
     float m_frameMs = 16.0f;
     uint64_t m_framesPresented = 0;
+    uint64_t m_seenRevision = 0;
     size_t m_reportedOverCapacity = 0;
     double m_lastInputTime = 0.0;
     std::vector<EntityHandle> m_playSelection;
