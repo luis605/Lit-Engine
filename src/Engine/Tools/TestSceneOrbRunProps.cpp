@@ -30,7 +30,7 @@ namespace {
 constexpr float kOrbRadius = 0.3f;
 constexpr float kOrbLightIntensity = 6000.0f;
 constexpr float kOrbLightRange = 10.0f;
-constexpr float kOrbEmission = 14.0f;
+constexpr float kOrbEmission = 1500.0f;
 constexpr float kCrateHalf = 0.4f;
 constexpr float kCrateMass = 8.0f;
 constexpr float kCrateFriction = 0.7f;
@@ -42,13 +42,14 @@ const glm::vec3 kOrbColors[] = {
 
 }
 
-void spawnOrb(World& world, uint32_t sphereMesh, OrbRunOrb& orb) {
+void spawnOrb(World& world, uint32_t sphereMesh, uint32_t shader, OrbRunOrb& orb) {
     EntityDesc description;
     description.name = "orb";
     description.mesh = sphereMesh;
     description.material = orb.material;
     description.position = orb.home;
     description.scale = glm::vec3(kOrbRadius);
+    description.shader = shader;
     orb.entity = world.create(description);
     LightComponent light;
     light.type = LightComponent::Type::Point;
@@ -62,19 +63,23 @@ void spawnOrb(World& world, uint32_t sphereMesh, OrbRunOrb& orb) {
 void buildOrbs(const Context& context) {
     context.game.orbs.clear();
     context.game.orbMesh = context.kit.portal.sphere;
+    context.game.orbShader = context.looks.orb;
     const size_t colorCount = sizeof(kOrbColors) / sizeof(kOrbColors[0]);
     for (size_t index = 0; index < context.game.layout.orbs.size(); ++index) {
         OrbRunOrb orb;
         orb.home = context.game.layout.orbs[index];
         orb.color = kOrbColors[index % colorCount];
         orb.material = context.glow(orb.color, kOrbEmission);
-        spawnOrb(context.world, context.game.orbMesh, orb);
+        spawnOrb(context.world, context.game.orbMesh, context.game.orbShader, orb);
         context.game.orbs.push_back(orb);
     }
 }
 
 void buildCrates(const Context& context) {
     const uint32_t wood = context.surfaced(Finish::Wood, glm::vec3(0.72f, 0.5f, 0.28f), 0.75f, {.tileMeters = 1.0f, .worldAligned = false});
+    const uint32_t frame = context.surfaced(Finish::Wood, glm::vec3(0.34f, 0.22f, 0.13f), 0.6f, {.tileMeters = 0.7f, .worldAligned = false});
+    const uint32_t panel = context.mesh("crate.panel", roundedBoxMesh(glm::vec3(kCrateHalf * 0.95f), 0.02f, 0.0f));
+    const uint32_t braces = context.mesh("crate.frame", crateFrameMesh(kCrateHalf * 0.97f));
     context.game.crates.clear();
     for (const glm::vec3& home : context.game.layout.crates) {
         EntityDesc body;
@@ -89,11 +94,13 @@ void buildCrates(const Context& context) {
         context.world.add<RigidBody>(crate, physics);
         EntityDesc skin;
         skin.name = "crate skin";
-        skin.mesh = context.kit.portal.cube;
+        skin.mesh = panel;
         skin.material = wood;
         skin.parent = crate;
-        skin.position = glm::vec3(-kCrateHalf);
-        skin.scale = glm::vec3(2.0f * kCrateHalf);
+        context.world.create(skin);
+        skin.name = "crate braces";
+        skin.mesh = braces;
+        skin.material = frame;
         context.world.create(skin);
         context.game.crates.push_back({crate, home});
     }

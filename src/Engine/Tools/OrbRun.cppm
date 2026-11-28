@@ -83,6 +83,7 @@ export struct OrbRunGame {
     uint32_t socketLit = 0;
     uint32_t socketDim = 0;
     uint32_t orbMesh = 0;
+    uint32_t orbShader = 0;
     uint32_t respawns = 0;
     uint32_t spiderHits = 0;
     bool playable = false;

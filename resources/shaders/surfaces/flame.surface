@@ -1,0 +1,14 @@
+void surface(in SurfaceInput i, inout Surface s) {
+    float height = saturate(i.objectPosition.y);
+    float facing = saturate(abs(dot(i.geometricNormal, i.viewDirection)));
+    vec3 drift = vec3(i.objectPosition.xz * 11.0, i.objectPosition.y * 6.0 - i.time * 4.0);
+    float lick = litFbm(drift + vec3(i.worldPosition.xz * 3.0, 0.0), 3);
+    float body = pow(facing, 1.8) * (1.0 - height * height);
+    float flame = saturate(body * 1.35 + (lick - 0.5) * (0.5 + 1.6 * height));
+    vec3 hue = mix(vec3(0.75, 0.1, 0.01), vec3(1.0, 0.85, 0.55), smoothstep(0.2, 0.95, flame));
+    s.emissive *= hue * (0.35 + 1.5 * flame);
+    s.opacity *= smoothstep(0.02, 0.6, flame) * 0.95;
+    s.baseColor = vec3(0.0);
+    s.roughness = 1.0;
+    s.metallic = 0.0;
+}

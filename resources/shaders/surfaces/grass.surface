@@ -1,0 +1,9 @@
+void surface(in SurfaceInput i, inout Surface s) {
+    float variation = litNoise(i.patternPosition * 0.45);
+    vec3 root = mix(vec3(0.05, 0.09, 0.025), vec3(0.11, 0.12, 0.035), variation);
+    vec3 tip = mix(vec3(0.22, 0.34, 0.08), vec3(0.42, 0.40, 0.14), variation);
+    s.baseColor *= mix(root, tip, saturate(i.uv.y)) * 2.2;
+    s.occlusion *= mix(0.55, 1.0, saturate(i.uv.y));
+    s.roughness = 0.85;
+    s.metallic = 0.0;
+}

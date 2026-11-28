@@ -50,7 +50,14 @@ void buildOrbRun(Engine& engine, const OrbRunKit& kit) {
     registry()[&engine] = game;
     game->layout = orbRunLayout();
     game->state = orbRunStart(game->config);
-    const orbrun::Context context{engine, engine.world(), kit, *game};
+    orbrun::Context context{engine, engine.world(), kit, *game};
+    if (!engine.headless()) {
+        context.looks.flame = engine.loadShader("Orb Run Flame", "resources/shaders/surfaces/flame.surface");
+        context.looks.orb = engine.loadShader("Orb Run Orb", "resources/shaders/surfaces/orb.surface");
+        context.looks.molten = engine.loadShader("Orb Run Molten", "resources/shaders/surfaces/molten.surface");
+        context.looks.grass = engine.loadShader("Orb Run Grass", "resources/shaders/surfaces/grass.surface");
+        context.looks.glowcap = engine.loadShader("Orb Run Glowcap", "resources/shaders/surfaces/glowcap.surface");
+    }
     orbrun::buildHub(context);
     orbrun::buildEmber(context);
     orbrun::buildFrost(context);

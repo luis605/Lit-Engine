@@ -166,7 +166,7 @@ void restartOrbRun(Engine& engine) {
     World& world = engine.world();
     game->state = orbRunStart(game->config);
     for (OrbRunOrb& orb : game->orbs) {
-        if (!world.isAlive(orb.entity)) orbrun::spawnOrb(world, game->orbMesh, orb);
+        if (!world.isAlive(orb.entity)) orbrun::spawnOrb(world, game->orbMesh, game->orbShader, orb);
     }
     for (const EntityHandle socket : game->sockets) world.setMaterial(socket, game->socketDim);
     for (const OrbRunCrate& crate : game->crates) {

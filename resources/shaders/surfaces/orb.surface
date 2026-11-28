@@ -1,0 +1,10 @@
+void surface(in SurfaceInput i, inout Surface s) {
+    float rim = pow(1.0 - saturate(abs(dot(i.geometricNormal, i.viewDirection))), 2.5);
+    vec3 p = i.objectPosition * 3.5;
+    float swirl = litFbm(p + vec3(0.0, i.time * 0.35, 0.0) + litFbm(p * 1.7, 3) * 1.8, 4);
+    float veins = 1.0 - smoothstep(0.0, 0.09, abs(swirl - 0.5));
+    s.emissive *= 0.1 + 1.6 * rim + 0.85 * veins;
+    s.baseColor *= 0.25;
+    s.roughness = 0.08;
+    s.metallic = 0.0;
+}

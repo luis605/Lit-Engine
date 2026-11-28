@@ -47,6 +47,11 @@ constexpr float kBoundaryThickness = 1.0f;
 constexpr float kBoundaryHeight = 40.0f;
 constexpr float kLowWallHeight = 1.1f;
 constexpr float kBackWallThickness = 0.8f;
+constexpr float kCopingHeight = 0.18f;
+constexpr float kCopingOverhang = 0.1f;
+constexpr int kPlazaGrassTufts = 1100;
+constexpr float kFlameEmission = 2600.0f;
+constexpr float kLampGlowDensity = 0.016f;
 constexpr float kArchHeight = 5.4f;
 constexpr float kFlagstoneHalf = 11.0f;
 constexpr float kFlagstoneTop = 0.06f;
@@ -57,55 +62,12 @@ constexpr float kBoughNotch = 0.62f;
 constexpr size_t kTextureU = 6;
 constexpr float kWoodCoordinate = 0.0f;
 constexpr float kCrownCoordinate = 1.0f;
-constexpr int kBoulderRings = 20;
-constexpr int kBoulderSides = 28;
 constexpr int kStandingStones = 6;
 constexpr float kStoneRingRadius = 17.0f;
 constexpr float kBraziersLightIntensity = 9000.0f;
 constexpr float kBraziersLightRange = 16.0f;
 constexpr float kSunIlluminanceMatchingLamps = 7000.0f;
 constexpr float kFixedExposureEv100 = 10.0f;
-
-struct MeshData {
-    std::vector<float> vertices;
-    std::vector<unsigned int> indices;
-};
-
-void appendLathe(MeshData& mesh, const std::vector<glm::vec2>& profile, int sides, float wobble) {
-    const unsigned int first = static_cast<unsigned int>(mesh.vertices.size() / kVertexFloats);
-    const size_t rings = profile.size();
-    for (size_t ring = 0; ring < rings; ++ring) {
-        const glm::vec2 before = profile[ring == 0 ? 0 : ring - 1];
-        const glm::vec2 after = profile[std::min(ring + 1, rings - 1)];
-        const glm::vec2 tangent = after - before;
-        const glm::vec2 outward = glm::normalize(glm::vec2(tangent.y, -tangent.x));
-        for (int side = 0; side < sides; ++side) {
-            const float angle = 2.0f * kPi * static_cast<float>(side) / static_cast<float>(sides);
-            const float radius = profile[ring].x * (1.0f + wobble * std::sin(3.0f * angle + profile[ring].y * 2.0f));
-            const glm::vec3 normal(outward.x * std::cos(angle), outward.y, outward.x * std::sin(angle));
-            mesh.vertices.insert(mesh.vertices.end(), {radius * std::cos(angle), profile[ring].y, radius * std::sin(angle), normal.x, normal.y, normal.z, static_cast<float>(side) / static_cast<float>(sides), static_cast<float>(ring) / static_cast<float>(rings)});
-        }
-    }
-    const auto position = [&](unsigned int index) { return glm::vec3(mesh.vertices[index * kVertexFloats], mesh.vertices[index * kVertexFloats + 1], mesh.vertices[index * kVertexFloats + 2]); };
-    const auto addTriangle = [&](unsigned int a, unsigned int b, unsigned int c) {
-        const glm::vec3 facing = glm::cross(position(b) - position(a), position(c) - position(a));
-        const glm::vec3 center = (position(a) + position(b) + position(c)) / 3.0f;
-        const glm::vec3 away(center.x, 0.0f, center.z);
-        if (glm::dot(facing, away) < 0.0f) std::swap(b, c);
-        mesh.indices.insert(mesh.indices.end(), {a, b, c});
-    };
-    for (size_t ring = 0; ring + 1 < rings; ++ring) {
-        for (int side = 0; side < sides; ++side) {
-            const unsigned int next = static_cast<unsigned int>((side + 1) % sides);
-            const unsigned int a = first + static_cast<unsigned int>(ring * static_cast<size_t>(sides)) + static_cast<unsigned int>(side);
-            const unsigned int b = first + static_cast<unsigned int>(ring * static_cast<size_t>(sides)) + next;
-            const unsigned int c = a + static_cast<unsigned int>(sides);
-            const unsigned int d = b + static_cast<unsigned int>(sides);
-            addTriangle(a, b, d);
-            addTriangle(a, d, c);
-        }
-    }
-}
 
 void paintFoliageCoordinate(MeshData& mesh, size_t firstVertex, float woodOrCrown) {
     for (size_t vertex = firstVertex; vertex * kVertexFloats < mesh.vertices.size(); ++vertex) mesh.vertices[vertex * kVertexFloats + kTextureU] = woodOrCrown;
@@ -142,45 +104,7 @@ std::shared_ptr<const Mesh> makePine() {
     return std::make_shared<const Mesh>(std::move(data.vertices), std::move(data.indices));
 }
 
-float boulderRadius(const glm::vec3& direction) {
-    const float broad = std::sin(direction.x * 2.3f + 1.7f) * std::sin(direction.y * 2.9f + 0.4f) * std::sin(direction.z * 2.1f + 2.6f);
-    const float medium = std::sin(direction.x * 5.7f + direction.z * 3.1f) * std::sin(direction.y * 6.3f - direction.x * 2.2f);
-    const float fine = std::sin(direction.x * 13.0f - direction.y * 7.0f) * std::sin(direction.z * 11.0f + direction.y * 5.0f);
-    return 1.0f + 0.28f * broad + 0.12f * medium + 0.045f * fine;
-}
-
-std::shared_ptr<const Mesh> makeRock() {
-    MeshData data;
-    std::vector<glm::vec3> points;
-    for (int ring = 0; ring <= kBoulderRings; ++ring) {
-        const float latitude = kPi * (static_cast<float>(ring) / static_cast<float>(kBoulderRings) - 0.5f);
-        for (int side = 0; side <= kBoulderSides; ++side) {
-            const float longitude = 2.0f * kPi * static_cast<float>(side % kBoulderSides) / static_cast<float>(kBoulderSides);
-            const glm::vec3 direction(std::cos(latitude) * std::cos(longitude), std::sin(latitude), std::cos(latitude) * std::sin(longitude));
-            points.push_back(glm::vec3(0.0f, 0.65f, 0.0f) + direction * boulderRadius(direction) * glm::vec3(1.15f, 0.75f, 1.05f));
-        }
-    }
-    const auto at = [&](int ring, int side) { return points[static_cast<size_t>(ring * (kBoulderSides + 1) + (side + kBoulderSides) % kBoulderSides)]; };
-    for (int ring = 0; ring <= kBoulderRings; ++ring) {
-        for (int side = 0; side <= kBoulderSides; ++side) {
-            const glm::vec3 point = points[static_cast<size_t>(ring * (kBoulderSides + 1) + side)];
-            const glm::vec3 acrossRing = at(ring, side + 1) - at(ring, side - 1);
-            const glm::vec3 alongSide = at(std::min(ring + 1, kBoulderRings), side) - at(std::max(ring - 1, 0), side);
-            const glm::vec3 cross = glm::cross(alongSide, acrossRing);
-            const bool pole = ring == 0 || ring == kBoulderRings;
-            const glm::vec3 normal = pole || glm::dot(cross, cross) < 1.0e-8f ? glm::vec3(0.0f, ring == 0 ? -1.0f : 1.0f, 0.0f) : glm::normalize(cross);
-            data.vertices.insert(data.vertices.end(), {point.x, point.y, point.z, normal.x, normal.y, normal.z, static_cast<float>(side) / static_cast<float>(kBoulderSides), static_cast<float>(ring) / static_cast<float>(kBoulderRings)});
-        }
-    }
-    for (int ring = 0; ring < kBoulderRings; ++ring) {
-        for (int side = 0; side < kBoulderSides; ++side) {
-            const unsigned int a = static_cast<unsigned int>(ring * (kBoulderSides + 1) + side);
-            const unsigned int c = a + static_cast<unsigned int>(kBoulderSides + 1);
-            data.indices.insert(data.indices.end(), {a, c, a + 1, a + 1, c, c + 1});
-        }
-    }
-    return std::make_shared<const Mesh>(std::move(data.vertices), std::move(data.indices));
-}
+std::shared_ptr<const Mesh> makeMesh(MeshData data) { return std::make_shared<const Mesh>(std::move(data.vertices), std::move(data.indices)); }
 
 ScatterSpecies makeSpecies(const char* name, ScatterKind kind, std::shared_ptr<const Mesh> geometry, uint32_t material, uint32_t shader) {
     ScatterSpecies species;
@@ -238,7 +162,7 @@ TerrainSetup makeTerrainSetup(const Context& context) {
     pine.maxScale = 1.7f;
     pine.clump = 0.7f;
     pine.tag = "tree";
-    ScatterSpecies rock = makeSpecies("rock", ScatterKind::Rock, makeRock(), context.material(rockMaterial), 0u);
+    ScatterSpecies rock = makeSpecies("rock", ScatterKind::Rock, makeMesh(boulderMesh()), context.material(rockMaterial), 0u);
     rock.spacing = 11.0f;
     rock.density = 0.5f;
     rock.minHeight = 2.0f;
@@ -266,6 +190,11 @@ void buildLowWalls(const Context& context, const glm::vec3& center, uint32_t sto
     const float inner = kBoundaryHalf - 0.8f;
     const float outer = kBoundaryHalf;
     const float top = kLowWallHeight;
+    const float cap = top + kCopingHeight;
+    const float lip = kCopingOverhang;
+    context.rounded("courtyard west coping", stone, center + glm::vec3(-outer - lip, top, -outer - lip), center + glm::vec3(-inner + lip, cap, outer), 0.07f);
+    context.rounded("courtyard east coping", stone, center + glm::vec3(inner - lip, top, -outer - lip), center + glm::vec3(outer + lip, cap, outer), 0.07f);
+    context.rounded("courtyard north coping", stone, center + glm::vec3(-inner + lip, top, -outer - lip), center + glm::vec3(inner - lip, cap, -inner + lip), 0.07f);
     context.visual("courtyard west wall", stone, center + glm::vec3(-outer, 0.0f, -outer), center + glm::vec3(-inner, top, outer));
     context.visual("courtyard east wall", stone, center + glm::vec3(inner, 0.0f, -outer), center + glm::vec3(outer, top, outer));
     context.visual("courtyard north wall", stone, center + glm::vec3(-outer, 0.0f, -outer), center + glm::vec3(outer, top, -inner));
@@ -277,15 +206,15 @@ void buildArch(const Context& context, const glm::vec3& center, uint32_t stone, 
     const float lintelBottom = 4.7f;
     const float frontZ = center.z + kCourtyardArchZ - 0.4f;
     const float backZ = center.z + kCourtyardArchZ + 0.1f;
-    context.block("arch left pillar", stone, glm::vec3(center.x - pillarOuter, 0.0f, frontZ), glm::vec3(center.x - pillarInner, kArchHeight, backZ + kBackWallThickness));
-    context.block("arch right pillar", stone, glm::vec3(center.x + pillarInner, 0.0f, frontZ), glm::vec3(center.x + pillarOuter, kArchHeight, backZ + kBackWallThickness));
-    context.block("arch lintel", stone, glm::vec3(center.x - pillarOuter, lintelBottom, frontZ), glm::vec3(center.x + pillarOuter, kArchHeight, backZ + kBackWallThickness));
+    context.roundedBlock("arch left pillar", stone, glm::vec3(center.x - pillarOuter, 0.0f, frontZ), glm::vec3(center.x - pillarInner, kArchHeight, backZ + kBackWallThickness));
+    context.roundedBlock("arch right pillar", stone, glm::vec3(center.x + pillarInner, 0.0f, frontZ), glm::vec3(center.x + pillarOuter, kArchHeight, backZ + kBackWallThickness));
+    context.roundedBlock("arch lintel", stone, glm::vec3(center.x - pillarOuter, lintelBottom, frontZ), glm::vec3(center.x + pillarOuter, kArchHeight, backZ + kBackWallThickness));
     context.block("arch left wing", stone, glm::vec3(center.x - kBoundaryHalf, 0.0f, backZ), glm::vec3(center.x - pillarInner, kArchHeight, backZ + kBackWallThickness));
     context.block("arch right wing", stone, glm::vec3(center.x + pillarInner, 0.0f, backZ), glm::vec3(center.x + kBoundaryHalf, kArchHeight, backZ + kBackWallThickness));
     for (const float side : {-1.0f, 1.0f}) {
         const glm::vec3 base(center.x + side * 4.6f, 0.0f, center.z + kCourtyardArchZ - 1.5f);
-        context.block("courtyard brazier base", stone, base + glm::vec3(-0.4f, 0.0f, -0.4f), base + glm::vec3(0.4f, 1.0f, 0.4f));
-        context.visual("courtyard flame", flame, base + glm::vec3(-0.25f, 1.0f, -0.25f), base + glm::vec3(0.25f, 1.5f, 0.25f));
+        context.roundedBlock("courtyard brazier base", stone, base + glm::vec3(-0.4f, 0.0f, -0.4f), base + glm::vec3(0.4f, 1.0f, 0.4f));
+        buildBrazierBowl(context, base + glm::vec3(0.0f, 1.0f, 0.0f), flame, 1.15f);
         context.lamp("courtyard brazier light", base + glm::vec3(0.0f, 1.9f, 0.0f), glm::vec3(1.0f, 0.62f, 0.3f), kBraziersLightIntensity, kBraziersLightRange, 0.3f);
     }
 }
@@ -295,7 +224,7 @@ void buildStandingStones(const Context& context, const glm::vec3& center, uint32
         const float angle = 2.0f * kPi * (static_cast<float>(index) + 0.5f) / static_cast<float>(kStandingStones);
         const glm::vec3 base = center + glm::vec3(std::cos(angle) * kStoneRingRadius, 0.0f, std::sin(angle) * kStoneRingRadius);
         const float height = 2.2f + 0.5f * static_cast<float>(index % 3);
-        context.block("standing stone", stone, base + glm::vec3(-0.6f, 0.0f, -0.4f), base + glm::vec3(0.6f, height, 0.4f));
+        context.roundedBlock("standing stone", stone, base + glm::vec3(-0.6f, 0.0f, -0.4f), base + glm::vec3(0.6f, height, 0.4f), 0.22f, 0.07f);
     }
 }
 
@@ -305,7 +234,7 @@ void buildCourtyard(const Context& context) {
     const glm::vec3 center(kCourtyardX, 0.0f, 0.0f);
     const uint32_t stone = context.surfaced(Finish::Masonry, glm::vec3(0.72f, 0.68f, 0.62f), 0.85f, {.tileMeters = 2.2f});
     const uint32_t flagstone = context.surfaced(Finish::Flagstone, glm::vec3(0.62f, 0.58f, 0.53f), 0.75f, {.tileMeters = 3.5f});
-    const uint32_t flame = context.glow(glm::vec3(1.0f, 0.55f, 0.2f), 9.0f);
+    const uint32_t flame = context.fire(glm::vec3(1.0f, 0.55f, 0.2f), kFlameEmission);
     buildBoundary(context, center);
     buildLowWalls(context, center, stone);
     buildArch(context, center, stone, flame);
@@ -313,6 +242,7 @@ void buildCourtyard(const Context& context) {
     const glm::vec3 half(kFlagstoneHalf, 0.0f, kFlagstoneHalf);
     context.block("courtyard flagstones", flagstone, center - half + glm::vec3(0.0f, -0.2f, 0.0f), center + half + glm::vec3(0.0f, kFlagstoneTop, 0.0f));
     context.probe("courtyard probe", center + glm::vec3(0.0f, 3.0f, 0.0f), glm::vec3(kBoundaryHalf, 6.0f, kBoundaryHalf));
+    scatterGrass(context, center, glm::vec2(kBoundaryHalf - 1.2f, kCourtyardArchZ - 1.0f), kPlazaGrassTufts, kFlagstoneHalf + 0.4f);
     context.engine.enableTerrain(makeTerrainSetup(context));
 }
 
@@ -331,6 +261,7 @@ void applyRenderSettings(Engine& engine) {
     settings.godRays = true;
     settings.fog = true;
     settings.fogDensity = 0.0012f;
+    settings.lightScatter = kLampGlowDensity;
     settings.reflectionMode = ReflectionMode::SSRProbes;
     settings.virtualShadows = true;
     settings.areaLights = true;

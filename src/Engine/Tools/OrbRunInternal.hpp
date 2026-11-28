@@ -1,5 +1,7 @@
 #pragma once
 
+#include "OrbRunGeometry.hpp"
+
 namespace orbrun {
 
 inline constexpr float kWallThickness = 0.4f;
@@ -13,6 +15,7 @@ inline constexpr float kBodyCenterHeight = 0.9f;
 inline constexpr float kCourtyardX = 400.0f;
 inline constexpr float kCourtyardArchZ = 22.0f;
 inline constexpr float kPlazaHalf = 28.0f;
+inline constexpr float kFlameOpacity = 0.95f;
 
 enum class Wall { East, West, North, South };
 
@@ -23,6 +26,11 @@ struct SurfaceMapping {
     bool worldAligned = true;
     float normalStrength = 1.0f;
 };
+
+[[nodiscard]] inline float finishRelief(Finish finish) {
+    constexpr float kReliefMeters[] = {0.0f, 0.015f, 0.013f, 0.004f, 0.022f, 0.0f, 0.0f};
+    return kReliefMeters[static_cast<int>(finish)];
+}
 
 [[nodiscard]] inline const char* finishName(Finish finish) {
     constexpr const char* kNames[] = {"plaster", "masonry", "flagstone", "tiles", "rock", "wood", "ground"};
@@ -43,8 +51,10 @@ struct RoomStyle {
     glm::vec3 ceiling{0.8f};
     float floorRoughness = 0.5f;
     Finish floorFinish = Finish::Tiles;
+    Finish wallFinish = Finish::Plaster;
     float floorTileMeters = 3.0f;
-    glm::vec3 accent{1.0f};
+    glm::vec3 trim{0.4f};
+    bool framed = true;
 };
 
 struct PairSpec {
@@ -54,11 +64,45 @@ struct PairSpec {
     PortalLook look;
 };
 
+struct OrbRunLooks {
+    uint32_t flame = 0;
+    uint32_t orb = 0;
+    uint32_t molten = 0;
+    uint32_t grass = 0;
+    uint32_t glowcap = 0;
+};
+
 struct Context {
     Engine& engine;
     World& world;
     const OrbRunKit& kit;
     OrbRunGame& game;
+    OrbRunLooks looks{};
+
+    inline uint32_t mesh(const std::string& key, const MeshData& data) const { return kit.portal.mesh ? kit.portal.mesh("orbrun." + key, data.vertices, data.indices) : kit.portal.cube; }
+
+    inline EntityHandle prop(const std::string& name, uint32_t surface, uint32_t shape, const glm::vec3& position, const glm::vec3& scale = glm::vec3(1.0f), const glm::quat& rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f), uint32_t shader = 0) const {
+        EntityDesc description;
+        description.name = name;
+        description.mesh = shape;
+        description.material = surface;
+        description.shader = shader;
+        description.position = position;
+        description.scale = scale;
+        description.rotation = rotation;
+        return world.create(description);
+    }
+
+    inline EntityHandle rounded(const std::string& name, uint32_t surface, const glm::vec3& low, const glm::vec3& high, float bevel = 0.05f, float roughen = 0.0f, uint32_t shader = 0) const {
+        const glm::vec3 half = (high - low) * 0.5f;
+        const std::string key = "box." + std::to_string(half.x) + "." + std::to_string(half.y) + "." + std::to_string(half.z) + "." + std::to_string(bevel) + "." + std::to_string(roughen);
+        return prop(name, surface, mesh(key, roundedBoxMesh(half, bevel, roughen)), low + half, glm::vec3(1.0f), glm::quat(1.0f, 0.0f, 0.0f, 0.0f), shader);
+    }
+
+    inline EntityHandle roundedBlock(const std::string& name, uint32_t surface, const glm::vec3& low, const glm::vec3& high, float bevel = 0.05f, float roughen = 0.0f) const {
+        solid(low, high);
+        return rounded(name, surface, low, high, bevel, roughen);
+    }
 
     inline uint32_t material(const Material& material) const { return kit.material ? kit.material(material) : 0u; }
 
@@ -77,6 +121,7 @@ struct Context {
         description.triplanar = mapping.worldAligned;
         description.uvScale = 1.0f / mapping.tileMeters;
         description.normalStrength = mapping.normalStrength;
+        description.parallaxDepth = mapping.worldAligned ? finishRelief(finish) : 0.0f;
         if (!engine.headless()) {
             description.baseColorTexture = engine.loadTexture(finishPath(finish, "albedo"), true);
             description.normalTexture = engine.loadTexture(finishPath(finish, "normal"), false);
@@ -91,6 +136,16 @@ struct Context {
         description.emissive = color;
         description.emissiveIntensity = intensity;
         description.roughness = 0.35f;
+        return material(description);
+    }
+
+    inline uint32_t fire(const glm::vec3& color, float intensity) const {
+        Material description;
+        description.baseColor = glm::vec3(0.0f);
+        description.opacity = kFlameOpacity;
+        description.emissive = color;
+        description.emissiveIntensity = intensity;
+        description.roughness = 1.0f;
         return material(description);
     }
 
@@ -179,6 +234,12 @@ struct Context {
 [[nodiscard]] PortalLook portalLook(const glm::vec3& accent, PortalShape shape, float frameWidth);
 
 void buildShell(const Context& context, const Room& room, const RoomStyle& style, uint32_t floorShader);
+void buildBrazierBowl(const Context& context, const glm::vec3& top, uint32_t flame, float scale);
+void buildPillarTrim(const Context& context, uint32_t stone, const glm::vec3& base, float size, float height);
+void decorateEmber(const Context& context, const Room& room);
+void decorateFrost(const Context& context, const Room& room);
+void decorateGrotto(const Context& context, const Room& room);
+void scatterGrass(const Context& context, const glm::vec3& center, const glm::vec2& half, int count, float clearHalf);
 void buildHub(const Context& context);
 void buildEmber(const Context& context);
 void buildFrost(const Context& context);
@@ -188,7 +249,7 @@ void buildPortals(const Context& context);
 void buildSpiders(const Context& context);
 void buildCrates(const Context& context);
 void buildOrbs(const Context& context);
-void spawnOrb(World& world, uint32_t sphereMesh, OrbRunOrb& orb);
+void spawnOrb(World& world, uint32_t sphereMesh, uint32_t shader, OrbRunOrb& orb);
 void applyRenderSettings(Engine& engine);
 
 struct PlayerPose {

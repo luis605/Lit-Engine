@@ -1,0 +1,10 @@
+void surface(in SurfaceInput i, inout Surface s) {
+    float rim = pow(1.0 - saturate(abs(dot(i.geometricNormal, i.viewDirection))), 2.0);
+    vec2 spots = litVoronoi(i.objectPosition * 11.0);
+    float spot = 1.0 - smoothstep(0.18, 0.3, spots.x);
+    float under = 1.0 - smoothstep(0.02, 0.1, i.objectPosition.y);
+    s.emissive *= 0.18 + 1.4 * spot + 1.6 * under + 0.6 * rim;
+    s.baseColor *= 0.5;
+    s.roughness = 0.4;
+    s.metallic = 0.0;
+}

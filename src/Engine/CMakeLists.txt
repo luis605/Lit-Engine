@@ -287,6 +287,8 @@ target_sources(Engine
         Tools/TestSceneOrbRunCourtyard.cpp
         Tools/TestSceneOrbRunProps.cpp
         Tools/TestSceneOrbRunEnemies.cpp
+        Tools/TestSceneOrbRunGeometry.cpp
+        Tools/TestSceneOrbRunDecor.cpp
         Tools/TestSceneOrbRunGame.cpp
         Tools/TestSceneOrbRunHud.cpp
         Params/Params.cpp
