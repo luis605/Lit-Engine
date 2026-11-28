@@ -16,6 +16,21 @@ inline constexpr float kPlazaHalf = 28.0f;
 
 enum class Wall { East, West, North, South };
 
+enum class Finish { Plaster, Masonry, Flagstone, Tiles, Rock, Wood, Ground };
+
+struct SurfaceMapping {
+    float tileMeters = 2.0f;
+    bool worldAligned = true;
+    float normalStrength = 1.0f;
+};
+
+[[nodiscard]] inline const char* finishName(Finish finish) {
+    constexpr const char* kNames[] = {"plaster", "masonry", "flagstone", "tiles", "rock", "wood", "ground"};
+    return kNames[static_cast<int>(finish)];
+}
+
+[[nodiscard]] inline std::string finishPath(Finish finish, const char* channel) { return std::string("resources/textures/pbr/") + finishName(finish) + "_" + channel + ".png"; }
+
 struct Room {
     std::string name;
     glm::vec3 center{0.0f};
@@ -27,6 +42,8 @@ struct RoomStyle {
     glm::vec3 floor{0.4f};
     glm::vec3 ceiling{0.8f};
     float floorRoughness = 0.5f;
+    Finish floorFinish = Finish::Tiles;
+    float floorTileMeters = 3.0f;
     glm::vec3 accent{1.0f};
 };
 
@@ -50,6 +67,21 @@ struct Context {
         description.baseColor = color;
         description.roughness = roughness;
         description.metallic = metallic;
+        return material(description);
+    }
+
+    inline uint32_t surfaced(Finish finish, const glm::vec3& tint, float roughness, const SurfaceMapping& mapping = {}) const {
+        Material description;
+        description.baseColor = tint;
+        description.roughness = roughness;
+        description.triplanar = mapping.worldAligned;
+        description.uvScale = 1.0f / mapping.tileMeters;
+        description.normalStrength = mapping.normalStrength;
+        if (!engine.headless()) {
+            description.baseColorTexture = engine.loadTexture(finishPath(finish, "albedo"), true);
+            description.normalTexture = engine.loadTexture(finishPath(finish, "normal"), false);
+            description.ormTexture = engine.loadTexture(finishPath(finish, "orm"), false);
+        }
         return material(description);
     }
 

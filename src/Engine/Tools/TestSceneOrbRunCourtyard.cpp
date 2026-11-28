@@ -55,6 +55,8 @@ constexpr int kStandingStones = 6;
 constexpr float kStoneRingRadius = 17.0f;
 constexpr float kBraziersLightIntensity = 9000.0f;
 constexpr float kBraziersLightRange = 16.0f;
+constexpr float kSunIlluminanceMatchingLamps = 11000.0f;
+constexpr float kFixedExposureEv100 = 10.0f;
 
 struct MeshData {
     std::vector<float> vertices;
@@ -131,6 +133,8 @@ TerrainSetup makeTerrainSetup(const Context& context) {
     setup.terrain.maxHeight = kRimHeight + kRimVariation + 10.0f;
     setup.terrain.splat.sandMaxHeight = -1.0e6f;
     setup.terrain.splat.snowMinHeight = 1.0e6f;
+    setup.albedoTextures = {finishPath(Finish::Ground, "albedo"), finishPath(Finish::Rock, "albedo"), "", ""};
+    setup.normalTextures = {finishPath(Finish::Ground, "normal"), finishPath(Finish::Rock, "normal"), "", ""};
     setup.stream.lod.maxLevel = 4;
     setup.stream.lod.splitFactor = 2.0f;
     setup.stream.lod.viewDistance = 500.0f;
@@ -150,6 +154,13 @@ TerrainSetup makeTerrainSetup(const Context& context) {
     rockMaterial.name = "Orb Run Rock";
     rockMaterial.baseColor = glm::vec3(0.4f, 0.37f, 0.35f);
     rockMaterial.roughness = 0.95f;
+    rockMaterial.triplanar = true;
+    rockMaterial.uvScale = 0.4f;
+    if (!context.engine.headless()) {
+        rockMaterial.baseColorTexture = context.engine.loadTexture(finishPath(Finish::Rock, "albedo"), true);
+        rockMaterial.normalTexture = context.engine.loadTexture(finishPath(Finish::Rock, "normal"), false);
+        rockMaterial.ormTexture = context.engine.loadTexture(finishPath(Finish::Rock, "orm"), false);
+    }
     ScatterSpecies pine = makeSpecies("pine", ScatterKind::Tree, makePine(), context.material(pineMaterial), foliage);
     pine.spacing = 8.0f;
     pine.density = 0.7f;
@@ -224,13 +235,13 @@ void buildStandingStones(const Context& context, const glm::vec3& center, uint32
 
 void buildCourtyard(const Context& context) {
     const glm::vec3 center(kCourtyardX, 0.0f, 0.0f);
-    const uint32_t stone = context.paint(glm::vec3(0.62f, 0.58f, 0.52f), 0.8f);
-    const uint32_t flagstone = context.paint(glm::vec3(0.5f, 0.47f, 0.43f), 0.6f);
+    const uint32_t stone = context.surfaced(Finish::Masonry, glm::vec3(0.72f, 0.68f, 0.62f), 0.85f, {.tileMeters = 2.2f});
+    const uint32_t flagstone = context.surfaced(Finish::Flagstone, glm::vec3(0.62f, 0.58f, 0.53f), 0.75f, {.tileMeters = 3.5f});
     const uint32_t flame = context.glow(glm::vec3(1.0f, 0.55f, 0.2f), 9.0f);
     buildBoundary(context, center);
     buildLowWalls(context, center, stone);
     buildArch(context, center, stone, flame);
-    buildStandingStones(context, center, stone);
+    buildStandingStones(context, center, context.surfaced(Finish::Rock, glm::vec3(0.55f, 0.52f, 0.48f), 0.9f, {.tileMeters = 2.0f}));
     const glm::vec3 half(kFlagstoneHalf, 0.0f, kFlagstoneHalf);
     context.block("courtyard flagstones", flagstone, center - half + glm::vec3(0.0f, -0.2f, 0.0f), center + half + glm::vec3(0.0f, kFlagstoneTop, 0.0f));
     context.probe("courtyard probe", center + glm::vec3(0.0f, 3.0f, 0.0f), glm::vec3(kBoundaryHalf, 6.0f, kBoundaryHalf));
@@ -239,7 +250,10 @@ void buildCourtyard(const Context& context) {
 
 void applyRenderSettings(Engine& engine) {
     RenderSettings& settings = engine.renderSettings();
-    settings.timeOfDay = 18.2f;
+    settings.timeOfDay = 16.4f;
+    settings.sunIlluminance = kSunIlluminanceMatchingLamps;
+    settings.autoExposure = false;
+    settings.manualEV100 = kFixedExposureEv100;
     settings.sunAzimuth = 250.0f;
     settings.clouds = true;
     settings.cloudCoverage = 0.55f;

@@ -104,6 +104,21 @@ vec4 litTriplanar(bool color, int layer, vec3 p, vec3 n, float scale) {
     return x * w.x + y * w.y + z * w.z;
 }
 
+vec3 litTriplanarNormal(int layer, vec3 p, vec3 n, float scale, float strength) {
+    vec3 w = pow(abs(n), vec3(4.0));
+    w /= dot(w, vec3(1.0)) + 1e-5;
+    vec3 x = litTexture(false, layer, p.zy * scale).xyz * 2.0 - 1.0;
+    vec3 y = litTexture(false, layer, p.xz * scale).xyz * 2.0 - 1.0;
+    vec3 z = litTexture(false, layer, p.xy * scale).xyz * 2.0 - 1.0;
+    x.xy *= strength;
+    y.xy *= strength;
+    z.xy *= strength;
+    vec3 wx = vec3(x.xy + n.zy, abs(x.z) * n.x);
+    vec3 wy = vec3(y.xy + n.xz, abs(y.z) * n.y);
+    vec3 wz = vec3(z.xy + n.xy, abs(z.z) * n.z);
+    return normalize(wx.zyx * w.x + wy.xzy * w.y + wz * w.z);
+}
+
 vec4 litSample(bool color, int layer, SurfaceInput i, bool triplanar, float scale) {
     if (triplanar) return litTriplanar(color, layer, i.patternPosition, i.geometricNormal, scale);
     return litTexture(color, layer, i.uv * scale);
@@ -130,7 +145,9 @@ Surface litDefaultSurface(MaterialData m, SurfaceInput i) {
         s.baseColor *= c.rgb;
         s.opacity *= c.a;
     }
-    if (m.textures.y >= 0) {
+    if (m.textures.y >= 0 && triplanar) {
+        s.normal = litTriplanarNormal(m.textures.y, i.patternPosition, i.geometricNormal, scale, m.emissive.w);
+    } else if (m.textures.y >= 0) {
         vec3 tn = litSample(false, m.textures.y, i, triplanar, scale).xyz * 2.0 - 1.0;
         tn.xy *= m.emissive.w;
         s.normal = litPerturbNormal(i.geometricNormal, i.worldPosition, i.uv * scale, normalize(tn));

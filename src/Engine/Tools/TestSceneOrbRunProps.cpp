@@ -74,7 +74,7 @@ void buildOrbs(const Context& context) {
 }
 
 void buildCrates(const Context& context) {
-    const uint32_t wood = context.paint(glm::vec3(0.55f, 0.36f, 0.18f), 0.8f);
+    const uint32_t wood = context.surfaced(Finish::Wood, glm::vec3(0.72f, 0.5f, 0.28f), 0.75f, {.tileMeters = 1.0f, .worldAligned = false});
     context.game.crates.clear();
     for (const glm::vec3& home : context.game.layout.crates) {
         EntityDesc body;

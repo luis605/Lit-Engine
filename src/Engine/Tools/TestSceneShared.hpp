@@ -22,5 +22,8 @@ struct TestSceneShared {
     bool clouds = false;
     bool fog = false;
     int reflectionMode = 0;
+    float sunIlluminance = 0.0f;
+    float manualEV100 = 0.0f;
+    bool autoExposure = true;
     std::shared_ptr<void> largeWorld;
 };

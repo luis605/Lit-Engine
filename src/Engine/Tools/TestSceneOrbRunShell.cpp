@@ -127,9 +127,9 @@ void emitSlab(const Context& context, const std::string& name, uint32_t surface,
 }
 
 void buildShell(const Context& context, const Room& room, const RoomStyle& style, uint32_t floorShader) {
-    const uint32_t wallMaterial = context.paint(style.wall, 0.75f);
-    const uint32_t floorMaterial = context.paint(style.floor, style.floorRoughness);
-    const uint32_t ceilingMaterial = context.paint(style.ceiling, 0.85f);
+    const uint32_t wallMaterial = context.surfaced(Finish::Plaster, style.wall, 0.8f, {.tileMeters = 2.5f, .normalStrength = 0.4f});
+    const uint32_t floorMaterial = context.surfaced(style.floorFinish, style.floor, style.floorRoughness, {.tileMeters = style.floorTileMeters});
+    const uint32_t ceilingMaterial = context.surfaced(Finish::Plaster, style.ceiling, 0.9f, {.tileMeters = 3.0f, .normalStrength = 0.4f});
     const std::vector<FaceOpening> openings = openingsOf(room);
     const FaceId faces[] = {{kAxisY, -1.0f}, {kAxisY, 1.0f}, {kAxisX, 1.0f}, {kAxisX, -1.0f}, {kAxisZ, 1.0f}, {kAxisZ, -1.0f}};
     for (const FaceId& face : faces) {

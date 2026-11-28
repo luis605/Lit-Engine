@@ -633,6 +633,9 @@ void leaveTestScene(Engine& engine) {
         settings.clouds = shared.clouds;
         settings.fog = shared.fog;
         settings.reflectionMode = static_cast<ReflectionMode>(shared.reflectionMode);
+        settings.sunIlluminance = shared.sunIlluminance;
+        settings.manualEV100 = shared.manualEV100;
+        settings.autoExposure = shared.autoExposure;
     }
 }
 
@@ -750,6 +753,9 @@ bool buildTestScene(Engine& engine, const std::string& name, const TestSceneKit&
         shared.clouds = settings.clouds;
         shared.fog = settings.fog;
         shared.reflectionMode = static_cast<int>(settings.reflectionMode);
+        shared.sunIlluminance = settings.sunIlluminance;
+        shared.manualEV100 = settings.manualEV100;
+        shared.autoExposure = settings.autoExposure;
         shared.settingsSaved = true;
     }
     info = TestSceneInfo{};
