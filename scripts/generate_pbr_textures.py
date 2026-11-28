@@ -94,9 +94,9 @@ def tiles():
     vein = 1.0 - smoothstep(0.0, 0.07, np.abs(spectral_noise(42, 3, 30, 1.5) - 0.5))
     grain = spectral_noise(43, 40, 300, 0.5)
     height = face + grain * 0.01
-    stone = 0.76 + shade * 0.12 + (cloud - 0.5) * 0.18 + vein * 0.07
+    stone = 0.76 + shade * 0.12 + (cloud - 0.5) * 0.1 + vein * 0.015
     albedo = 0.45 + (stone - 0.45) * face
-    roughness = 1.0 - face * (0.72 - cloud * 0.22 - vein * 0.05)
+    roughness = 1.0 - face * (0.72 - cloud * 0.14)
     emit("tiles", albedo, height, roughness, 0.004)
 
 

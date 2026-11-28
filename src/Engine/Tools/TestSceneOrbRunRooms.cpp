@@ -40,6 +40,8 @@ constexpr float kBraziersLightRange = 11.0f;
 constexpr float kRoomLampIntensity = 120000.0f;
 constexpr float kRoomLampRange = 22.0f;
 constexpr float kDimTintBoost = 2.6f;
+constexpr float kCoolTintBoost = 2.2f;
+constexpr float kDeepTintBoost = 4.6f;
 constexpr float kLampHeight = 4.6f;
 constexpr float kProbeHalfHeight = 2.5f;
 
@@ -147,7 +149,7 @@ void buildFrost(const Context& context) {
         }
     }
     context.block("frost plinth", stone, inRoom(room, -1.0f, 0.0f, 3.0f), inRoom(room, 1.0f, 0.5f, 5.0f));
-    ceilingLamp(context, room, glm::vec3(0.6f, 0.82f, 1.0f), 5.0f);
+    ceilingLamp(context, room, glm::vec3(0.6f, 0.82f, 1.0f), 5.0f, kCoolTintBoost);
     roomProbe(context, room);
 }
 
@@ -175,7 +177,7 @@ void buildGrotto(const Context& context) {
         context.ball("mushroom cap", cap, base + glm::vec3(0.0f, 0.5f, 0.0f), 0.28f);
         context.lamp("mushroom light", base + glm::vec3(0.0f, 0.9f, 0.0f), glm::vec3(0.6f, 0.35f, 1.0f), 20000.0f, 6.0f, 0.2f);
     }
-    ceilingLamp(context, room, glm::vec3(0.55f, 1.0f, 0.6f), 4.0f, kDimTintBoost);
+    ceilingLamp(context, room, glm::vec3(0.55f, 1.0f, 0.6f), 4.0f, kDeepTintBoost);
     roomProbe(context, room);
 }
 

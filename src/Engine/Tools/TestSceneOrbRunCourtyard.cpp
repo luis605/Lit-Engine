@@ -51,11 +51,19 @@ constexpr float kArchHeight = 5.4f;
 constexpr float kFlagstoneHalf = 11.0f;
 constexpr float kFlagstoneTop = 0.06f;
 constexpr int kLatheSides = 9;
+constexpr int kBoughSides = 22;
+constexpr int kBoughTiers = 7;
+constexpr float kBoughNotch = 0.62f;
+constexpr size_t kTextureU = 6;
+constexpr float kWoodCoordinate = 0.0f;
+constexpr float kCrownCoordinate = 1.0f;
+constexpr int kBoulderRings = 20;
+constexpr int kBoulderSides = 28;
 constexpr int kStandingStones = 6;
 constexpr float kStoneRingRadius = 17.0f;
 constexpr float kBraziersLightIntensity = 9000.0f;
 constexpr float kBraziersLightRange = 16.0f;
-constexpr float kSunIlluminanceMatchingLamps = 11000.0f;
+constexpr float kSunIlluminanceMatchingLamps = 7000.0f;
 constexpr float kFixedExposureEv100 = 10.0f;
 
 struct MeshData {
@@ -99,18 +107,78 @@ void appendLathe(MeshData& mesh, const std::vector<glm::vec2>& profile, int side
     }
 }
 
+void paintFoliageCoordinate(MeshData& mesh, size_t firstVertex, float woodOrCrown) {
+    for (size_t vertex = firstVertex; vertex * kVertexFloats < mesh.vertices.size(); ++vertex) mesh.vertices[vertex * kVertexFloats + kTextureU] = woodOrCrown;
+}
+
+void appendBranchTier(MeshData& mesh, float bottom, float top, float radius, float twist) {
+    const unsigned int first = static_cast<unsigned int>(mesh.vertices.size() / kVertexFloats);
+    const float height = top - bottom;
+    for (int side = 0; side <= kBoughSides; ++side) {
+        const float angle = twist + 2.0f * kPi * static_cast<float>(side % kBoughSides) / static_cast<float>(kBoughSides);
+        const bool tip = side % 2 == 0;
+        const float reach = radius * (tip ? 1.0f + 0.12f * std::sin(angle * 5.0f + bottom) : kBoughNotch);
+        const float droop = tip ? 0.0f : height * 0.17f;
+        const glm::vec2 around(std::cos(angle), std::sin(angle));
+        const glm::vec3 normal = glm::normalize(glm::vec3(around.x * height, reach, around.y * height));
+        mesh.vertices.insert(mesh.vertices.end(), {reach * around.x, bottom + droop, reach * around.y, normal.x, normal.y, normal.z, kCrownCoordinate, 0.0f});
+        mesh.vertices.insert(mesh.vertices.end(), {0.02f * around.x, top, 0.02f * around.y, normal.x, normal.y, normal.z, kCrownCoordinate, 1.0f});
+    }
+    for (unsigned int side = 0; side < static_cast<unsigned int>(kBoughSides); ++side) {
+        const unsigned int rim = first + side * 2;
+        mesh.indices.insert(mesh.indices.end(), {rim, rim + 1, rim + 2, rim + 2, rim + 1, rim + 3});
+    }
+}
+
 std::shared_ptr<const Mesh> makePine() {
     MeshData data;
-    appendLathe(data, {{0.28f, 0.0f}, {0.2f, 2.2f}}, 6, 0.0f);
-    appendLathe(data, {{1.7f, 1.6f}, {0.15f, 4.6f}}, kLatheSides, 0.0f);
-    appendLathe(data, {{1.3f, 3.2f}, {0.12f, 6.2f}}, kLatheSides, 0.0f);
-    appendLathe(data, {{0.9f, 4.8f}, {0.01f, 7.6f}}, kLatheSides, 0.0f);
+    appendLathe(data, {{0.32f, 0.0f}, {0.2f, 2.6f}}, kLatheSides, 0.0f);
+    paintFoliageCoordinate(data, 0, kWoodCoordinate);
+    for (int tier = 0; tier < kBoughTiers; ++tier) {
+        const float along = static_cast<float>(tier) / static_cast<float>(kBoughTiers - 1);
+        const float bottom = 1.4f + along * 4.8f;
+        appendBranchTier(data, bottom, bottom + 2.1f - along * 0.7f, 1.85f - along * 1.35f, static_cast<float>(tier) * 0.7f);
+    }
     return std::make_shared<const Mesh>(std::move(data.vertices), std::move(data.indices));
+}
+
+float boulderRadius(const glm::vec3& direction) {
+    const float broad = std::sin(direction.x * 2.3f + 1.7f) * std::sin(direction.y * 2.9f + 0.4f) * std::sin(direction.z * 2.1f + 2.6f);
+    const float medium = std::sin(direction.x * 5.7f + direction.z * 3.1f) * std::sin(direction.y * 6.3f - direction.x * 2.2f);
+    const float fine = std::sin(direction.x * 13.0f - direction.y * 7.0f) * std::sin(direction.z * 11.0f + direction.y * 5.0f);
+    return 1.0f + 0.28f * broad + 0.12f * medium + 0.045f * fine;
 }
 
 std::shared_ptr<const Mesh> makeRock() {
     MeshData data;
-    appendLathe(data, {{0.01f, 0.0f}, {0.9f, 0.15f}, {1.2f, 0.7f}, {0.9f, 1.15f}, {0.01f, 1.35f}}, kLatheSides, 0.18f);
+    std::vector<glm::vec3> points;
+    for (int ring = 0; ring <= kBoulderRings; ++ring) {
+        const float latitude = kPi * (static_cast<float>(ring) / static_cast<float>(kBoulderRings) - 0.5f);
+        for (int side = 0; side <= kBoulderSides; ++side) {
+            const float longitude = 2.0f * kPi * static_cast<float>(side % kBoulderSides) / static_cast<float>(kBoulderSides);
+            const glm::vec3 direction(std::cos(latitude) * std::cos(longitude), std::sin(latitude), std::cos(latitude) * std::sin(longitude));
+            points.push_back(glm::vec3(0.0f, 0.65f, 0.0f) + direction * boulderRadius(direction) * glm::vec3(1.15f, 0.75f, 1.05f));
+        }
+    }
+    const auto at = [&](int ring, int side) { return points[static_cast<size_t>(ring * (kBoulderSides + 1) + (side + kBoulderSides) % kBoulderSides)]; };
+    for (int ring = 0; ring <= kBoulderRings; ++ring) {
+        for (int side = 0; side <= kBoulderSides; ++side) {
+            const glm::vec3 point = points[static_cast<size_t>(ring * (kBoulderSides + 1) + side)];
+            const glm::vec3 acrossRing = at(ring, side + 1) - at(ring, side - 1);
+            const glm::vec3 alongSide = at(std::min(ring + 1, kBoulderRings), side) - at(std::max(ring - 1, 0), side);
+            const glm::vec3 cross = glm::cross(alongSide, acrossRing);
+            const bool pole = ring == 0 || ring == kBoulderRings;
+            const glm::vec3 normal = pole || glm::dot(cross, cross) < 1.0e-8f ? glm::vec3(0.0f, ring == 0 ? -1.0f : 1.0f, 0.0f) : glm::normalize(cross);
+            data.vertices.insert(data.vertices.end(), {point.x, point.y, point.z, normal.x, normal.y, normal.z, static_cast<float>(side) / static_cast<float>(kBoulderSides), static_cast<float>(ring) / static_cast<float>(kBoulderRings)});
+        }
+    }
+    for (int ring = 0; ring < kBoulderRings; ++ring) {
+        for (int side = 0; side < kBoulderSides; ++side) {
+            const unsigned int a = static_cast<unsigned int>(ring * (kBoulderSides + 1) + side);
+            const unsigned int c = a + static_cast<unsigned int>(kBoulderSides + 1);
+            data.indices.insert(data.indices.end(), {a, c, a + 1, a + 1, c, c + 1});
+        }
+    }
     return std::make_shared<const Mesh>(std::move(data.vertices), std::move(data.indices));
 }
 
@@ -256,8 +324,8 @@ void applyRenderSettings(Engine& engine) {
     settings.manualEV100 = kFixedExposureEv100;
     settings.sunAzimuth = 250.0f;
     settings.clouds = true;
-    settings.cloudCoverage = 0.55f;
-    settings.cloudSpeed = 8.0f;
+    settings.cloudCoverage = 0.3f;
+    settings.cloudSpeed = 0.0f;
     settings.bloom = true;
     settings.bloomIntensity = 0.06f;
     settings.godRays = true;
