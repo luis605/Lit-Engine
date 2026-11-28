@@ -71,7 +71,7 @@ void Renderer::dispatchCascadeCull(int cascadeIndex, int hizLayer, Diligent::IPi
     LIT_UP(context)->UpdateBuffer(gpu.pShadowCullUBO[cascadeIndex], 0, sizeof(constants), &constants, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     ClearCounter(context, phase.visibleCounter);
     litgpu::zeroFill(context, gpu.pZeroBuffer, phase.bucketCounts, 0, sizeof(unsigned int) * ActiveBucketCount(m_numDrawingShaders), m_bucketZeros.data());
-    auto* sceneHiZ = gpu.pHiZTextures[m_currentFrame].RawPtr();
+    auto* sceneHiZ = gpu.pHiZTextures[m_hiZSlot].RawPtr();
     SetDynamicVariable(binding, "u_hizTexture", sceneHiZ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
     Diligent::ITexture* shadowHiZ = gpu.shadowHiZ[hizLayer] ? gpu.shadowHiZ[hizLayer].RawPtr() : sceneHiZ;
     SetDynamicVariable(binding, "u_shadowHiz", shadowHiZ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
@@ -199,7 +199,7 @@ void Renderer::drawLocalShadows(uint32_t objectCount) {
         ClearCounter(context, phase.visibleCounter);
         litgpu::zeroFill(context, gpu.pZeroBuffer, phase.bucketCounts, 0, sizeof(unsigned int) * viewBuckets * static_cast<uint32_t>(count), m_bucketZeros.data());
         auto& binding = gpu.localCullSRB[m_currentFrame];
-        auto* sceneHiZView = gpu.pHiZTextures[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+        auto* sceneHiZView = gpu.pHiZTextures[m_hiZSlot]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
         SetDynamicVariable(binding, "u_hizTexture", sceneHiZView);
         SetDynamicVariable(binding, "u_shadowHiz", sceneHiZView);
         context->SetPipelineState(gpu.pLocalShadowCullPSO);

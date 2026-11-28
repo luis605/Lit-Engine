@@ -6,6 +6,7 @@ inline constexpr uint32_t kVsmPage = 64;
 inline constexpr uint32_t kVsmPagesPerFace = 341;
 inline constexpr uint32_t kVsmMips = 5;
 inline constexpr uint32_t kVsmMaxFaces = 32768;
+inline constexpr uint32_t kVsmMinFaceCapacity = 256;
 inline constexpr uint32_t kVsmRequestCapacity = 1u << 18;
 inline constexpr uint32_t kVsmInstanceCapacity = 1u << 20;
 inline constexpr uint32_t kVsmMovedCapacity = 4096;
@@ -65,6 +66,7 @@ struct VirtualShadowGpu {
     uint32_t drawGroups = 0;
     std::vector<uint32_t> groupLastUsed;
     uint32_t objectCapacity = 0;
+    uint32_t faceCapacity = 0;
     uint32_t stampCapacity = 0;
     float effectiveScale = 1.0f;
     uint32_t lastObjectCount = 0;

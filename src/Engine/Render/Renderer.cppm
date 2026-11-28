@@ -166,6 +166,7 @@ export class Renderer {
     void createGeometryBuffers();
     void createFences();
     void createScreenTargets();
+    void fitTransparencyTargets();
     void updateQualityScale(float deltaTime);
     bool applyRenderSize();
     void createTransformPSO();
@@ -381,6 +382,7 @@ export class Renderer {
     ImGuiLayer* m_imgui = nullptr;
 
     unsigned int m_currentFrame = 0;
+    unsigned int m_hiZSlot = 0;
 
     size_t m_maxObjects = 0;
     size_t m_failedCapacity = 0;

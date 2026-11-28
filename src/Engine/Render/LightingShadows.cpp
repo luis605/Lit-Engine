@@ -307,7 +307,7 @@ void Lighting::selectLocalShadows(SceneUniforms& uniforms, const glm::vec3& came
     const RenderSettings& settings = state.settings;
     const int resolution = std::clamp(settings.localShadowResolution, kMinLocalShadowResolution, kMaxLocalShadowResolution);
     const int maxLights = settings.localShadows ? std::clamp(settings.localShadowCount, 0, kMaxLocalShadowLights) : 0;
-    if (maxLights > 0 && resolution != state.localShadowResolution) {
+    if (maxLights > 0 && !virtualShadowsEnabled(state) && resolution != state.localShadowResolution) {
         createShadowArray(state.device, "Local Shadows", static_cast<uint32_t>(resolution), kMaxLocalShadowViews, state.localShadowMap, state.localShadowTargets);
         state.localShadowResolution = resolution;
         ++state.bindingVersion;

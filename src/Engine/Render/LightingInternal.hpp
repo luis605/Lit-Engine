@@ -11,7 +11,7 @@ inline constexpr uint32_t kClusterY = 18;
 inline constexpr uint32_t kClusterZ = 32;
 inline constexpr uint32_t kClusterCount = kClusterX * kClusterY * kClusterZ;
 inline constexpr uint32_t kClusterMaxLights = 512;
-inline constexpr uint32_t kClusterIndexCapacity = kClusterCount * kClusterMaxLights;
+inline constexpr uint32_t kClusterMinLightCapacity = 64;
 inline constexpr uint32_t kClusterRankWords = kClusterCount * 64;
 inline constexpr uint32_t kClusterReadbackRing = 4;
 inline constexpr uint32_t kClusterHeaderWords = kClusterCount * 2 + 16;
@@ -177,6 +177,7 @@ struct Lighting::Data {
     lighting_detail::ReflectionGpu reflections;
     uint64_t envVersion = 0;
     uint32_t lightCount = 0;
+    uint32_t clusterLightCapacity = 0;
     bool lutsDirty = true;
     bool dfgDirty = true;
     bool envDirty = true;

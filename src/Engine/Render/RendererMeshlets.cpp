@@ -589,7 +589,7 @@ void Renderer::buildMeshletDraws(int phaseIndex, uint32_t views) {
     context->CommitShaderResources(phase.instancesSRB[frame], Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{visibility.scatterDispatchArgs, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
 
-    Diligent::ITexture* hiz = phaseIndex != kPhaseShadow && m_meshletHiZ ? m_meshletHiZ : gpu.pHiZTextures[m_currentFrame].RawPtr();
+    Diligent::ITexture* hiz = phaseIndex != kPhaseShadow && m_meshletHiZ ? m_meshletHiZ : gpu.pHiZTextures[m_hiZSlot].RawPtr();
     if (hierarchy) {
         SetDynamicVariable(phase.nodesSRB[frame], "u_hizTexture", hiz->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
         for (uint32_t level = 0; level < state.maxDepth; ++level) {

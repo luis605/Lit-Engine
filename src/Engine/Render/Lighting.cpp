@@ -72,14 +72,28 @@ uint16_t floatToHalf(float value) {
     return static_cast<uint16_t>(sign | (static_cast<uint32_t>(exponent) << 10) | mantissa);
 }
 
+bool ensureClusterCapacity(Lighting::Data& state, uint32_t lightCount) {
+    const uint32_t capacity = std::min(std::max(std::bit_ceil(lightCount), kClusterMinLightCapacity), kClusterMaxLights);
+    if (state.clusters && capacity <= state.clusterLightCapacity) return true;
+    const uint32_t words = kClusterHeaderWords + kClusterRankWords + kClusterCount * capacity;
+    const std::vector<uint32_t> empty(words, 0u);
+    auto buffer = litgpu::structuredBuffer(state.device, "Cluster Buffer", sizeof(uint32_t), words, empty.data());
+    if (!buffer) return false;
+    state.clusters = buffer;
+    state.clusterLightCapacity = capacity;
+    state.lightCullSrb.Release();
+    state.lightVisibleSrb.Release();
+    ++state.bindingVersion;
+    return true;
+}
+
 void createStaticBuffers(Lighting::Data& state) {
     Diligent::IRenderDevice* device = state.device;
     const std::vector<MaterialGpu> defaultMaterials(kMaxMaterials, packMaterial(Material{}));
     state.materials = litgpu::structuredBuffer(device, "Material Buffer", sizeof(MaterialGpu), kMaxMaterials, defaultMaterials.data());
     const std::vector<GpuLight> noLights(kMaxLights + kMaxPortalLights, GpuLight{});
     state.lights = litgpu::structuredBuffer(device, "Light Buffer", sizeof(GpuLight), kMaxLights + kMaxPortalLights, noLights.data());
-    const std::vector<uint32_t> emptyClusters(static_cast<size_t>(kClusterHeaderWords) + kClusterIndexCapacity + kClusterRankWords, 0u);
-    state.clusters = litgpu::structuredBuffer(device, "Cluster Buffer", sizeof(uint32_t), kClusterHeaderWords + kClusterIndexCapacity + kClusterRankWords, emptyClusters.data());
+    ensureClusterCapacity(state, kClusterMinLightCapacity);
     state.visibleLights = litgpu::structuredBuffer(device, "Visible Light Buffer", sizeof(glm::vec4), kMaxLights * 2);
     for (auto& readback : state.clusterReadback) {
         Diligent::BufferDesc desc;
@@ -179,7 +193,7 @@ void createSceneTextures(Lighting::Data& state) {
     state.clouds = litgpu::texture(device, TextureSpec{"Clouds", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, Diligent::TEX_FORMAT_RGBA16_FLOAT});
     for (auto& rays : state.godRays) rays = litgpu::texture(device, TextureSpec{"God Rays", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, Diligent::TEX_FORMAT_R16_FLOAT});
     state.aoDepth = litgpu::texture(device, TextureSpec{"GTAO Depth", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, Diligent::TEX_FORMAT_R32_FLOAT});
-    state.skyOpen = litgpu::texture(device, TextureSpec{"Sky Openness", Diligent::RESOURCE_DIM_TEX_2D, width, height, 1, 1, Diligent::TEX_FORMAT_R32_FLOAT});
+    state.skyOpen = litgpu::texture(device, TextureSpec{"Sky Openness", Diligent::RESOURCE_DIM_TEX_2D, width, height, 1, 1, Diligent::TEX_FORMAT_R16_FLOAT});
     state.localLight.Release();
     state.aoFiltered = litgpu::texture(device, TextureSpec{"GTAO", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, kHdrFormat});
     state.giFiltered = litgpu::texture(device, TextureSpec{"Screen GI", Diligent::RESOURCE_DIM_TEX_2D, halfWidth, halfHeight, 1, 1, kHdrFormat});
@@ -372,6 +386,7 @@ void Lighting::setMaterial(uint32_t id, const Material& material) {
 void Lighting::setLights(const std::vector<GpuLight>& lights) {
     Data& state = *m_data;
     state.lightCount = static_cast<uint32_t>(std::min<size_t>(lights.size(), kMaxLights));
+    if (!ensureClusterCapacity(state, state.lightCount)) state.lightCount = std::min(state.lightCount, state.clusterLightCapacity);
     if (state.cpuLights.size() != state.lightCount) state.lightCellsDirty = true;
     state.cpuLights.assign(lights.begin(), lights.begin() + state.lightCount);
     state.hasAreaLights = std::any_of(state.cpuLights.begin(), state.cpuLights.end(), [](const GpuLight& light) { return light.colorType.w <= 1.5f && light.params.x + light.params.y > 1e-4f; });

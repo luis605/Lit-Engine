@@ -28,6 +28,7 @@ struct DiligentData {
     Diligent::RefCntAutoPtr<Diligent::IPipelineStateCache> pPipelineCache;
 
     static constexpr int NumFrames = 3;
+    static constexpr int kHiZBuffers = 2;
     Diligent::RefCntAutoPtr<Diligent::IFence> pFences[NumFrames];
     Diligent::Uint64 FenceValues[NumFrames] = {0};
     Diligent::Uint64 CurrentFenceValue = 0;
@@ -62,10 +63,10 @@ struct DiligentData {
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pVBO;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> pEBO;
-    Diligent::RefCntAutoPtr<Diligent::ITexture> pHiZTextures[NumFrames];
+    Diligent::RefCntAutoPtr<Diligent::ITexture> pHiZTextures[kHiZBuffers];
     Diligent::RefCntAutoPtr<Diligent::ISampler> pHiZSampler;
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> pHiZMipViewsSource[NumFrames][kMaxHiZMips];
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> pHiZMipViewsDest[NumFrames][kMaxHiZMips];
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> pHiZMipViewsSource[kHiZBuffers][kMaxHiZMips];
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> pHiZMipViewsDest[kHiZBuffers][kMaxHiZMips];
 
     bool QueryReady[NumFrames] = {false};
     Diligent::RefCntAutoPtr<Diligent::IQuery> frameQueries[NumFrames][2];

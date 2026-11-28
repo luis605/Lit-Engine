@@ -22,7 +22,7 @@ uniform sampler2D u_localLight;
 #include "sky_visibility.glsl"
 
 layout(rgba16f) uniform image2D u_hdr;
-layout(r32f) writeonly uniform image2D u_skyOpen;
+layout(r16f) writeonly uniform image2D u_skyOpen;
 
 layout(std430) readonly buffer ExposureBuffer {
     vec4 exposureData;

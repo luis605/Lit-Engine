@@ -6,6 +6,7 @@ module;
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -120,12 +121,12 @@ void resetPool(Lighting::Data& state) {
     LIT_UP(context)->UpdateBuffer(vsm.physical, 0, sizeof(uint32_t) * physical.size(), physical.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     constexpr uint32_t kZeroChunkWords = 262144;
     if (litgpu::legacyUploads()) {
-        const std::vector<uint32_t> zeros(static_cast<size_t>(kVsmMaxFaces) * kVsmPagesPerFace, 0u);
+        const std::vector<uint32_t> zeros(static_cast<size_t>(vsm.faceCapacity) * kVsmPagesPerFace, 0u);
         LIT_UP(context)->UpdateBuffer(vsm.pageTable, 0, sizeof(uint32_t) * zeros.size(), zeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         LIT_UP(context)->UpdateBuffer(vsm.stamps, 0, sizeof(uint32_t) * zeros.size(), zeros.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     } else {
         if (!vsm.zeroSource) vsm.zeroSource = zeroBuffer(state.device, "VSM Zero Source", sizeof(uint32_t), kZeroChunkWords);
-        const uint64_t clearBytes = sizeof(uint32_t) * static_cast<uint64_t>(kVsmMaxFaces) * kVsmPagesPerFace;
+        const uint64_t clearBytes = sizeof(uint32_t) * static_cast<uint64_t>(vsm.faceCapacity) * kVsmPagesPerFace;
         for (uint64_t offset = 0; offset < clearBytes; offset += sizeof(uint32_t) * kZeroChunkWords) {
             const uint64_t bytes = std::min<uint64_t>(sizeof(uint32_t) * kZeroChunkWords, clearBytes - offset);
             context->CopyBuffer(vsm.zeroSource, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, vsm.pageTable, offset, bytes, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -137,6 +138,19 @@ void resetPool(Lighting::Data& state) {
     LIT_UP(context)->UpdateBuffer(vsm.counters, 0, sizeof(counters), counters.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     vsm.resetPending = false;
     vsm.allDirty = true;
+}
+
+void ensureFaceCapacity(Lighting::Data& state, uint32_t faces) {
+    VirtualShadowGpu& vsm = state.vsm;
+    if (faces <= vsm.faceCapacity && vsm.pageTable) return;
+    vsm.faceCapacity = std::min(std::max(std::bit_ceil(faces), kVsmMinFaceCapacity), kVsmMaxFaces);
+    vsm.pageTable.Release();
+    vsm.stamps.Release();
+    vsm.pageTable = zeroBuffer(state.device, "VSM Page Table", sizeof(uint32_t), vsm.faceCapacity * kVsmPagesPerFace);
+    vsm.stamps = zeroBuffer(state.device, "VSM Page Stamps", sizeof(uint32_t), vsm.faceCapacity * kVsmPagesPerFace);
+    vsm.resetPending = true;
+    for (auto& binding : vsm.bindings) binding.key.clear();
+    ++state.bindingVersion;
 }
 
 void ensureObjectCapacity(Lighting::Data& state, uint32_t objectCount) {
@@ -206,8 +220,7 @@ void createVirtualShadowResources(Lighting::Data& state) {
     vsm.noStamps = zeroBuffer(device, "VSM Empty Deform Stamps", sizeof(uint32_t), 1024);
     vsm.stampCapacity = 1024;
     vsm.faces = zeroBuffer(device, "VSM Faces", sizeof(VsmFaceGpu), kVsmMaxFaces);
-    vsm.pageTable = zeroBuffer(device, "VSM Page Table", sizeof(uint32_t), kVsmMaxFaces * kVsmPagesPerFace);
-    vsm.stamps = zeroBuffer(device, "VSM Page Stamps", sizeof(uint32_t), kVsmMaxFaces * kVsmPagesPerFace);
+    ensureFaceCapacity(state, kVsmMinFaceCapacity);
     vsm.physical = zeroBuffer(device, "VSM Physical Pages", sizeof(uint32_t), kMaxPoolPages * 2);
     vsm.counters = zeroBuffer(device, "VSM Counters", sizeof(uint32_t), kVsmCounterWords);
     vsm.args = indirectBuffer(device, "VSM Indirect Args", sizeof(uint32_t), kVsmArgsWords);
@@ -413,6 +426,7 @@ void assignVirtualShadowFaces(Lighting::Data& state, SceneUniforms& uniforms) {
     vsm.effectiveScale = std::clamp(state.settings.vsmResolutionScale * autoFactor, 0.25f, 8.0f);
     vsm.slots = std::move(next);
     vsm.faceSlots = vsm.highWater;
+    ensureFaceCapacity(state, vsm.faceSlots);
     if (vsm.faceSlots > 0) LIT_UPDATE_DIFF(state.context, vsm.faces, 0, sizeof(VsmFaceGpu) * vsm.faceSlots, vsm.cpuFaces.data());
 }
 
@@ -524,7 +538,7 @@ void Lighting::renderVirtualShadows(const VirtualShadowInputs& inputs) {
     LIT_UP(context)->UpdateBuffer(vsm.args, sizeof(uint32_t) * 12, sizeof(instanceCursor), &instanceCursor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::ITextureView* depthView = litgpu::srv(inputs.depth);
-    const std::vector<const void*> key = {inputs.sceneUniforms, inputs.worldMatrices, inputs.cullSpheres, inputs.renderables, inputs.meshInfos, inputs.dynamicStamps, depthView, vsm.atlas.RawPtr(), vsm.previousObjects.RawPtr(), state.gbuffer[1].RawPtr(), state.lights.RawPtr()};
+    const std::vector<const void*> key = {inputs.sceneUniforms, inputs.worldMatrices, inputs.cullSpheres, inputs.renderables, inputs.meshInfos, inputs.dynamicStamps, depthView, vsm.atlas.RawPtr(), vsm.previousObjects.RawPtr(), state.gbuffer[1].RawPtr(), state.lights.RawPtr(), state.clusters.RawPtr(), vsm.pageTable.RawPtr()};
     VirtualShadowGpu::Bindings* bindings = nullptr;
     for (auto& candidate : vsm.bindings) {
         if (candidate.key == key) bindings = &candidate;

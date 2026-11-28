@@ -231,14 +231,16 @@ void Renderer::createFences() {
     gpu.CurrentFenceValue = 0;
 }
 
+constexpr int kSizeUntilRenderScaleIsKnown = 1;
+
 void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowHeight) {
     if (m_initialized) return;
 
     m_window = window;
     m_windowWidth = windowWidth;
     m_windowHeight = windowHeight;
-    m_renderWidth = windowWidth;
-    m_renderHeight = windowHeight;
+    m_renderWidth = kSizeUntilRenderScaleIsKnown;
+    m_renderHeight = kSizeUntilRenderScaleIsKnown;
 
     m_diligent = new DiligentData();
     createDevice();
@@ -250,7 +252,7 @@ void Renderer::init(GLFWwindow* window, const int windowWidth, const int windowH
     m_uiManager->init(gpu.pDevice, gpu.pImmediateContext, gpu.pSwapChain, kSceneDepthFormat, windowWidth, windowHeight);
     Lit::Log::Phase("text ui");
 
-    if (!m_lighting.init(gpu.pDevice, gpu.pImmediateContext, gpu.pSwapChain->GetDesc().ColorBufferFormat, windowWidth, windowHeight)) Lit::Log::Error("Lighting pipeline failed to initialize");
+    if (!m_lighting.init(gpu.pDevice, gpu.pImmediateContext, gpu.pSwapChain->GetDesc().ColorBufferFormat, m_renderWidth, m_renderHeight)) Lit::Log::Error("Lighting pipeline failed to initialize");
     Lit::Log::Phase("lighting");
     m_custom.init(gpu.pDevice, gpu.pImmediateContext);
     Lit::Log::Phase("custom passes");

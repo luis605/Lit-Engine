@@ -112,6 +112,15 @@ void BuildHiZ(DiligentData& gpu, Diligent::ITexture* hiz, Diligent::RefCntAutoPt
     hizBarrier(Diligent::RESOURCE_STATE_SHADER_RESOURCE);
 }
 
+void Renderer::fitTransparencyTargets() {
+    auto& gpu = *m_diligent;
+    const int width = gpu.sceneHasTranslucent ? m_renderWidth : 1;
+    const int height = gpu.sceneHasTranslucent ? m_renderHeight : 1;
+    if (gpu.pAccumulation && gpu.pRevealage && gpu.pAccumulation->GetDesc().Width == static_cast<Diligent::Uint32>(width) && gpu.pAccumulation->GetDesc().Height == static_cast<Diligent::Uint32>(height)) return;
+    CreateColorTarget(gpu, "Transparency Accumulation", kAccumulationFormat, width, height, gpu.pAccumulation);
+    CreateColorTarget(gpu, "Transparency Revealage", kRevealageFormat, width, height, gpu.pRevealage);
+}
+
 void Renderer::createScreenTargets() {
     auto& gpu = *m_diligent;
     m_maxMipLevel = static_cast<int>(std::floor(std::log2(std::max(m_renderWidth, m_renderHeight))));
@@ -140,29 +149,30 @@ void Renderer::createScreenTargets() {
         gpu.pDevice->CreateTexture(overlayDesc, nullptr, &gpu.pOverlayDepth);
     }
 
-    CreateColorTarget(gpu, "Transparency Accumulation", kAccumulationFormat, m_renderWidth, m_renderHeight, gpu.pAccumulation);
-    CreateColorTarget(gpu, "Transparency Revealage", kRevealageFormat, m_renderWidth, m_renderHeight, gpu.pRevealage);
+    gpu.pAccumulation.Release();
+    gpu.pRevealage.Release();
+    fitTransparencyTargets();
 
     gpu.portalHistory.clear();
     for (auto& color : gpu.portalColor) color.Release();
     for (auto& depth : gpu.portalDepth) depth.Release();
     gpu.portalDepthScratch.Release();
-    for (int frameIndex = 0; frameIndex < NUM_FRAMES_IN_FLIGHT; ++frameIndex) {
-        for (auto& view : gpu.pHiZMipViewsSource[frameIndex]) view.Release();
-        for (auto& view : gpu.pHiZMipViewsDest[frameIndex]) view.Release();
+    for (int slot = 0; slot < DiligentData::kHiZBuffers; ++slot) {
+        for (auto& view : gpu.pHiZMipViewsSource[slot]) view.Release();
+        for (auto& view : gpu.pHiZMipViewsDest[slot]) view.Release();
 
-        gpu.pHiZTextures[frameIndex].Release();
-        gpu.pDevice->CreateTexture(DescribeHiZ("Hi-Z Texture", m_renderWidth, m_renderHeight, m_maxMipLevel), nullptr, &gpu.pHiZTextures[frameIndex]);
-        if (!gpu.pHiZTextures[frameIndex]) continue;
+        gpu.pHiZTextures[slot].Release();
+        gpu.pDevice->CreateTexture(DescribeHiZ("Hi-Z Texture", m_renderWidth, m_renderHeight, m_maxMipLevel), nullptr, &gpu.pHiZTextures[slot]);
+        if (!gpu.pHiZTextures[slot]) continue;
 
-        ClearToFarDepth(gpu, gpu.pHiZTextures[frameIndex]);
-        CreateHiZMipViews(gpu.pHiZTextures[frameIndex], m_maxMipLevel, gpu.pHiZMipViewsSource[frameIndex], gpu.pHiZMipViewsDest[frameIndex]);
+        ClearToFarDepth(gpu, gpu.pHiZTextures[slot]);
+        CreateHiZMipViews(gpu.pHiZTextures[slot], m_maxMipLevel, gpu.pHiZMipViewsSource[slot], gpu.pHiZMipViewsDest[slot]);
     }
 }
 
 void Renderer::buildHiZ() {
     auto& gpu = *m_diligent;
-    BuildHiZ(gpu, gpu.pHiZTextures[m_currentFrame].RawPtr(), gpu.pHiZMipViewsSource[m_currentFrame], gpu.pHiZMipViewsDest[m_currentFrame], m_renderWidth, m_renderHeight, m_maxMipLevel, glm::ivec4(0));
+    BuildHiZ(gpu, gpu.pHiZTextures[m_hiZSlot].RawPtr(), gpu.pHiZMipViewsSource[m_hiZSlot], gpu.pHiZMipViewsDest[m_hiZSlot], m_renderWidth, m_renderHeight, m_maxMipLevel, glm::ivec4(0));
 }
 
 void Renderer::createHiZPSO() {

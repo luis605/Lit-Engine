@@ -260,12 +260,12 @@ void Renderer::addGeometryPasses(rg::RenderGraph& graph, FrameGraphData& frame, 
     auto& gpu = *m_diligent;
     const bool main = viewIndex == 0;
     auto timed = [main](GpuPass pass) { return main ? static_cast<int>(pass) : -1; };
-    const int previousFrame = static_cast<int>((m_currentFrame + NUM_FRAMES_IN_FLIGHT - 1) % NUM_FRAMES_IN_FLIGHT);
-    Diligent::ITexture* previousHiZ = history ? history->hiz[history->previous].texture.RawPtr() : gpu.pHiZTextures[previousFrame].RawPtr();
-    Diligent::ITexture* currentHiZ = history ? history->hiz[1 - history->previous].texture.RawPtr() : gpu.pHiZTextures[m_currentFrame].RawPtr();
+    const int previousSlot = static_cast<int>((m_hiZSlot + 1) % DiligentData::kHiZBuffers);
+    Diligent::ITexture* previousHiZ = history ? history->hiz[history->previous].texture.RawPtr() : gpu.pHiZTextures[previousSlot].RawPtr();
+    Diligent::ITexture* currentHiZ = history ? history->hiz[1 - history->previous].texture.RawPtr() : gpu.pHiZTextures[m_hiZSlot].RawPtr();
     const uint64_t key = history ? history->key : 0;
-    const rg::Handle hizPrevious = graph.importTexture(history ? rg::viewResourceName(key, std::format("hiz{}", history->previous)) : std::format("hiz{}", previousFrame), Native(previousHiZ));
-    const rg::Handle hizCurrent = graph.importTexture(history ? rg::viewResourceName(key, std::format("hiz{}", 1 - history->previous)) : std::format("hiz{}", m_currentFrame), Native(currentHiZ));
+    const rg::Handle hizPrevious = graph.importTexture(history ? rg::viewResourceName(key, std::format("hiz{}", history->previous)) : std::format("hiz{}", previousSlot), Native(previousHiZ));
+    const rg::Handle hizCurrent = graph.importTexture(history ? rg::viewResourceName(key, std::format("hiz{}", 1 - history->previous)) : std::format("hiz{}", m_hiZSlot), Native(currentHiZ));
 
     auto cull = [&](const char* name, GpuPass timing, int phase, rg::Handle hiz, Diligent::ITexture* texture) {
         graph.addPass(name, [&](rg::PassBuilder& pass) {
@@ -540,6 +540,7 @@ void Renderer::renderFrameGraph(SceneDatabase& sceneDatabase, const Camera& came
         frame.phases[phase] = graph.importBuffer(std::format("visibility/{}", kPhaseNames[phase]), Native(gpu.visibility[phase].drawCommands.RawPtr()));
         frame.meshlets[phase] = graph.importBuffer(std::format("meshlets/{}", kPhaseNames[phase]), Native(gpu.visibility[phase].visibleEntries.RawPtr()));
     }
+    fitTransparencyTargets();
     frame.accumulation = graph.importTexture("oitAccumulation", Native(gpu.pAccumulation.RawPtr()));
     frame.revealage = graph.importTexture("oitRevealage", Native(gpu.pRevealage.RawPtr()));
     graph.setExternalResolver([this](std::string_view name) { return m_lighting.graphResource(name); });

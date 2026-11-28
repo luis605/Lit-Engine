@@ -110,7 +110,7 @@ void Renderer::drawDebugDepth(const Camera& camera) {
     }
 
     context->SetPipelineState(gpu.pDebugDepthPSO);
-    if (auto* variable = gpu.pDebugDepthSRB->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_depthTexture")) variable->Set(gpu.pHiZTextures[m_currentFrame]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
+    if (auto* variable = gpu.pDebugDepthSRB->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_depthTexture")) variable->Set(gpu.pHiZTextures[m_hiZSlot]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
     if (auto* variable = gpu.pDebugDepthSRB->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "DebugDepthUniforms")) variable->Set(gpu.pDebugDepthUniforms, Diligent::SET_SHADER_RESOURCE_FLAG_ALLOW_OVERWRITE);
     context->CommitShaderResources(gpu.pDebugDepthSRB, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     DrawFullscreenTriangle(context);
@@ -157,7 +157,7 @@ void Renderer::drawDebugLines(const Camera& camera) {
 
 void Renderer::drawOverlays(const Camera& camera) {
     auto& gpu = *m_diligent;
-    if (m_debugDepthMode && gpu.pDebugDepthPSO && gpu.pDebugDepthSRB && gpu.pHiZTextures[m_currentFrame]) drawDebugDepth(camera);
+    if (m_debugDepthMode && gpu.pDebugDepthPSO && gpu.pDebugDepthSRB && gpu.pHiZTextures[m_hiZSlot]) drawDebugDepth(camera);
     if ((!m_debugLines.empty() || !m_debugOverlayLines.empty()) && gpu.pDebugLinePSO && gpu.pDebugLineSRB) drawDebugLines(camera);
     m_debugLines.clear();
     m_debugOverlayLines.clear();

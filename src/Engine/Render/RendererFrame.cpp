@@ -87,6 +87,7 @@ void Renderer::beginFrame(float deltaTime) {
     auto& gpu = *m_diligent;
     Lit::UploadStats::endFrame();
     m_currentFrame = (m_currentFrame + 1) % NUM_FRAMES_IN_FLIGHT;
+    m_hiZSlot = (m_hiZSlot + 1) % DiligentData::kHiZBuffers;
 
     const double fenceWaitStart = glfwGetTime();
     gpu.pFences[m_currentFrame]->Wait(gpu.FenceValues[m_currentFrame]);
@@ -211,11 +212,11 @@ void Renderer::renderPortalPrepass(const SceneUniforms& sceneUniforms, uint32_t 
 void Renderer::renderOpaqueGeometry(uint32_t objectCount, bool portalsActive) {
     auto& gpu = *m_diligent;
     auto* context = gpu.pImmediateContext.RawPtr();
-    const int previousFrame = static_cast<int>((m_currentFrame + NUM_FRAMES_IN_FLIGHT - 1) % NUM_FRAMES_IN_FLIGHT);
+    const int previousSlot = static_cast<int>((m_hiZSlot + 1) % DiligentData::kHiZBuffers);
 
     uploadCascadeCull();
     beginPass(GpuPass::Cull);
-    cullVisibilityPhase(kPhaseOpaque, objectCount, previousFrame);
+    cullVisibilityPhase(kPhaseOpaque, objectCount, previousSlot);
     endPass(GpuPass::Cull);
     beginPass(GpuPass::CommandGen);
     buildVisibilityDraws(kPhaseOpaque);

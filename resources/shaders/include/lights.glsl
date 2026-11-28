@@ -29,8 +29,8 @@ const uint CLUSTER_ALLOC_COUNTER = CLUSTER_COUNT * 2u;
 const uint CLUSTER_VISIBLE_COUNTER = CLUSTER_COUNT * 2u + 1u;
 const uint CLUSTER_TRIMMED_COUNTER = CLUSTER_COUNT * 2u + 2u;
 const uint CLUSTER_PEAK_COUNTER = CLUSTER_COUNT * 2u + 3u;
-const uint CLUSTER_INDEX_BASE = CLUSTER_COUNT * 2u + 16u;
-const uint CLUSTER_RANK_BASE = CLUSTER_INDEX_BASE + CLUSTER_COUNT * CLUSTER_MAX_LIGHTS;
+const uint CLUSTER_RANK_BASE = CLUSTER_COUNT * 2u + 16u;
+const uint CLUSTER_INDEX_BASE = CLUSTER_RANK_BASE + CLUSTER_COUNT * 64u;
 
 bool lightHasVirtualShadow(GpuLight light) { return light.params.w < -1.5; }
 uint lightVirtualFace(GpuLight light) { return uint(-light.params.w - 2.0 + 0.5); }
